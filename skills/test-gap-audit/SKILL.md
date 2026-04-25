@@ -1,6 +1,6 @@
 ---
 name: test-gap-audit
-description: Run a read-only audit for missing, weak, stale, or mis-scoped test coverage around a clearly named feature, PR, branch, route, workflow, service, bug fix, API, security-sensitive path, or risky code change. Use when the user asks what tests are missing, whether coverage is enough, what regression tests to add, or how to prove a change is safe. This is not a general bug audit; use feature-audit for product readiness defects and security-audit for security risks.
+description: Run a read-only audit for missing, weak, stale, or mis-scoped test coverage. If the user does not name a scope, audit the full repository and identify important code paths, routes, features, services, workflows, and contracts that lack proper tests. If the user names a feature, PR, branch, route, workflow, service, bug fix, API, security-sensitive path, or risky code change, focus only on that specific scope. Use when the user asks what tests are missing, whether coverage is enough, what regression tests to add, or how to prove a change is safe. This is not a general bug audit; use feature-audit for product readiness defects and security-audit for security risks.
 ---
 
 # Test Gap Audit
@@ -10,6 +10,8 @@ Find the tests that should exist but do not, or tests that exist but do not prov
 ## Core Rules
 
 - Stay read-only unless the user explicitly asks to add tests.
+- Default to a full-repository audit when the user does not provide a specific scope.
+- When the user names a route, feature, workflow, PR, branch, service, package, directory, or other portion of the repo, limit the audit to that scope and its directly connected code paths.
 - Focus on coverage quality and regression protection, not general bug hunting.
 - Ground every gap in a behavior, changed code path, risk, or existing weak test.
 - Prefer exact test cases over generic coverage advice.
@@ -20,6 +22,8 @@ Find the tests that should exist but do not, or tests that exist but do not prov
 
 ## Inputs
 
+When no scope is given, audit the whole repository. Inventory the repo's major testable surfaces and report which important areas do not have tests, do not have enough assertions, or are only indirectly covered.
+
 Accept any specific testing scope, including:
 
 - Pull requests or branches: `audit test gaps in this PR`, `what tests should this branch add`.
@@ -29,7 +33,7 @@ Accept any specific testing scope, including:
 - Bug fixes: `what regression test should cover this fix`.
 - Security or docs follow-up: `what tests prove the security audit fixes`, `do examples have tests`.
 
-If scope is blurry, infer the smallest useful boundary and state it. Ask only when different scopes would require materially different test plans.
+If scope is blurry, infer the smallest useful boundary and state it. If no scope is stated, do not ask for one; proceed with a full-repo audit. Ask only when different scopes would require materially different test plans.
 
 ## Discovery Workflow
 
@@ -39,17 +43,20 @@ If scope is blurry, infer the smallest useful boundary and state it. Ask only wh
    - Read relevant manifests, CI workflows, test configs, and nearby tests.
 
 2. Map the behavior under review.
+   - For full-repo audits, inventory major app surfaces, packages, routes, APIs, services, jobs, CLIs, schemas, integrations, and shared libraries before choosing the highest-risk gaps to inspect deeply.
    - For PRs, inspect changed files, changed tests, and adjacent unchanged code.
    - For features, locate routes, components, services, models, schemas, jobs, permissions, integrations, and user-facing states.
    - Identify happy paths, failure paths, edge cases, data boundaries, auth/authorization boundaries, migration/config behavior, and external integration behavior.
 
 3. Map existing coverage.
+   - For full-repo audits, compare production/source areas against test directories and test naming conventions to find untested or weakly tested portions of the repo.
    - Find direct tests for the changed or requested code.
    - Find indirect tests that cover the same behavior through a higher-level workflow.
    - Inspect assertions, fixtures, mocks, setup, and test names to see what is actually proven.
    - Note stale tests whose names or fixtures no longer match current behavior.
 
 4. Identify gaps.
+   - Entire routes, features, services, packages, commands, jobs, or integration boundaries with no tests.
    - Missing critical path tests.
    - Tests that only render or call code without meaningful assertions.
    - Tests that mock away the behavior they claim to cover.
@@ -107,6 +114,9 @@ No code changed. I reviewed <brief scope>, existing tests, and repo test convent
 
 **Suggested Test Plan**
 - <ordered list of concrete tests to add first>
+
+**Untested Or Weakly Tested Areas**
+- <for full-repo audits, list important routes/features/services/packages/workflows that lack proper tests, with brief evidence>
 
 **Existing Coverage Worth Keeping**
 - <only include useful tests that already protect important behavior>
