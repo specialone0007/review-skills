@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Branch Summary"
+  short_description: "Draft PR and team summaries from branch diffs"
+  default_prompt: "Use $pr-branch-summary to compare this branch against staging or production and draft the PR title, description, and team summary."

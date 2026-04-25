@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Gap Audit"
+  short_description: "Find missing or weak test coverage"
+  default_prompt: "Use $test-gap-audit to review this feature, PR, or code path and report missing or weak regression coverage with concrete test recommendations."

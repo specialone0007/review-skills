@@ -1,0 +1,4 @@
+interface:
+  display_name: "Security Audit"
+  short_description: "Audit security risks in features or PRs"
+  default_prompt: "Use $security-audit to review this feature, PR, or code path for evidence-grounded security risks and recommended mitigations."

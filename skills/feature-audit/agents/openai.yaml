@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Audit"
+  short_description: "Repo-agnostic launch-risk audit"
+  default_prompt: "Use $feature-audit to audit this feature and report prioritized bugs, launch risks, missing tests, and readiness gaps."

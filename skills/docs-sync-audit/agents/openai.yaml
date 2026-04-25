@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docs Sync Audit"
+  short_description: "Find docs drift after code changes"
+  default_prompt: "Use $docs-sync-audit to compare code, API, config, and workflow changes against docs and report stale or missing documentation."

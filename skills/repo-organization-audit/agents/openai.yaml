@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Health Audit"
+  short_description: "Structure, dead code, and reuse audit"
+  default_prompt: "Use $repo-organization-audit to review this repository's naming, folder structure, module boundaries, dead code, duplicate code, helper extraction opportunities, and organization drift."

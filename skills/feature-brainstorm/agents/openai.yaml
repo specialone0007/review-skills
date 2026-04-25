@@ -1,0 +1,4 @@
+interface:
+  display_name: "Feature Brainstorm"
+  short_description: "Brainstorm feature improvement ideas"
+  default_prompt: "Use $feature-brainstorm to review this feature and brainstorm evidence-grounded product, UX, workflow, and technical improvement ideas."
