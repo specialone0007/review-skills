@@ -13,8 +13,9 @@ Create PR-ready communication from real git evidence, not from memory. Compare t
 
 1. Identify the comparison base.
    - If the user names `staging`, `production`, or a specific ref, use that.
-   - If the target is ambiguous, ask one concise question unless the user clearly wants immediate output. When proceeding without confirmation, default to `staging` and state the assumption.
-   - Prefer remote refs such as `origin/staging` or `origin/production` when available; otherwise use the local ref.
+   - If the target is ambiguous, try to resolve a base before asking: first use the upstream PR/base branch if discoverable from git or hosting context, then `origin/staging` or local `staging`, then `origin/main` or local `main`.
+   - If no base is resolvable, ask one concise question. When proceeding without confirmation, state the resolved base and why it was selected.
+   - Prefer remote refs such as `origin/staging`, `origin/production`, or `origin/main` when available; otherwise use the local ref.
 
 2. Gather git evidence.
    - Run `git status --short --branch` first and note uncommitted changes separately.

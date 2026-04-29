@@ -15,6 +15,7 @@ Brainstorm useful improvements for one feature or product surface. Stay grounded
 - Optimize for actionable idea quality, not idea count. A short list with clear tradeoffs is better than a long wishlist.
 - Separate quick wins from bigger bets.
 - Include effort and confidence for each meaningful idea.
+- Avoid roadmap fantasy. When repository, product, or workflow evidence is thin, either omit the idea or label it as speculative with low confidence and the evidence gap.
 - Consider user value, business value, operational value, developer velocity, support load, accessibility, onboarding, retention, and differentiation.
 - Avoid proposing large rewrites unless the feature already shows clear structural limits and the payoff is concrete.
 
@@ -51,7 +52,7 @@ If scope is blurry, infer a practical boundary and state it. Ask only when multi
 
 4. Prioritize.
    - Rank by likely user impact, implementation effort, confidence, and fit with the existing product shape.
-   - Mark speculative ideas as such.
+   - Mark speculative ideas as such, keep them low-confidence, and exclude them if they cannot be tied to any repo, product, workflow, or user evidence.
    - Include at least one "not pursuing" item when there are tempting ideas that do not fit.
 
 ## Idea Quality Bar
@@ -68,6 +69,7 @@ Each strong idea should answer:
 Do not recommend:
 
 - Generic "add AI", "add analytics", "improve performance", or "make it nicer" ideas without feature-specific detail.
+- Low-confidence roadmap bets presented as recommendations when the available evidence only supports exploration.
 - Cosmetic-only polish unless the user asked for polish or the surface is visibly UI-focused.
 - New settings, toggles, or configuration without a clear user decision they support.
 - Abstractions that only make the code look cleaner without a product or workflow payoff.

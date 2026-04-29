@@ -77,6 +77,8 @@ If scope is blurry, infer the smallest useful boundary and state it. Ask only wh
 
 Use this structure unless the user asks otherwise:
 
+Never print secret values, tokens, keys, credentials, or sensitive personal data in the report. Refer only to the path, setting name, secret type, or data category.
+
 ```markdown
 **Security Audit: <scope>**
 

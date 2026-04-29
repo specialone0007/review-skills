@@ -14,7 +14,8 @@ Check whether documentation still matches the code, configuration, API behavior,
 - Separate confirmed drift from inferred doc gaps.
 - Prefer user-impacting docs drift over cosmetic wording issues.
 - Do not report style preferences unless they make instructions misleading, incomplete, or hard to follow.
-- Treat generated docs carefully: identify the generation source before recommending direct edits.
+- Treat generated docs carefully: identify the generator, source file, and expected generation command before recommending direct edits.
+- If generated docs appear stale but were not regenerated, say so explicitly and report the residual risk instead of implying the generated output was verified.
 - Avoid creating docs during the audit phase.
 
 ## Inputs
@@ -40,7 +41,7 @@ If scope is unclear, infer the smallest useful boundary and state it. Ask only w
 2. Locate related documentation.
    - Search README files, docs folders, API docs, OpenAPI/Swagger specs, changelogs, setup guides, deployment docs, env examples, examples, fixtures, comments, storybook/docs pages, package docs, and runbooks.
    - Include docs near the feature and docs users would reasonably consult first.
-   - For generated docs, locate the source file or generator command.
+   - For generated docs, locate the source file, generator command, committed output, and any docs build or codegen step before deciding where updates belong.
 
 3. Compare code and docs.
    - Commands/scripts: names, arguments, package manager, working directory, prerequisites, outputs.
@@ -110,13 +111,13 @@ No code changed. I compared <source/code/change scope> against <docs checked>. <
 - `<command>`: <result>
 
 **Not Tested**
-- <docs build/link check/generated docs gaps and why>
+- <docs build, link check, generated-doc rebuild, or external-doc gaps and why; state residual risk when generated output was not rebuilt>
 
 **Assumptions**
 - <only include if useful>
 ```
 
-If no drift is found, say that clearly and list residual risks such as generated docs not rebuilt or external docs not accessible.
+If no drift is found, say that clearly and list residual risks such as generated docs not rebuilt, docs build/link checks not run, or external docs not accessible.
 
 ## Post-Audit Update Workflow
 
