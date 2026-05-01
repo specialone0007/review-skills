@@ -5,7 +5,7 @@ description: Read-only, repository-agnostic feature readiness audit for finding 
 
 # Feature Audit
 
-Run a deep readiness audit for one feature or product surface in any repository. Produce a prioritized findings report with evidence and fix direction. Default posture for audit-only requests: stay read-only and do not edit files, reformat code, stage changes, create commits, or run destructive commands. If the user explicitly asks to find and fix bugs or remediate readiness issues in the same request, run a brief evidence-first audit pass, then switch to the normal implementation workflow for the confirmed target issues.
+Run a deep readiness audit for one feature or product surface in any repository. Produce a comprehensive prioritized findings report with evidence and fix direction. Default posture for audit-only requests: stay read-only and do not edit files, reformat code, stage changes, create commits, or run destructive commands. If the user explicitly asks to find and fix bugs or remediate readiness issues in the same request, run a brief evidence-first audit pass, then switch to the normal implementation workflow for the confirmed target issues.
 
 ## Core Rules
 
@@ -14,6 +14,8 @@ Run a deep readiness audit for one feature or product surface in any repository.
 - Prefer repo evidence over memory. Discover conventions from files, scripts, configs, tests, docs, routes, and existing patterns.
 - Use fast search first when available (`rg`, `fd`, code search); fall back to native file/search tools if needed.
 - Keep scope feature-focused. Report global architecture issues only when they affect this feature's user journey, launch safety, maintainability, or operations.
+- Aim for exhaustive coverage inside the chosen scope. Do not stop after finding the first few issues or a representative sample; continue tracing adjacent code paths, states, and tests until the feature surface has been checked as completely as practical for the turn.
+- List every distinct, actionable finding you can substantiate within the scope, including lower-severity `P3` findings when they represent real readiness, UX, maintainability, resilience, or test risk. Do not impose an arbitrary top-N cap unless the user explicitly asks for one.
 - Use the specialist skills when the user's primary goal is narrower: `security-audit` for AppSec, `test-gap-audit` for coverage gaps, `docs-sync-audit` for documentation drift, `repo-organization-audit` for structure/reuse, `feature-brainstorm` for improvement ideas, and `pr-branch-summary` for PR communication.
 - Separate confirmed bugs from inferred risks. Label product decisions, missing context, or assumptions clearly.
 - Avoid duplicate findings. When one root cause creates several symptoms, report the root cause once and list the affected symptoms or surfaces in that finding.
@@ -59,6 +61,12 @@ If scope is blurry, infer a reasonable boundary from the request and state it in
    - Use local smoke checks only when a server is already running or the repo has an obvious safe dev command and the audit needs runtime behavior. Do not leave long-running processes orphaned.
    - Never use production credentials, mutate production data, run migrations against shared databases, or execute destructive cleanup commands.
    - Record every check run and any checks skipped because services, credentials, browsers, dependencies, or time were unavailable.
+
+5. Run a second-pass completeness sweep.
+   - Re-scan the mapped feature files, adjacent tests, route handlers, shared helpers, docs/contracts, and state/error boundaries for issue categories not covered in the first pass.
+   - Specifically look for missed alternate states, negative paths, authorization/data-boundary edges, stale UI states, mobile/accessibility issues, and missing regression tests.
+   - De-duplicate root causes, but preserve separate findings when the cause, affected user journey, owner, or fix direction is meaningfully different.
+   - If time, tooling, credentials, or repo setup prevents a full second pass, say what was not exhaustively checked under `Not Tested` or `Residual Risk`.
 
 ## What To Look For
 
@@ -118,7 +126,7 @@ No code changed. I checked <brief scope>, including functionality and UI/UX flow
 - <only include if useful>
 ```
 
-Keep findings ordered by severity and impact. If no findings exist, say that explicitly, then list residual risks and test gaps.
+Keep findings ordered by severity and impact, and include all distinct actionable findings discovered rather than only the highest-impact examples. If no findings exist, say that explicitly, then list residual risks and test gaps.
 
 ## Post-Audit Fix Workflow
 
