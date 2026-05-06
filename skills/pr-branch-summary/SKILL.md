@@ -42,6 +42,7 @@ python /path/to/pr-branch-summary/scripts/collect_pr_context.py --base productio
 4. Draft the communication.
    - Use the repository's PR style if it has one. Look for pull request templates, recent PRs, or existing contribution docs when available.
    - If no convention is visible, use a Conventional Commits-style PR title: `<type>(<scope>): <imperative summary>`.
+   - For PR titles and commit headers, prefer a clear Conventional Commit scope when one exists, such as `docs(pr-summary): improve PR summary guidance`.
    - Keep the title specific and outcome-oriented.
    - Mention the comparison target in the description when it matters, especially for staging/production deltas.
    - When the user asks for a Telegram/team message, write it in first person if the user is reporting their own work. Prefer "I added/addressed/improved" over passive phrasing.
