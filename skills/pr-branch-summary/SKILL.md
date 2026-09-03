@@ -9,6 +9,15 @@ description: Compare the current git branch against staging, production, or anot
 
 Create PR-ready communication from real git evidence, not from memory. Compare the current branch against the requested base (`staging`, `production`, or an explicit ref), inspect the changed code directly, then produce a clear PR title, PR description, and concrete team/Telegram summary in chat.
 
+## Core Rules
+
+- Do not change the user's work. Never edit, reformat, stage, commit, amend, push, create branches, create pull requests, or write report files into the target repository.
+- Resolve the base from local and existing remote-tracking refs first. Fetch only when the base ref is missing, or when the user asks for fresh remote state.
+- When a fetch is required, use the narrowest form: `git fetch origin <base>`. This updates one remote-tracking ref. It never touches the working tree, the index, or local branches. Say in the report that you fetched and which ref you updated.
+- Do not use `git fetch --all --prune` by default. `--all` touches every configured remote and `--prune` deletes stale remote-tracking refs, neither of which this skill needs.
+- Report output goes to chat. If a temporary file is unavoidable because the output is large, write it outside the repository and delete it when done.
+- Be evidence-first. Describe what the diff actually contains, not what the commit messages claim.
+
 ## Workflow
 
 1. Identify the comparison base.
@@ -19,15 +28,17 @@ Create PR-ready communication from real git evidence, not from memory. Compare t
 
 2. Gather git evidence.
    - Run `git status --short --branch` first and note uncommitted changes separately.
-   - Fetch remote refs with `git fetch --all --prune` unless the user asked not to fetch or the environment cannot reach the remote.
+   - If the base ref is missing locally or the user asked for fresh remote state, fetch just that ref with `git fetch origin <base>`. Skip the fetch when the ref already exists locally and the user did not ask for it, or when the environment cannot reach the remote.
    - Compare from the merge base: use `git merge-base HEAD <base-ref>`, then diff `<merge-base>..HEAD`. This matches what a PR introduces relative to the base branch.
-   - Use `scripts/collect_pr_context.py` when available.
+   - Use the bundled `scripts/collect_pr_context.py` when available. The path is relative to this skill's own directory, which differs by host (`.claude/skills/pr-branch-summary/`, `~/.codex/skills/pr-branch-summary/`, and so on). Use `python` if `python3` is not on PATH.
    - Do not create Markdown reports inside the target repository. Prefer stdout and summarize the result directly in chat. If a temporary report is necessary because the output is large, write it outside the repository in the current scratch/workspace directory and delete it when it is no longer needed.
 
 ```bash
-python /path/to/pr-branch-summary/scripts/collect_pr_context.py --base staging --fetch
-python /path/to/pr-branch-summary/scripts/collect_pr_context.py --base production --fetch
+python <skill-dir>/scripts/collect_pr_context.py --base staging
+python <skill-dir>/scripts/collect_pr_context.py --base production --fetch
 ```
+
+Add `--fetch` only when the base ref is missing or the user asked for fresh remote state; it fetches that one ref from `origin`.
 
 3. Inspect the actual changes.
    - Read the collected context from stdout, changed file list, commits, and diff stats.
@@ -98,7 +109,7 @@ If the script is unavailable, collect the same evidence manually:
 
 ```bash
 git status --short --branch
-git fetch --all --prune
+git fetch origin staging   # only if the base ref is missing or stale
 git rev-parse --abbrev-ref HEAD
 git rev-parse --verify origin/staging
 git merge-base HEAD origin/staging
@@ -107,3 +118,14 @@ git diff --stat <merge-base>..HEAD
 git diff --name-status <merge-base>..HEAD
 git diff --find-renames <merge-base>..HEAD
 ```
+
+## Related Skills
+
+- Use `feature-audit` when the ask is to review the branch for defects before writing the PR.
+- Use `test-gap-audit` when the ask is which tests the branch still needs.
+
+## Agent Portability Notes
+
+- Use available shell, search, git, GitHub, or MCP tools as appropriate. The evidence you gather matters more than the tool names used to gather it.
+- If the remote is unreachable, compare against the local base ref, and label the base as possibly stale in the report.
+- In hosts that support inline review comments, do not emit them from this skill; it drafts communication rather than review findings. Use `feature-audit` or `security-audit` when inline findings are wanted.

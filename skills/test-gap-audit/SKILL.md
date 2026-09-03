@@ -11,6 +11,7 @@ Find the tests that should exist but do not, or tests that exist but do not prov
 
 - Stay read-only unless the user explicitly asks to add tests.
 - Default to a full-repository audit when the user does not provide a specific scope.
+- Full-repo audits are breadth-first, then depth-limited. Inventory the repo, rank surfaces by risk, deep-inspect as many high-risk surfaces as the turn allows, and list the rest under **Surveyed But Not Deeply Inspected** with a pointer to run another pass on them. State the surface counts in the report header. Never present a shallow sweep as complete coverage.
 - When the user names a route, feature, workflow, PR, branch, service, package, directory, or other portion of the repo, limit the audit to that scope and its directly connected code paths.
 - Focus on coverage quality and regression protection, not general bug hunting.
 - Ground every gap in a behavior, changed code path, risk, or existing weak test.
@@ -49,7 +50,10 @@ If scope is blurry, infer the smallest useful boundary and state it. If no scope
    - Identify happy paths, failure paths, edge cases, data boundaries, auth/authorization boundaries, migration/config behavior, and external integration behavior.
 
 3. Map existing coverage.
-   - For full-repo audits, compare production/source areas against test directories and test naming conventions to find untested or weakly tested portions of the repo.
+   - Run the bundled `scripts/coverage_map.py` first when it is available. It detects the test framework and naming convention, then matches every source file against the tests by name, mirrored path, and what the test files actually import, and returns the unmatched files ranked with risk keywords plus test files that have cases but almost no assertions. The path is relative to this skill's own directory, which varies by host. Use `python` if `python3` is not on PATH.
+   - `python <skill-dir>/scripts/coverage_map.py --top 25`, or `--format json` to filter the results yourself.
+   - The matcher is heuristic and cannot see coverage that arrives through fixtures, end-to-end tests, or indirection. Treat an unmatched file as a lead, and grep for the module name to confirm before reporting it as `P0` or `P1`. Report a gap as confirmed only after you have looked.
+   - If the script is unavailable, compare production/source areas against test directories and test naming conventions manually to find untested or weakly tested portions of the repo.
    - Find direct tests for the changed or requested code.
    - Find indirect tests that cover the same behavior through a higher-level workflow.
    - Inspect assertions, fixtures, mocks, setup, and test names to see what is actually proven.
@@ -121,6 +125,9 @@ No code changed. I reviewed <brief scope>, existing tests, and repo test convent
 **Existing Coverage Worth Keeping**
 - <only include useful tests that already protect important behavior>
 
+**Surveyed But Not Deeply Inspected**
+- <For full-repo audits only: surfaces that were inventoried but not inspected deeply this pass, and which to run next. Omit this section entirely for scoped audits.>
+
 **Checks Run**
 - `<command>`: <result>
 
@@ -144,6 +151,11 @@ When the user asks to add tests:
 - Update fixtures, test data, or contract examples only when needed for the selected tests.
 - Run the new tests and the closest existing related tests.
 - Final response should map gaps to added tests and list checks run.
+
+## Related Skills
+
+- Use `feature-audit` when the ask is to find product bugs rather than evaluate coverage.
+- Use `security-audit` when the ask is whether a security-sensitive path is safe, not whether it is tested.
 
 ## Agent Portability Notes
 

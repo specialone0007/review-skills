@@ -1,6 +1,6 @@
 ---
 name: feature-audit
-description: Read-only, repository-agnostic feature readiness audit for finding bugs, launch blockers, regressions, UI/UX flow errors, accessibility issues, auth/data risks, missing critical tests/docs, and production readiness gaps in a clearly named feature, route, URL, workflow, product surface, or PR. Use when the user explicitly asks for a feature/product-surface audit, scan, launch-readiness check, production-readiness review, or bug-risk report. If the primary ask is security, test coverage, docs drift, repo organization, feature ideas, or PR communication, use security-audit, test-gap-audit, docs-sync-audit, repo-organization-audit, feature-brainstorm, or pr-branch-summary instead.
+description: Read-only, repository-agnostic feature readiness audit for finding bugs, launch blockers, regressions, UI/UX flow errors, accessibility issues, auth/data risks, missing critical tests/docs, and production readiness gaps in a named feature, route, URL, workflow, product surface, or PR, or across the whole repository when no scope is named. Use when the user explicitly asks for a feature/product-surface audit, scan, launch-readiness check, production-readiness review, or bug-risk report. If the primary ask is security, test coverage, docs drift, repo organization, feature ideas, or PR communication, use security-audit, test-gap-audit, docs-sync-audit, repo-health-audit, feature-brainstorm, or pr-branch-summary instead.
 ---
 
 # Feature Audit
@@ -10,13 +10,15 @@ Run a deep readiness audit for one feature or product surface in any repository.
 ## Core Rules
 
 - Stay read-only for audit-only requests. If the user explicitly asks for fixes too, audit briefly first, identify the target issues with evidence, then proceed in the same turn using the normal implementation flow.
+- Default to a full-repository audit when the user does not provide a specific scope. Inventory the repo's major product surfaces, routes, and workflows, then audit the highest-risk ones for readiness and defect risk.
+- Full-repo audits are breadth-first, then depth-limited. Inventory the repo, rank surfaces by risk, deep-inspect as many high-risk surfaces as the turn allows, and list the rest under **Surveyed But Not Deeply Inspected** with a pointer to run another pass on them. State the surface counts in the report header. Never present a shallow sweep as complete coverage.
 - Be repository-agnostic. Do not assume framework, language, test runner, database, route style, deployment platform, or file layout.
 - Prefer repo evidence over memory. Discover conventions from files, scripts, configs, tests, docs, routes, and existing patterns.
 - Use fast search first when available (`rg`, `fd`, code search); fall back to native file/search tools if needed.
 - Keep scope feature-focused. Report global architecture issues only when they affect this feature's user journey, launch safety, maintainability, or operations.
 - Aim for exhaustive coverage inside the chosen scope. Do not stop after finding the first few issues or a representative sample; continue tracing adjacent code paths, states, and tests until the feature surface has been checked as completely as practical for the turn.
 - List every distinct, actionable finding you can substantiate within the scope, including lower-severity `P3` findings when they represent real readiness, UX, maintainability, resilience, or test risk. Do not impose an arbitrary top-N cap unless the user explicitly asks for one.
-- Use the specialist skills when the user's primary goal is narrower: `security-audit` for AppSec, `test-gap-audit` for coverage gaps, `docs-sync-audit` for documentation drift, `repo-organization-audit` for structure/reuse, `feature-brainstorm` for improvement ideas, and `pr-branch-summary` for PR communication.
+- Use the specialist skills when the user's primary goal is narrower: `security-audit` for AppSec, `test-gap-audit` for coverage gaps, `docs-sync-audit` for documentation drift, `repo-health-audit` for structure/reuse, `feature-brainstorm` for improvement ideas, and `pr-branch-summary` for PR communication.
 - Separate confirmed bugs from inferred risks. Label product decisions, missing context, or assumptions clearly.
 - Avoid duplicate findings. When one root cause creates several symptoms, report the root cause once and list the affected symptoms or surfaces in that finding.
 - Treat UI/UX flow errors as audit findings when they can confuse users, block completion, hide recovery paths, cause wrong actions, or make important states hard to understand.
@@ -32,7 +34,7 @@ Accept any specific surface, including:
 - Pull requests or branches: audit the changed feature surface and its connected flows.
 - Bug-risk themes: `audit search pagination`, `scan auth around exports`, `review mobile launch risks for checkout`.
 
-If scope is blurry, infer a reasonable boundary from the request and state it in the report. Ask a clarifying question only when multiple interpretations would lead to materially different audits.
+If scope is blurry, infer a reasonable boundary from the request and state it in the report. If no scope is stated, do not ask for one; proceed with a full-repo audit. Ask a clarifying question only when multiple interpretations would lead to materially different audits.
 
 ## Discovery Workflow
 
@@ -115,6 +117,9 @@ No code changed. I checked <brief scope>, including functionality and UI/UX flow
 
 2. **P2: <finding title>.**
    What is wrong, why it matters, evidence: `<path>:<line>`. For inferred risks, include `Confidence: medium`. Suggested fix direction.
+
+**Surveyed But Not Deeply Inspected**
+- <For full-repo audits only: surfaces that were inventoried but not inspected deeply this pass, and which to run next. Omit this section entirely for scoped audits.>
 
 **Checks Run**
 - `<command>`: <result>

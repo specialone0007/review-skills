@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate skills
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # The validator is standard library only, so there is nothing to install.
+      - name: Validate SKILL.md frontmatter, metadata and conventions
+        run: python tools/validate_skills.py
+
+  scripts:
+    name: Smoke-test bundled scripts
+    # Cross-platform is a claim these scripts make, so both legs are load-bearing:
+    # Windows is where console encoding and a missing `python3` actually break them.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: collect_pr_context.py runs and leaves the repo untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          python skills/pr-branch-summary/scripts/collect_pr_context.py \
+            --base "$(git rev-parse HEAD)" --max-diff-lines 20 > /dev/null
+          # The skill promises it never writes to the working tree.
+          test -z "$(git status --porcelain)" || {
+            echo "script modified the working tree:"; git status --porcelain; exit 1;
+          }
+
+      - name: Bundled scripts are syntactically valid
+        shell: bash
+        run: |
+          set -euo pipefail
+          find skills -name '*.py' -print0 | xargs -0 -n1 python -m py_compile

@@ -1,15 +1,17 @@
 ---
-name: repo-organization-audit
+name: repo-health-audit
 description: Read-only repository health and organization audit for finding naming drift, unclear file or folder placement, weak module boundaries, dead code, duplicate code, repeated patterns that should become shared helpers, duplicate concepts, inconsistent conventions, oversized files, circular dependencies, and structural issues that make a codebase harder to navigate or more likely to become spaghetti over time. Use when the user asks to review repo organization, folder structure, naming, architecture hygiene, codebase structure, module layout, dead code, duplicate code, reuse opportunities, or whether a repository is getting messy.
 ---
 
-# Repo Organization Audit
+# Repo Health Audit
 
 Run a read-only audit of repository structure, naming hygiene, reuse health, and long-term maintainability. Produce a prioritized report of organization problems with evidence and practical fix direction. Default posture: do not edit, move, rename, reformat, stage, or delete files unless the user explicitly asks for cleanup after the audit.
 
 ## Core Rules
 
 - Stay read-only during the audit. If the user asks for fixes too, audit first, then switch to normal implementation only after the target changes are clear.
+- Default to a full-repository audit when the user does not provide a specific scope. Inventory the repo's top-level structure, modules, and packages, then inspect the areas with the most naming drift, duplication, dead code, or boundary confusion.
+- Full-repo audits are breadth-first, then depth-limited. Inventory the repo, rank surfaces by risk, deep-inspect as many high-risk surfaces as the turn allows, and list the rest under **Surveyed But Not Deeply Inspected** with a pointer to run another pass on them. State the surface counts in the report header. Never present a shallow sweep as complete coverage.
 - Focus on organization, discoverability, naming, boundaries, dead code, duplication, reuse opportunities, and long-term maintainability. Do not report ordinary implementation bugs unless they are caused by structural confusion or repeated code.
 - Infer conventions from the repo before judging. Existing patterns, framework defaults, monorepo layout, package boundaries, and local naming style matter more than generic preferences.
 - Separate confirmed structure problems from subjective preferences. Label judgment calls clearly.
@@ -28,7 +30,7 @@ Accept any organization target, including:
 - Dead code and reuse: `find unused code`, `scan duplicate code`, `find helper extraction opportunities`
 - Architectural hygiene: `find spaghetti structure`, `report module boundary problems`
 
-If scope is unclear, choose the smallest useful boundary that covers the user's request and state it in the report.
+If scope is unclear, choose the smallest useful boundary that covers the user's request and state it in the report. If no scope is stated, do not ask for one; proceed with a full-repo audit.
 For scoped audits, inspect neighboring/shared code only as needed to validate convention, reuse, and import boundaries, but keep findings focused on the requested scope.
 
 ## Scope Boundaries
@@ -67,8 +69,12 @@ This skill should stay focused on repo health issues that affect navigation, reu
 ## Discovery Workflow
 
 1. Establish repository shape.
-   - Read top-level files and directories, manifests, workspace configs, framework configs, package manager files, build/test configs, docs, and README-like files.
-   - Identify stack, app/package boundaries, source roots, generated/build directories, test locations, routing conventions, feature/module conventions, and naming style.
+   - Run the bundled `scripts/repo_inventory.py` first when it is available. One call returns detected stacks, available commands, per-directory file and line counts, the extension mix, largest files, where tests/CI/docs/lockfiles live, and structural smells such as flat directories and catch-all folders. The path is relative to this skill's own directory, which varies by host. Use `python` if `python3` is not on PATH.
+   - `python <skill-dir>/scripts/repo_inventory.py --top 25`, or `--format json` when you want to filter the results yourself.
+   - The script is read-only and never reads the contents of `.env` files; it reports their names only.
+   - If the script is unavailable, gather the same picture manually: read top-level files and directories, manifests, workspace configs, framework configs, package manager files, build/test configs, docs, and README-like files.
+   - Either way, identify stack, app/package boundaries, source roots, generated/build directories, test locations, routing conventions, feature/module conventions, and naming style.
+   - Treat the inventory as a survey, not as findings. Confirm anything you intend to report by opening the files.
    - Check `git status --short` so user changes are visible before interpreting structure.
 
 2. Map organization conventions.
@@ -133,6 +139,9 @@ No code changed. I checked <brief scope>, including naming, file/folder placemen
 **Reuse Opportunities**
 - <Only include when useful: repeated code/patterns that are not severe findings but are good helper/component extraction candidates.>
 
+**Surveyed But Not Deeply Inspected**
+- <For full-repo audits only: surfaces that were inventoried but not inspected deeply this pass, and which to run next. Omit this section entirely for scoped audits.>
+
 **Checks Run**
 - `<command>`: <result>
 
@@ -156,3 +165,15 @@ When the user asks to fix findings after the audit:
 - Preserve public APIs unless the user accepts a breaking cleanup.
 - Add or update architecture lint rules only when the repo already has a place for them or the repeated problem justifies it.
 - Avoid large reorganizations in one patch unless the repo is small or the user explicitly asks for a broad restructuring.
+
+## Related Skills
+
+- Use `docs-sync-audit` when the ask is whether docs match the code.
+- Use `test-gap-audit` when the ask is missing or weak test coverage.
+- Use `feature-audit` when the ask is runtime behavior, product readiness, or user-facing regressions.
+
+## Agent Portability Notes
+
+- Use available shell, search, git, GitHub, or MCP tools as appropriate. The evidence you gather matters more than the tool names used to gather it.
+- If dependency-graph, dead-code, or duplicate-code tooling is unavailable, continue with search and import tracing, and list that limitation in the report.
+- In hosts that support inline review comments, reserve them for confirmed actionable findings; do not attach them to survey-level structural observations.

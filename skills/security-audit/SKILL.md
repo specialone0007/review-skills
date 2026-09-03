@@ -1,6 +1,6 @@
 ---
 name: security-audit
-description: Run a read-only, evidence-grounded security audit of a clearly named feature, route, workflow, PR, branch, service, API, or code path. Use when the user asks for security risks, AppSec review, auth/authorization review, secrets exposure, injection risks, data leakage, abuse paths, unsafe dependencies, secure-by-default gaps, or security launch readiness. This is not a general bug audit; use feature-audit for broad product readiness and defects.
+description: Run a read-only, evidence-grounded security audit of a named feature, route, workflow, PR, branch, service, API, or code path, or of the whole repository when no scope is named. Use when the user asks for security risks, AppSec review, auth/authorization review, secrets exposure, injection risks, data leakage, abuse paths, unsafe dependencies, secure-by-default gaps, or security launch readiness. This is not a general bug audit; use feature-audit for broad product readiness and defects.
 ---
 
 # Security Audit
@@ -10,6 +10,8 @@ Run a focused security review of one feature, PR, workflow, or code area. Priori
 ## Core Rules
 
 - Stay read-only unless the user explicitly asks to fix findings.
+- Default to a full-repository audit when the user does not provide a specific scope. Inventory the repo's auth boundaries, entry points, data access paths, and trust boundaries, then review the highest-risk ones deeply.
+- Full-repo audits are breadth-first, then depth-limited. Inventory the repo, rank surfaces by risk, deep-inspect as many high-risk surfaces as the turn allows, and list the rest under **Surveyed But Not Deeply Inspected** with a pointer to run another pass on them. State the surface counts in the report header. Never present a shallow sweep as complete coverage.
 - Ground every finding in source code, configuration, dependency metadata, runtime behavior, docs, or explicit user context.
 - Separate confirmed vulnerabilities from inferred risks. Label inferred risks with confidence.
 - Avoid noisy best-practice checklists. Report issues that are actionable and relevant to the audited surface.
@@ -28,7 +30,7 @@ Accept any specific security scope, including:
 - Pull requests or branches: audit the security impact of the change.
 - Themes: `review auth around exports`, `scan for tenant leaks`, `audit file upload security`.
 
-If scope is blurry, infer the smallest useful boundary and state it. Ask only when different interpretations would require materially different security reviews.
+If scope is blurry, infer the smallest useful boundary and state it. If no scope is stated, do not ask for one; proceed with a full-repo audit. Ask only when different interpretations would require materially different security reviews.
 
 ## Discovery Workflow
 
@@ -100,6 +102,9 @@ No code changed. I reviewed <brief scope>, focusing on auth, authorization, inpu
 **Positive Controls Observed**
 - <Only include useful existing controls that reduce risk.>
 
+**Surveyed But Not Deeply Inspected**
+- <For full-repo audits only: surfaces that were inventoried but not inspected deeply this pass, and which to run next. Omit this section entirely for scoped audits.>
+
 **Checks Run**
 - `<command>`: <result>
 
@@ -121,6 +126,11 @@ When the user asks to fix findings:
 - Add or update regression tests for auth, authorization, validation, and data exposure fixes.
 - Avoid broad hardening sweeps unrelated to the audited scope.
 - Run focused verification and report fixed, partially fixed, not fixed, and not tested.
+
+## Related Skills
+
+- Use `feature-audit` when the ask is broad product readiness or non-security defects.
+- Use `test-gap-audit` when the ask is which tests would prove a security fix holds.
 
 ## Agent Portability Notes
 

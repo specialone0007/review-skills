@@ -100,7 +100,24 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Collect git context for PR summary drafting.")
     parser.add_argument("--base", required=True, help="Base branch/ref, for example staging or production.")
     parser.add_argument("--repo", default=".", help="Path inside the git repository.")
-    parser.add_argument("--fetch", action="store_true", help="Run git fetch --all --prune before resolving refs.")
+    parser.add_argument(
+        "--fetch",
+        action="store_true",
+        help=(
+            "Fetch only the base ref before resolving refs (git fetch <remote> <base>). "
+            "Updates one remote-tracking ref; never touches the working tree, index, or local branches."
+        ),
+    )
+    parser.add_argument(
+        "--fetch-remote",
+        default="origin",
+        help="Remote to fetch the base ref from when --fetch is used. Defaults to origin.",
+    )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help="Add --prune to the fetch, deleting stale remote-tracking refs. Off by default.",
+    )
     parser.add_argument("--output", help="Write markdown report to this path. Defaults to stdout.")
     parser.add_argument(
         "--allow-repo-output",
@@ -113,11 +130,24 @@ def main() -> int:
     repo = resolve_repo(Path(args.repo).resolve())
     fetch_note = ""
     if args.fetch:
-        fetch = run_git(["fetch", "--all", "--prune"], repo, check=False)
+        remote = args.fetch_remote
+        # Accept either "staging" or "origin/staging" as --base; git fetch wants the bare ref name.
+        base_name = args.base
+        if base_name.startswith(f"{remote}/"):
+            base_name = base_name[len(remote) + 1 :]
+        fetch_args = ["fetch", remote, base_name]
+        if args.prune:
+            fetch_args.insert(1, "--prune")
+        printable = "git " + " ".join(fetch_args)
+        fetch = run_git(fetch_args, repo, check=False)
         if fetch.returncode == 0:
-            fetch_note = "Fetch: completed with `git fetch --all --prune`."
+            fetch_note = f"Fetch: completed with `{printable}`. Remote-tracking ref only; working tree untouched."
         else:
-            fetch_note = "Fetch: failed; report uses local refs.\n\n```text\n" + fetch.stderr.strip() + "\n```"
+            fetch_note = (
+                f"Fetch: `{printable}` failed; report uses local refs.\n\n```text\n"
+                + fetch.stderr.strip()
+                + "\n```"
+            )
 
     base_ref = resolve_base_ref(args.base, repo)
     merge_base = git_out(["merge-base", "HEAD", base_ref], repo)
