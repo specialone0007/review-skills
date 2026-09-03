@@ -132,10 +132,14 @@ Use this structure unless the user asks otherwise:
 No code changed. I checked <brief scope>, including naming, file/folder placement, module boundaries, dead code, duplicate code, helper extraction opportunities, and convention drift. <verification summary>. No P0s found / P0s found: <count>.
 
 1. **P1: <finding title>.**
-   What is structurally wrong, why it will make the repo harder to maintain, evidence: `<path>:<line>` or representative paths. Suggested cleanup direction.
+   What is structurally wrong and why it will make the repo harder to maintain.
+   Evidence: `<path>:<line>`, or representative paths when the pattern repeats.
+   Suggested cleanup direction: <smallest behavior-preserving change>.
 
 2. **P2: <finding title>.**
-   What is structurally wrong, why it matters, evidence: `<path>:<line>` or representative paths. Suggested cleanup direction.
+   What is structurally wrong and why it matters.
+   Evidence: `<path>:<line>`, or representative paths when the pattern repeats.
+   Suggested cleanup direction: <smallest behavior-preserving change>.
 
 **Reuse Opportunities**
 - <Only include when useful: repeated code/patterns that are not severe findings but are good helper/component extraction candidates.>

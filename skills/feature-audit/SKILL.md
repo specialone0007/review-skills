@@ -114,10 +114,15 @@ Use this structure unless the user asks otherwise:
 No code changed. I checked <brief scope>, including functionality and UI/UX flow. <verification summary>. No P0s found / P0s found: <count>.
 
 1. **P1: <finding title>.**
-   What is wrong, why it matters, evidence: `<path>:<line>`. Suggested fix direction.
+   What is wrong and why it matters.
+   Evidence: `<path>:<line>`.
+   Suggested fix direction: <smallest safe change>.
 
 2. **P2: <finding title>.**
-   What is wrong, why it matters, evidence: `<path>:<line>`. For inferred risks, include `Confidence: medium`. Suggested fix direction.
+   What is wrong and why it matters.
+   Evidence: `<path>:<line>`.
+   Confidence: <high/medium/low, for inferred risks>.
+   Suggested fix direction: <smallest safe change>.
 
 **Surveyed But Not Deeply Inspected**
 - <For full-repo audits only: surfaces that were inventoried but not inspected deeply this pass, and which to run next. Omit this section entirely for scoped audits.>
