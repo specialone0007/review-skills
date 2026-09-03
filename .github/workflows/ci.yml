@@ -27,6 +27,27 @@ jobs:
       - name: Validate SKILL.md frontmatter, metadata and conventions
         run: python tools/validate_skills.py
 
+  first-party:
+    name: Validate with the Claude Code CLI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      # First-party validation of the manifests and the skills, which our own
+      # validator cannot replicate: it is the same check the plugin directory runs.
+      # Tracks @latest on purpose. If a CLI release starts failing this, the spec
+      # moved and the repo genuinely needs attention -- that is the signal we want,
+      # even at the cost of an occasional surprise red build.
+      - name: Validate marketplace and plugin manifests
+        run: npx -y @anthropic-ai/claude-code@latest plugin validate ./ --strict
+
+      - name: Validate skills
+        run: npx -y @anthropic-ai/claude-code@latest plugin validate skills --strict
+
   evals:
     name: Validate evals and script snapshots
     # Both legs matter here: the snapshots compare byte counts, so this is what would
