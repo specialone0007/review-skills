@@ -1,0 +1,46 @@
+{
+  "skill": "pr-branch-summary",
+  "version": 1,
+  "cases": [
+    {
+      "id": "pr-copy",
+      "kind": "trigger",
+      "prompt": "write the PR title and description for this branch",
+      "expect_skill": "pr-branch-summary"
+    },
+    {
+      "id": "review-goes-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "review this branch for bugs before I open the PR",
+      "expect_skill": "feature-audit"
+    },
+    {
+      "id": "team-message",
+      "kind": "trigger",
+      "prompt": "draft a Telegram update about what this branch changes",
+      "expect_skill": "pr-branch-summary"
+    },
+    {
+      "id": "output-contract",
+      "kind": "behavior",
+      "prompt": "write the PR title and description for this branch",
+      "must_include": [
+        "**PR Title**",
+        "**PR Description**",
+        "## Testing",
+        "## Risk / Rollback"
+      ],
+      "must_not_include": [
+        "I committed",
+        "I pushed",
+        "I opened the PR"
+      ],
+      "rubric": [
+        "grounds every claim in a commit or diff rather than commit messages alone",
+        "does not create a markdown file in the repository",
+        "does not run `git fetch --all --prune`",
+        "states the resolved base branch"
+      ]
+    }
+  ]
+}

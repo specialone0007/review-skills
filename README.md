@@ -106,7 +106,14 @@ As with any third-party agent skill, read the skill contents before enabling it 
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Run `python tools/validate_skills.py` before opening a PR; CI runs the same checks.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Before opening a PR:
+
+```bash
+python tools/validate_skills.py   # spec limits and repo conventions
+python tools/validate_evals.py    # eval cases and script snapshots
+```
+
+CI runs both, on Ubuntu and Windows. Each skill has trigger, anti-trigger, and behavior cases in [evals/](evals/), exercised against a deliberately defective fixture.
 
 ## License
 

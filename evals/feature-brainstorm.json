@@ -1,0 +1,43 @@
+{
+  "skill": "feature-brainstorm",
+  "version": 1,
+  "cases": [
+    {
+      "id": "improvement-ideas",
+      "kind": "trigger",
+      "prompt": "what could we add to the exports feature",
+      "expect_skill": "feature-brainstorm"
+    },
+    {
+      "id": "defects-go-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "what is broken in the exports feature",
+      "expect_skill": "feature-audit"
+    },
+    {
+      "id": "focused-not-repo-wide",
+      "kind": "behavior",
+      "prompt": "what could we improve here",
+      "fixture": "fixtures/mini-app",
+      "must_include": [
+        "Feature Brainstorm: ",
+        "Effort",
+        "Confidence"
+      ],
+      "must_not_include": [
+        "I edited",
+        "I created",
+        "I updated the file",
+        "I fixed",
+        "P0:",
+        "P1:"
+      ],
+      "rubric": [
+        "names the one to three surfaces it chose and why, rather than dumping repo-wide ideas",
+        "frames output as opportunities, not severity-graded findings",
+        "includes at least one not-pursuing item",
+        "modifies no files in the fixture"
+      ]
+    }
+  ]
+}

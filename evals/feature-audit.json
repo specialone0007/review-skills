@@ -1,0 +1,51 @@
+{
+  "skill": "feature-audit",
+  "version": 1,
+  "cases": [
+    {
+      "id": "scoped-feature",
+      "kind": "trigger",
+      "prompt": "audit the exports flow before we launch",
+      "expect_skill": "feature-audit"
+    },
+    {
+      "id": "no-scope-full-repo",
+      "kind": "trigger",
+      "prompt": "audit my repo for launch risks",
+      "expect_skill": "feature-audit",
+      "also_acceptable": [
+        "repo-health-audit",
+        "test-gap-audit"
+      ]
+    },
+    {
+      "id": "coverage-goes-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "what tests are missing for the exports route",
+      "expect_skill": "test-gap-audit"
+    },
+    {
+      "id": "report-contract",
+      "kind": "behavior",
+      "prompt": "audit the exports route for launch risks",
+      "fixture": "fixtures/mini-app",
+      "must_include": [
+        "Feature Audit: ",
+        "Evidence:",
+        "Checks Run"
+      ],
+      "must_not_include": [
+        "I edited",
+        "I created",
+        "I updated the file",
+        "I fixed"
+      ],
+      "rubric": [
+        "cites at least one path:line",
+        "modifies no files in the fixture",
+        "separates confirmed bugs from inferred risks",
+        "flags the missing ownership check in src/routes/exports.js"
+      ]
+    }
+  ]
+}

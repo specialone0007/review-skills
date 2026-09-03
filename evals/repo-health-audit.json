@@ -1,0 +1,47 @@
+{
+  "skill": "repo-health-audit",
+  "version": 1,
+  "cases": [
+    {
+      "id": "messy-codebase",
+      "kind": "trigger",
+      "prompt": "is this codebase getting messy",
+      "expect_skill": "repo-health-audit"
+    },
+    {
+      "id": "legacy-keyword-still-triggers",
+      "kind": "trigger",
+      "prompt": "audit repo organization",
+      "expect_skill": "repo-health-audit",
+      "note": "guards the v0.1.0 rename: the old wording must still route here"
+    },
+    {
+      "id": "docs-go-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "are the docs up to date with the code",
+      "expect_skill": "docs-sync-audit"
+    },
+    {
+      "id": "finds-duplication",
+      "kind": "behavior",
+      "prompt": "audit this repo's organization",
+      "fixture": "fixtures/mini-app",
+      "must_include": [
+        "Repo Health Audit: ",
+        "Evidence:"
+      ],
+      "must_not_include": [
+        "I edited",
+        "I created",
+        "I updated the file",
+        "I fixed"
+      ],
+      "rubric": [
+        "reports formatDate duplicated in src/lib/ and src/utils/",
+        "cites both copies rather than one",
+        "flags src/utils as a catch-all directory",
+        "modifies no files in the fixture"
+      ]
+    }
+  ]
+}
