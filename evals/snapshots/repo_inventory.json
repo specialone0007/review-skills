@@ -1,0 +1,161 @@
+{
+  "catch_all_directories": [
+    "src/lib",
+    "src/utils"
+  ],
+  "ci_files": [],
+  "commands": {
+    "npm run": [
+      "build",
+      "dev:start",
+      "test"
+    ]
+  },
+  "deepest_paths": [
+    "src/lib/format-date.js",
+    "src/routes/admin.js",
+    "src/routes/exports.js",
+    "src/routes/health.js",
+    "src/utils/format-date.js",
+    "src/utils/misc.js",
+    "src/config.js",
+    "src/db.js",
+    "src/server.js",
+    "tests/format-date.test.js",
+    "tests/health.test.js",
+    "tests/smoke.test.js",
+    ".env.example",
+    "README.md",
+    "package.json"
+  ],
+  "directories": [
+    {
+      "dir": "src",
+      "files": 9,
+      "lines": 57
+    },
+    {
+      "dir": "(root)",
+      "files": 3,
+      "lines": 32
+    },
+    {
+      "dir": "tests",
+      "files": 3,
+      "lines": 25
+    }
+  ],
+  "env_files": [
+    ".env.example"
+  ],
+  "extensions": [
+    {
+      "ext": ".js",
+      "files": 12
+    },
+    {
+      "ext": ".example",
+      "files": 1
+    },
+    {
+      "ext": ".md",
+      "files": 1
+    },
+    {
+      "ext": ".json",
+      "files": 1
+    }
+  ],
+  "flat_directories": [],
+  "largest_files": [
+    {
+      "bytes": 373,
+      "lines": 9,
+      "path": "src/routes/exports.js"
+    },
+    {
+      "bytes": 282,
+      "lines": 8,
+      "path": "src/routes/admin.js"
+    },
+    {
+      "bytes": 281,
+      "lines": 18,
+      "path": "README.md"
+    },
+    {
+      "bytes": 273,
+      "lines": 9,
+      "path": "src/server.js"
+    },
+    {
+      "bytes": 256,
+      "lines": 14,
+      "path": "package.json"
+    },
+    {
+      "bytes": 247,
+      "lines": 8,
+      "path": "tests/format-date.test.js"
+    },
+    {
+      "bytes": 227,
+      "lines": 9,
+      "path": "tests/smoke.test.js"
+    },
+    {
+      "bytes": 223,
+      "lines": 5,
+      "path": "src/utils/format-date.js"
+    },
+    {
+      "bytes": 210,
+      "lines": 8,
+      "path": "tests/health.test.js"
+    },
+    {
+      "bytes": 189,
+      "lines": 6,
+      "path": "src/config.js"
+    },
+    {
+      "bytes": 183,
+      "lines": 4,
+      "path": "src/lib/format-date.js"
+    },
+    {
+      "bytes": 160,
+      "lines": 9,
+      "path": "src/db.js"
+    },
+    {
+      "bytes": 137,
+      "lines": 0,
+      "path": ".env.example"
+    },
+    {
+      "bytes": 103,
+      "lines": 4,
+      "path": "src/utils/misc.js"
+    },
+    {
+      "bytes": 56,
+      "lines": 3,
+      "path": "src/routes/health.js"
+    }
+  ],
+  "lockfiles": [],
+  "repo": "<fixture>",
+  "stacks": {
+    "JavaScript/TypeScript": [
+      "package.json"
+    ]
+  },
+  "totals": {
+    "doc_files": 1,
+    "files": 15,
+    "lines": 114,
+    "test_files": 3
+  },
+  "warnings": []
+}

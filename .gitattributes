@@ -3,3 +3,7 @@
 *.yaml text eol=lf
 *.yml text eol=lf
 *.py text eol=lf
+
+# Eval fixtures must be byte-identical on every platform, because script snapshot
+# tests compare file sizes. Without this, the Windows and Ubuntu CI legs disagree.
+evals/fixtures/** text eol=lf

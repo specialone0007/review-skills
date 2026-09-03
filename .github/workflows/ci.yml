@@ -27,6 +27,25 @@ jobs:
       - name: Validate SKILL.md frontmatter, metadata and conventions
         run: python tools/validate_skills.py
 
+  evals:
+    name: Validate evals and script snapshots
+    # Both legs matter here: the snapshots compare byte counts, so this is what would
+    # catch a line-ending or path-handling difference between platforms.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Validate eval cases and snapshot-test bundled scripts
+        run: python tools/validate_evals.py
+
   scripts:
     name: Smoke-test bundled scripts
     # Cross-platform is a claim these scripts make, so both legs are load-bearing:

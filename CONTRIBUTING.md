@@ -51,6 +51,51 @@ Please hold these by hand.
 
 Before proposing a new skill, check whether it overlaps an existing one. Seven overlapping review skills already make routing hard; an eighth needs to earn its place by covering something none of the others do.
 
+## Evals
+
+`evals/<skill>.json` holds the test cases for each skill. Validate them with:
+
+```bash
+python tools/validate_evals.py
+```
+
+Three kinds of case, and every skill needs all three:
+
+- **`trigger`** — this prompt should activate this skill.
+- **`anti-trigger`** — this prompt looks like it belongs here but should activate a *different* skill, named in `expect_skill`. With seven overlapping review skills this is the case that actually matters, and the validator rejects an eval file that has none.
+- **`behavior`** — run against a fixture, with `must_include` / `must_not_include` strings and a human `rubric`. This is what checks the report contract and the read-only posture.
+
+Evals live at the repo root rather than inside skill folders on purpose: installing a skill copies its directory, so in-folder evals would ship to every user and could be pulled into an agent's context.
+
+### The fixture
+
+`evals/fixtures/mini-app/` is **intentionally defective** — see [evals/fixtures/README.md](evals/fixtures/README.md) for the list of planted defects and which skill should find each. Do not fix them.
+
+### Snapshots
+
+`validate_evals.py` also runs the bundled scripts against the fixture and compares their JSON output to `evals/snapshots/`. This is the deterministic half of the eval suite and it runs in CI on both Ubuntu and Windows.
+
+If you change a script's output on purpose:
+
+```bash
+python tools/validate_evals.py --update-snapshots
+```
+
+Read the resulting diff before committing it. An unexplained snapshot change is a regression until proven otherwise.
+
+Fixture files are pinned to LF in `.gitattributes`, because the snapshots compare byte counts and the two CI legs would otherwise disagree.
+
+### Running the model-dependent half
+
+Whether a description triggers, and whether a report obeys its contract, cannot be checked without a model. Print the cases as a checklist and run them against a live agent:
+
+```bash
+python tools/validate_evals.py --checklist
+python tools/validate_evals.py --checklist security-audit
+```
+
+Do this whenever you touch a `description`, since that is what decides routing. There is deliberately no LLM judge in CI: it costs money on every push, is flaky, needs an API key in a public repo, and would rot.
+
 ## Bundled scripts
 
 Scripts must:

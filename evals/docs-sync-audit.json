@@ -1,0 +1,45 @@
+{
+  "skill": "docs-sync-audit",
+  "version": 1,
+  "cases": [
+    {
+      "id": "docs-accuracy",
+      "kind": "trigger",
+      "prompt": "is the README still accurate",
+      "expect_skill": "docs-sync-audit"
+    },
+    {
+      "id": "structure-goes-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "review my repo structure and naming",
+      "expect_skill": "repo-health-audit"
+    },
+    {
+      "id": "no-scope-full-repo",
+      "kind": "trigger",
+      "prompt": "check the docs against the code",
+      "expect_skill": "docs-sync-audit"
+    },
+    {
+      "id": "finds-command-drift",
+      "kind": "behavior",
+      "prompt": "check the docs against the code",
+      "fixture": "fixtures/mini-app",
+      "must_include": [
+        "Docs Sync Audit: ",
+        "Evidence:"
+      ],
+      "must_not_include": [
+        "I edited",
+        "I created",
+        "I updated the file",
+        "I fixed"
+      ],
+      "rubric": [
+        "reports that README says `npm run dev` while package.json defines `dev:start`",
+        "cites both the source and the docs location for that finding",
+        "modifies no files in the fixture"
+      ]
+    }
+  ]
+}

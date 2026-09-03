@@ -257,6 +257,10 @@ def check_paths_and_links() -> None:
         # This file defines the forbidden patterns, so scanning it would always self-report.
         if path.resolve() == this_file:
             continue
+        # evals/fixtures/ is intentionally defective -- that is what the eval cases audit.
+        # Policing it here would mean fixing the very drift the fixture exists to contain.
+        if "fixtures" in path.parts and "evals" in path.parts:
+            continue
         for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             if bad_path.search(raw):
                 error(path, i, "contains a machine-specific absolute path; use repo-relative forward-slash paths")

@@ -1,0 +1,105 @@
+{
+  "conventions": [
+    "*.test.[jt]s(x) (3)",
+    "tests/ directory (3)"
+  ],
+  "frameworks": [
+    "Vitest"
+  ],
+  "matched_sample": [
+    {
+      "path": "src/lib/format-date.js",
+      "why": [
+        "name match: tests/format-date.test.js"
+      ]
+    },
+    {
+      "path": "src/routes/health.js",
+      "why": [
+        "name match: tests/health.test.js"
+      ]
+    },
+    {
+      "path": "src/server.js",
+      "why": [
+        "imported by a test"
+      ]
+    },
+    {
+      "path": "src/utils/format-date.js",
+      "why": [
+        "name match: tests/format-date.test.js"
+      ]
+    }
+  ],
+  "repo": "<fixture>",
+  "totals": {
+    "coverage_ratio": 0.444,
+    "matched": 4,
+    "source_files": 9,
+    "test_files": 3,
+    "untested": 5
+  },
+  "untested": [
+    {
+      "dir": "src/routes",
+      "lines": 10,
+      "path": "src/routes/exports.js",
+      "risk_keywords": [
+        "export"
+      ]
+    },
+    {
+      "dir": "src/routes",
+      "lines": 9,
+      "path": "src/routes/admin.js",
+      "risk_keywords": [
+        "admin"
+      ]
+    },
+    {
+      "dir": "src",
+      "lines": 10,
+      "path": "src/db.js",
+      "risk_keywords": []
+    },
+    {
+      "dir": "src",
+      "lines": 7,
+      "path": "src/config.js",
+      "risk_keywords": []
+    },
+    {
+      "dir": "src/utils",
+      "lines": 5,
+      "path": "src/utils/misc.js",
+      "risk_keywords": []
+    }
+  ],
+  "untested_by_directory": [
+    {
+      "dir": "src/routes",
+      "lines": 19,
+      "untested": 2
+    },
+    {
+      "dir": "src",
+      "lines": 17,
+      "untested": 2
+    },
+    {
+      "dir": "src/utils",
+      "lines": 5,
+      "untested": 1
+    }
+  ],
+  "warnings": [],
+  "weak_tests": [
+    {
+      "assertions": 0,
+      "lines": 10,
+      "path": "tests/smoke.test.js",
+      "test_cases": 2
+    }
+  ]
+}

@@ -380,15 +380,24 @@ def main() -> int:
     ap.add_argument("--repo", default=".", help="Path inside the repository.")
     ap.add_argument("--format", choices=["text", "json"], default="text", help="Output format.")
     ap.add_argument("--top", type=int, default=25, help="Rows per section. Default 25.")
+    ap.add_argument(
+        "--no-git-root",
+        action="store_true",
+        help=(
+            "Treat --repo literally instead of expanding to the enclosing git repository root. "
+            "Use this to scope the survey to one package or subdirectory of a monorepo."
+        ),
+    )
     args = ap.parse_args()
 
     repo = Path(args.repo).resolve()
     if not repo.is_dir():
         print(f"error: not a directory: {repo}", file=sys.stderr)
         return 2
-    root = run_git(["rev-parse", "--show-toplevel"], repo)
-    if root and root.strip():
-        repo = Path(root.strip()).resolve()
+    if not args.no_git_root:
+        root = run_git(["rev-parse", "--show-toplevel"], repo)
+        if root and root.strip():
+            repo = Path(root.strip()).resolve()
 
     files = list_files(repo)
     if not files:

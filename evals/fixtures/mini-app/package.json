@@ -1,0 +1,14 @@
+{
+  "name": "mini-app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:start": "node src/server.js",
+    "build": "echo no build step",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  }
+}

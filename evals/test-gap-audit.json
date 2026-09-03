@@ -1,0 +1,46 @@
+{
+  "skill": "test-gap-audit",
+  "version": 1,
+  "cases": [
+    {
+      "id": "no-scope-full-repo",
+      "kind": "trigger",
+      "prompt": "what tests am I missing",
+      "expect_skill": "test-gap-audit"
+    },
+    {
+      "id": "bug-hunt-goes-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "find bugs in the exports route before we launch",
+      "expect_skill": "feature-audit"
+    },
+    {
+      "id": "security-goes-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "is the admin delete endpoint safe",
+      "expect_skill": "security-audit"
+    },
+    {
+      "id": "finds-planted-gaps",
+      "kind": "behavior",
+      "prompt": "what tests are missing",
+      "fixture": "fixtures/mini-app",
+      "must_include": [
+        "Test Gap Audit: ",
+        "Suggested test"
+      ],
+      "must_not_include": [
+        "I edited",
+        "I created",
+        "I updated the file",
+        "I fixed"
+      ],
+      "rubric": [
+        "names src/routes/exports.js and src/routes/admin.js as untested",
+        "flags tests/smoke.test.js as having a case but no assertions",
+        "proposes concrete test cases rather than generic coverage advice",
+        "modifies no files in the fixture"
+      ]
+    }
+  ]
+}
