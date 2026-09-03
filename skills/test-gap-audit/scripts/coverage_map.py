@@ -81,9 +81,12 @@ ASSERTION_TOKENS = re.compile(
     r"refute|is_a|must_equal|shouldBe|verify)\b",
     re.IGNORECASE,
 )
+# Actual test cases only. `describe`, `context` and `class Test` are grouping
+# constructs, and counting them inflates the case count -- a file with one it()
+# inside one describe() would report two cases, which then skews the
+# assertions-per-case ratio below.
 TEST_CASE_TOKENS = re.compile(
-    r"^\s*(it|test|describe|context|def test_|func Test|class Test|scenario|"
-    r"@Test|it\.each|test\.each)\b",
+    r"^\s*(it|test|def test_|func Test|scenario|@Test|it\.each|test\.each)\b",
     re.MULTILINE,
 )
 

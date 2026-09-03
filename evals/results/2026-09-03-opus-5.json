@@ -1,0 +1,29 @@
+{
+  "date": "2026-09-03",
+  "model": "claude-opus-5",
+  "method": "Routing cases were run blind: each agent saw only the seven name+description pairs in a standalone file, with the repository (and therefore the answer key) explicitly off limits. Behavior cases were run by giving an agent one SKILL.md plus the fixture directory, with evals/*.json and evals/fixtures/README.md off limits so defects had to be discovered from the code. A separate strict judge graded each report against its must_include, must_not_include and rubric.",
+  "routing": {
+    "total": 20,
+    "passed": 20,
+    "note": "All 8 anti-trigger cases routed to the intended sibling. 'audit repo organization' still routes to repo-health-audit, so the v0.1.0 rename did not break the old wording."
+  },
+  "behavior": {
+    "total": 6,
+    "passed_as_run": 5,
+    "failed_as_run": 1,
+    "failures": [
+      {
+        "case": "repo-health-audit/finds-duplication",
+        "cause": "Report omitted the required `Evidence:` label. Substantively correct: it found the duplicated formatDate, cited both copies, flagged src/utils as a catch-all, and modified nothing.",
+        "root_cause": "The skill's own report template embedded evidence mid-sentence as lowercase `evidence:` rather than as a labelled line, unlike docs-sync-audit, security-audit and test-gap-audit. feature-audit had the same defect and passed only because the agent capitalised it spontaneously.",
+        "fix": "Normalised the finding template in feature-audit and repo-health-audit to the labelled `Evidence:` form used by the other three audits.",
+        "reverified": "Re-ran the case after the fix. The report now carries labelled Evidence lines, cites both copies of formatDate, flags src/utils, and left the fixture git-clean."
+      }
+    ],
+    "secondary_observations": [
+      "test-gap-audit: the judge caught arithmetic that contradicted the report's own listing, and a case count of 2 for a file with one it(). The latter was a real bug in coverage_map.py, which counted `describe` and `context` as test cases; fixed, and the snapshot test caught the output change.",
+      "docs-sync-audit: reported file counts did not match the fixture. No rubric item covered it, and it was the agent's arithmetic rather than a skill defect. Left as-is; worth watching if it recurs."
+    ]
+  },
+  "conclusion": "Routing is sound. The one behavior failure and one of the secondary observations were real defects in this repository, not eval noise, and both are fixed. Re-run this suite whenever a description or a Report Format section changes."
+}
