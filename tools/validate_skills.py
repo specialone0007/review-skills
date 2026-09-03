@@ -18,11 +18,20 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SKILLS_DIR = REPO / "skills"
 
-# Spec limits (platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices).
+# Spec limits (agentskills.io/specification and the Claude best-practices guide).
 NAME_MAX = 64
 DESCRIPTION_MAX = 1024
+COMPATIBILITY_MAX = 500
 BODY_MAX_LINES = 500
 BODY_WARN_LINES = 400
+
+# The full frontmatter surface. `name` and `description` are required; the rest are
+# optional per the spec. Anything outside this set is rejected: a top-level `version:`
+# is a common mistake, and the sanctioned place for one is `metadata.version`.
+REQUIRED_FIELDS = ("name", "description")
+OPTIONAL_FIELDS = ("license", "compatibility", "metadata", "allowed-tools")
+# `metadata` is a nested map; every other field is a scalar on one line.
+NESTED_FIELDS = ("metadata",)
 
 # Our own budget: all descriptions are resident in the system prompt on every request.
 DESCRIPTIONS_TOTAL_MAX = 5000
@@ -66,13 +75,18 @@ def parse_frontmatter(path: Path, lines: list[str]) -> dict[str, str] | None:
         return None
 
     fields: dict[str, str] = {}
+    lineno: dict[str, int] = {}
+    current_nested: str | None = None
     for i in range(1, end):
         raw = lines[i]
         if not raw.strip():
             continue
         if raw[0] in " \t":
-            error(path, i + 1, "frontmatter must be flat `key: value` pairs; nested/continued lines are not allowed")
+            # Indented lines are only meaningful under a nested field such as `metadata`.
+            if current_nested is None:
+                error(path, i + 1, "indented frontmatter line does not belong to a nested field")
             continue
+        current_nested = None
         if ":" not in raw:
             error(path, i + 1, f"frontmatter line is not `key: value`: {raw.strip()!r}")
             continue
@@ -81,14 +95,31 @@ def parse_frontmatter(path: Path, lines: list[str]) -> dict[str, str] | None:
         if key in fields:
             error(path, i + 1, f"duplicate frontmatter key `{key}`")
         fields[key] = value.strip()
+        lineno[key] = i + 1
+        if key in NESTED_FIELDS:
+            current_nested = key
 
-    # The spec defines exactly two fields. Unknown keys risk host validation failures.
+    known = REQUIRED_FIELDS + OPTIONAL_FIELDS
     for key in fields:
-        if key not in ("name", "description"):
-            error(path, 1, f"unsupported frontmatter key `{key}`; the spec defines only `name` and `description`")
-    for key in ("name", "description"):
+        if key not in known:
+            hint = " Use `metadata.version` if you need a version." if key == "version" else ""
+            error(
+                path, lineno.get(key, 1),
+                f"unsupported frontmatter key `{key}`; the spec allows {', '.join(known)}.{hint}",
+            )
+    for key in REQUIRED_FIELDS:
         if key not in fields:
             error(path, 1, f"missing required frontmatter key `{key}`")
+
+    # Optional-field constraints.
+    if fields.get("compatibility") and len(fields["compatibility"]) > COMPATIBILITY_MAX:
+        error(path, lineno["compatibility"],
+              f"compatibility is {len(fields['compatibility'])} chars, limit {COMPATIBILITY_MAX}")
+    if "allowed-tools" in fields and fields["allowed-tools"].startswith("["):
+        error(path, lineno["allowed-tools"],
+              "allowed-tools must be a space-separated string, not a YAML array")
+    if "metadata" in fields and fields["metadata"]:
+        error(path, lineno["metadata"], "metadata must be a nested map, not an inline value")
 
     fields["__body_start__"] = str(end + 1)
     return fields

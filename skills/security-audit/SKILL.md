@@ -1,6 +1,7 @@
 ---
 name: security-audit
 description: Run a read-only, evidence-grounded security audit of a named feature, route, workflow, PR, branch, service, API, or code path, or of the whole repository when no scope is named. Use when the user asks for security risks, AppSec review, auth/authorization review, secrets exposure, injection risks, data leakage, abuse paths, unsafe dependencies, secure-by-default gaps, or security launch readiness. This is not a general bug audit; use feature-audit for broad product readiness and defects.
+license: MIT
 ---
 
 # Security Audit
