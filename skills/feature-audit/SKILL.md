@@ -1,6 +1,7 @@
 ---
 name: feature-audit
 description: Read-only, repository-agnostic feature readiness audit for finding bugs, launch blockers, regressions, UI/UX flow errors, accessibility issues, auth/data risks, missing critical tests/docs, and production readiness gaps in a named feature, route, URL, workflow, product surface, or PR, or across the whole repository when no scope is named. Use when the user explicitly asks for a feature/product-surface audit, scan, launch-readiness check, production-readiness review, or bug-risk report. If the primary ask is security, test coverage, docs drift, repo organization, feature ideas, or PR communication, use security-audit, test-gap-audit, docs-sync-audit, repo-health-audit, feature-brainstorm, or pr-branch-summary instead.
+license: MIT
 ---
 
 # Feature Audit

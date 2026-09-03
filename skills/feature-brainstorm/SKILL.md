@@ -1,6 +1,7 @@
 ---
 name: feature-brainstorm
 description: Brainstorm evidence-grounded product, UX, workflow, and technical improvement ideas for a clearly named feature, route, workflow, product surface, or PR. Use when the user asks what could be added, improved, simplified, expanded, polished, automated, differentiated, or made more valuable. This is not a bug audit; use feature-audit for defects, regressions, launch blockers, missing tests, or production-readiness risks.
+license: MIT
 ---
 
 # Feature Brainstorm

@@ -1,6 +1,7 @@
 ---
 name: repo-health-audit
 description: Read-only repository health and organization audit for finding naming drift, unclear file or folder placement, weak module boundaries, dead code, duplicate code, repeated patterns that should become shared helpers, duplicate concepts, inconsistent conventions, oversized files, circular dependencies, and structural issues that make a codebase harder to navigate or more likely to become spaghetti over time. Use when the user asks to review repo organization, folder structure, naming, architecture hygiene, codebase structure, module layout, dead code, duplicate code, reuse opportunities, or whether a repository is getting messy.
+license: MIT
 ---
 
 # Repo Health Audit

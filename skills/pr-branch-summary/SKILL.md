@@ -1,6 +1,7 @@
 ---
 name: pr-branch-summary
 description: Compare the current git branch against staging, production, or another release/base branch and draft PR communication. Use when the agent is asked to prepare a pull request title/message, PR description, release-target comparison, branch diff summary, team/Slack/Telegram summary, or explanation of what a PR contains based on all changes since staging or production.
+license: MIT
 ---
 
 # PR Branch Summary
