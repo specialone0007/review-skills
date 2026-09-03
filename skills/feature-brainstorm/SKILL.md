@@ -29,7 +29,7 @@ Accept any specific surface, including:
 - Pull requests or branches: brainstorm improvements connected to the changed surface.
 - Product prompts: `what should we add next`, `how can this be better`, `brainstorm improvements for search`, `what could make onboarding stronger`.
 
-If scope is blurry, infer a practical boundary and state it. Ask only when multiple interpretations would produce materially different brainstorms.
+If scope is blurry, infer a practical boundary and state it. If no surface is named, do not ask for one and do not brainstorm the whole repo: inventory it, pick the one to three highest-leverage surfaces, say which you picked and why, then brainstorm those. A focused set of ideas beats a repo-wide dump. Ask only when multiple interpretations would produce materially different brainstorms.
 
 ## Discovery Workflow
 
@@ -125,6 +125,10 @@ If the user asks to implement an idea after the brainstorm:
 - Preserve existing product behavior unless the idea explicitly changes it.
 - Update tests, docs, fixtures, stories, or analytics only when they are part of the chosen improvement.
 - Run focused verification and report what changed, what was checked, and what remains open.
+
+## Related Skills
+
+- Use `feature-audit` when the ask is defects, blockers, launch risks, or missing tests rather than ideas.
 
 ## Agent Portability Notes
 

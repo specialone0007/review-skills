@@ -10,6 +10,8 @@ Check whether documentation still matches the code, configuration, API behavior,
 ## Core Rules
 
 - Stay read-only unless the user explicitly asks to update docs.
+- Default to a full-repository docs audit when the user does not provide a specific scope. Inventory the repo's docs surfaces (README, docs directories, examples, CLI help, API contracts, config samples) and compare them against the code they describe.
+- Full-repo audits are breadth-first, then depth-limited. Inventory the repo, rank surfaces by risk, deep-inspect as many high-risk surfaces as the turn allows, and list the rest under **Surveyed But Not Deeply Inspected** with a pointer to run another pass on them. State the surface counts in the report header. Never present a shallow sweep as complete coverage.
 - Ground every finding in both sides of the mismatch: the code/config/source of truth and the stale or missing documentation.
 - Separate confirmed drift from inferred doc gaps.
 - Prefer user-impacting docs drift over cosmetic wording issues.
@@ -29,7 +31,7 @@ Accept any docs-sync target, including:
 - CLI/workflows: `check command docs`, `does onboarding match the current flow`.
 - Whole repo docs hygiene when explicitly requested.
 
-If scope is unclear, infer the smallest useful boundary and state it. Ask only when different scopes would produce materially different doc checks.
+If scope is unclear, infer the smallest useful boundary and state it. If no scope is stated, do not ask for one; proceed with a full-repo docs audit. Ask only when different scopes would produce materially different doc checks.
 
 ## Discovery Workflow
 
@@ -107,6 +109,9 @@ No code changed. I compared <source/code/change scope> against <docs checked>. <
 **Likely Docs To Update**
 - `<path>`: <why>
 
+**Surveyed But Not Deeply Inspected**
+- <For full-repo audits only: surfaces that were inventoried but not inspected deeply this pass, and which to run next. Omit this section entirely for scoped audits.>
+
 **Checks Run**
 - `<command>`: <result>
 
@@ -129,6 +134,11 @@ When the user asks to update docs:
 - Update examples, screenshots, changelogs, env examples, API specs, and runbooks together when they describe the same behavior.
 - Run docs build, link check, example typecheck, or focused verification when available.
 - Final response should map findings to updated files and list checks run.
+
+## Related Skills
+
+- Use `repo-health-audit` when the ask is about structure, naming, or duplication rather than doc accuracy.
+- Use `feature-audit` when the ask is implementation review or product readiness.
 
 ## Agent Portability Notes
 

@@ -1,0 +1,14 @@
+{
+  "name": "review-skills",
+  "owner": {
+    "name": "specialone0007",
+    "url": "https://github.com/specialone0007"
+  },
+  "plugins": [
+    {
+      "name": "review-skills",
+      "source": "./",
+      "description": "Seven evidence-first review and audit skills with a consistent P0-P3 report shape."
+    }
+  ]
+}
