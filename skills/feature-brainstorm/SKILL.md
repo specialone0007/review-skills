@@ -75,6 +75,10 @@ Do not recommend:
 - New settings, toggles, or configuration without a clear user decision they support.
 - Abstractions that only make the code look cleaner without a product or workflow payoff.
 
+Evidence rules:
+
+- Verify every citation before you write it. Re-read the exact range and confirm it contains what you describe, and cite the line where a named symbol is defined rather than a neighbouring block. Prefer a single anchor line containing a distinctive token over a hand-counted range.
+
 ## Report Format
 
 Use this structure unless the user asks otherwise:

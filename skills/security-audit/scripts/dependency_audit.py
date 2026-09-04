@@ -93,6 +93,16 @@ def redact(value: str, limit: int = 120) -> str:
     return v[:limit]
 
 
+# Which JS package manager the repository actually uses, keyed by its lockfile.
+# Choosing by "first installed binary" instead told one real repo to run `pnpm audit`
+# when its only lockfile was package-lock.json, which would simply have failed.
+JS_LOCK_OWNER = {
+    "pnpm-lock.yaml": "pnpm",
+    "yarn.lock": "yarn",
+    "package-lock.json": "npm",
+    "bun.lockb": "bun",
+}
+
 INSTALL_HOOKS = ("preinstall", "install", "postinstall", "prepare", "prepublish")
 NON_REGISTRY = re.compile(r"^(file:|link:|git\+|git:|https?:|github:|portal:)")
 UNPINNED = re.compile(r"^(\*|latest|x|X)$")
@@ -131,6 +141,29 @@ def read(path: Path) -> str:
         return ""
 
 
+def fully_pinned(text: str, manifest_name: str) -> bool:
+    """True when every direct dependency in this manifest names an exact version.
+
+    Only answers for the manifest formats where "exact" is unambiguous. A
+    package.json range like ^4.17.21 is not a pin, so JS always returns False and
+    keeps the stronger wording.
+    """
+    if manifest_name != "requirements.txt" or not text:
+        return False
+    entries = 0
+    for line in text.splitlines():
+        s = line.strip()
+        if not s or s.startswith(("#", "-r ", "--")):
+            continue
+        if NON_REGISTRY.match(s) or s.startswith("-e "):
+            return False
+        entries += 1
+        # `==` is the only exact pin. ~=, >=, and a bare name are all ranges.
+        if "==" not in s.split(";")[0]:
+            return False
+    return entries > 0
+
+
 def list_files(repo: Path) -> list[str]:
     code, out, _ = run(["git", "ls-files", "--cached", "--other", "--exclude-standard"], repo)
     if code == 0 and out.strip():
@@ -157,12 +190,21 @@ def offline_signals(repo: Path, files: list[str]) -> list[dict]:
         ecosystem, locks = ECOSYSTEMS[name]
         directory = Path(rel).parent
 
-        # Missing lockfile: installs are not reproducible, and a compromised
-        # upstream release gets picked up silently on the next install.
+        # Missing lockfile. Severity depends on whether the manifest already pins.
+        # Calling a fully `==`-pinned requirements.txt "not reproducible" reads as
+        # plainly wrong to the owner and costs the whole report credibility.
         if locks and not any((repo / directory / lock).is_file() for lock in locks):
-            add("missing-lockfile", "medium", rel,
-                f"{ecosystem}: no lockfile beside this manifest (looked for {', '.join(locks)}). "
-                "Installs are not reproducible.")
+            pinned = fully_pinned(read(repo / rel), name)
+            if pinned:
+                add("missing-lockfile", "low", rel,
+                    f"{ecosystem}: no lockfile beside this manifest, but every direct "
+                    "dependency is pinned to an exact version. Direct versions are therefore "
+                    "reproducible; what is missing is hash pinning and pinned transitive "
+                    "dependencies, so a compromised transitive release could still be picked up.")
+            else:
+                add("missing-lockfile", "medium", rel,
+                    f"{ecosystem}: no lockfile beside this manifest (looked for {', '.join(locks)}), "
+                    "and the manifest does not pin exact versions. Installs are not reproducible.")
 
         text = read(repo / rel)
         if not text:
@@ -266,9 +308,31 @@ def run_auditors(repo: Path, files: list[str], allow_network: bool) -> list[dict
                             "findings": [], "raw_excerpt": None})
             continue
 
+        # Prefer the manager the repository's own lockfile names. Only fall back to
+        # "whatever is installed" when no lockfile identifies one, and say so.
+        preferred = None
+        lock_note = ""
+        if ecosystem == "javascript":
+            owners = {JS_LOCK_OWNER[Path(f).name] for f in files if Path(f).name in JS_LOCK_OWNER}
+            if len(owners) == 1:
+                preferred = owners.pop()
+            elif len(owners) > 1:
+                lock_note = (f" This repository has lockfiles for several managers "
+                             f"({', '.join(sorted(owners))}); pick one deliberately.")
+            else:
+                lock_note = " No JS lockfile identifies a package manager, so this is a guess."
+
+        ordered = candidates
+        if preferred:
+            ordered = ([c for c in candidates if c[0] == preferred]
+                       + [c for c in candidates if c[0] != preferred])
+
         # Report the one auditor we would actually use, not every candidate. Listing
         # three skip reasons for one ecosystem obscures which tool is in play.
-        chosen = next(((t, c, n) for t, c, n in candidates if shutil.which(c[0])), None)
+        chosen = next(((t, c, n) for t, c, n in ordered if shutil.which(c[0])), None)
+        if preferred and chosen and chosen[0] != preferred:
+            lock_note = (f" The lockfile indicates {preferred}, but {preferred} is not installed, "
+                         f"so {chosen[0]} was used instead; its result may not match your install.")
         if chosen is None:
             names = ", ".join(c[0] for _, c, _ in candidates)
             results.append({"ecosystem": ecosystem, "tool": None, "command": None, "ran": False,
@@ -280,7 +344,8 @@ def run_auditors(repo: Path, files: list[str], allow_network: bool) -> list[dict
         entry = {"ecosystem": ecosystem, "tool": tool, "command": " ".join(cmd),
                  "ran": False, "reason_skipped": None, "findings": [], "raw_excerpt": None}
         if needs_network and not allow_network:
-            entry["reason_skipped"] = "needs network access; rerun with --allow-network to permit it"
+            entry["reason_skipped"] = ("needs network access; rerun with --allow-network to permit it"
+                                       + lock_note)
             results.append(entry)
             continue
         code, out, err = run(cmd, repo)

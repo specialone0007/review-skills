@@ -61,6 +61,7 @@ If scope is blurry, infer a reasonable boundary from the request and state it in
 4. Verify safely.
    - Run only low-risk commands that fit repo conventions: lint/typecheck/unit tests for relevant areas, syntax checks, focused test files, or build checks when reasonably quick.
    - Prefer existing scripts from manifests or docs. Do not invent install steps unless dependencies are already present or the user asked.
+   - Never run a command that writes into the repository as a side effect. `python -m compileall` and `py_compile` emit `.pyc` files, formatters rewrite sources, and installers touch lockfiles. `.pyc` output is usually gitignored, so `git status` will look clean while the tree has in fact been modified. Prefer syntax checks that write nothing, and if a language offers no read-only check, say so under checks skipped.
    - Use local smoke checks only when a server is already running or the repo has an obvious safe dev command and the audit needs runtime behavior. Do not leave long-running processes orphaned.
    - Never use production credentials, mutate production data, run migrations against shared databases, or execute destructive cleanup commands.
    - Record every check run and any checks skipped because services, credentials, browsers, dependencies, or time were unavailable.
@@ -98,6 +99,10 @@ Audit across the layers that exist in the repository:
 
 ## Evidence Standards
 
+- Verify every citation before you write it. Re-read the exact range and confirm it contains what you are describing. When citing a named symbol, function, CTE, or block, cite the line where the name is defined, not a line inside a neighbouring block. When quoting text, cite the file the quote is actually in. Prefer a single anchor line containing a distinctive token over a hand-counted range.
+- When you attribute a finding to a tool's output, quote the path and line the tool itself reported. Never infer which lines a linter or type checker fired on by reading the code. If the tool's output does not name the line, report the pattern without claiming the tool flagged it.
+- Never restate a count from a grep, a script, or a tool without the raw output in front of you. If you cannot re-derive the number, describe the pattern instead of counting it.
+- Before reporting that something is absent -- undocumented config, an unused dependency, a missing control, a variable nothing reads -- check every plausible location, not the first one. For a config variable that means the README, env sample files, deploy manifests, comments, and the transitive callers of whatever helper reads it. For a dependency it means whether it is a documented transitive requirement of something you do use. A negative claim from a single grep is not evidence.
 - Include file and line references whenever possible. Use the path format natural to the host agent; prefer absolute paths when the environment supports clickable absolute paths, otherwise use repo-relative paths.
 - Cite command results concisely: command, pass/fail, and the important failure line or summary.
 - If browser/API/manual verification is unavailable, say so instead of implying it was tested.

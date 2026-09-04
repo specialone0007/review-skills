@@ -174,7 +174,7 @@ def build(repo: Path, files: list[str]) -> dict:
             pass
 
     # Available commands. Manifests are not always at the root -- in a monorepo the
-    # only package.json may be at miniapp/ or packages/web/ -- so read every one we
+    # only package.json may be at apps/web/ or packages/ui/ -- so read every one we
     # found, nearest the root first, and label each by its directory.
     def by_name(target: str) -> list[str]:
         found = [f for f in files if Path(f).name == target]

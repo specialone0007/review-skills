@@ -20,6 +20,7 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | `left-pad` is pinned to `*`, accepting any published version | `mini-app/package.json` | `security-audit` |
 | `local-helper` resolves via `file:`, outside any registry and outside advisory coverage | `mini-app/package.json` | `security-audit` |
 | No lockfile despite declared dependencies, so installs are not reproducible | `mini-app/` | `security-audit` |
+| `requirements.txt` pins every dependency with `==` but has no lockfile, so this must be reported as **low**, not medium | `mini-app/requirements.txt` | `security-audit` |
 
 ## About the credential
 
@@ -30,6 +31,8 @@ That is not a credential. It is deliberately structurally invalid so it cannot b
 ## Regenerating script snapshots
 
 `docs_drift.py` is expected to find three things here: the `npm run dev` command that does not exist, and both documented environment variables, which are read only inside `src/config.js` — a module nothing imports, so the documented settings cannot take effect. That last one is why `src/config.js` must stay unreferenced.
+
+`requirements.txt` exists to hold the severity fix from the real-repo trial: a fully `==`-pinned manifest with no lockfile is a `low`, because calling it "not reproducible" is wrong and costs the report credibility. `package.json` covers the other branch, since a `^4.17.21` range is not a pin. Do not add a lockfile beside either one, and do not loosen the `==` pins.
 
 The `postinstall` hook and the odd dependency specs are inert: nothing here is ever installed, and the hook only prints a line. They exist so `dependency_audit.py` has real supply-chain shapes to detect.
 

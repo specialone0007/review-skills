@@ -103,6 +103,8 @@ If the user only asks for a Telegram/team message, return just `**Telegram Messa
 - Make the Telegram/team summary concrete enough that someone who never opens the PR understands what was added, what was fixed, and what changed operationally.
 - Keep summaries concise, but do not omit risky, release-relevant, or behavior-changing details.
 - Avoid over-explaining transient local/deploy fixes in Telegram messages unless the user specifically asks for build/deploy details.
+- Verify every commit you cite as evidence. Before naming a commit as a revert, a churn hotspot, or proof that a subsystem is risky, run `git show --stat <hash>` and confirm its diff actually touches that subsystem. Never assemble a revert or churn list from `git log --grep` alone; the message and the diff disagree often enough to matter.
+- State real counts. If you write "four reverts", list exactly four. A hedge like "at least four" followed by six hashes tells the reader the list was grepped rather than checked.
 
 ## Manual Git Fallback
 
