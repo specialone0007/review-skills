@@ -37,6 +37,19 @@ jobs:
         with:
           node-version: "22"
 
+      # A cold npx download of the CLI took 7 minutes on one run and 13 seconds on
+      # another. Cache it on a weekly key: fast on most runs, and still picks up a
+      # new release within a week, which is soon enough for a drift detector.
+      - name: Compute weekly cache key
+        id: week
+        run: echo "key=$(date -u +%Y-W%V)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm/_npx
+          key: npx-claude-code-${{ steps.week.outputs.key }}
+          restore-keys: npx-claude-code-
+
       # First-party validation of the manifests and the skills, which our own
       # validator cannot replicate: it is the same check the plugin directory runs.
       # Tracks @latest on purpose. If a CLI release starts failing this, the spec
