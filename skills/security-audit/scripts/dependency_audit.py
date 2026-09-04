@@ -71,6 +71,24 @@ AUDITORS = {
     "elixir": [("mix", ["mix", "deps.audit"], True)],
 }
 
+# Manifest content reaches the report, and a dependency spec routinely carries a
+# credential: `git+https://user:token@github.com/org/repo.git` is the normal way
+# private dependencies are wired. Everything echoed from a file goes through
+# redact() first, so the useful shape survives and the credential does not.
+CREDENTIAL_IN_URL = re.compile(r"//[^/\s:@]+:[^/\s@]+@")
+TOKEN_IN_QUERY = re.compile(
+    r"([?&](?:token|access_token|api_key|apikey|key|password|passwd|secret)=)[^&\s]+", re.I)
+
+
+def redact(value: str, limit: int = 120) -> str:
+    """Strip embedded credentials from anything read out of a file before it is reported."""
+    if not isinstance(value, str):
+        return ""
+    v = CREDENTIAL_IN_URL.sub("//<redacted>@", value)
+    v = TOKEN_IN_QUERY.sub(lambda m: m.group(1) + "<redacted>", v)
+    return v[:limit]
+
+
 INSTALL_HOOKS = ("preinstall", "install", "postinstall", "prepare", "prepublish")
 NON_REGISTRY = re.compile(r"^(file:|link:|git\+|git:|https?:|github:|portal:)")
 UNPINNED = re.compile(r"^(\*|latest|x|X)$")
@@ -164,7 +182,7 @@ def offline_signals(repo: Path, files: list[str]) -> list[dict]:
             try:
                 data = json.loads(text)
             except ValueError as exc:
-                add("unparseable-manifest", "low", rel, f"could not parse: {exc}")
+                add("unparseable-manifest", "low", rel, f"could not parse: {redact(str(exc))}")
                 continue
             scripts = data.get("scripts") or {}
             for hook in INSTALL_HOOKS:
@@ -183,11 +201,11 @@ def offline_signals(repo: Path, files: list[str]) -> list[dict]:
                         continue
                     if NON_REGISTRY.match(spec):
                         add("non-registry-dependency", "medium", rel,
-                            f"{field}: `{pkg}` resolves from outside the registry ({spec}). "
+                            f"{field}: `{pkg}` resolves from outside the registry ({redact(spec)}). "
                             "Not covered by registry advisories.")
                     elif UNPINNED.match(spec.strip()):
                         add("unpinned-dependency", "medium", rel,
-                            f"{field}: `{pkg}` is `{spec}` -- any published version is accepted.")
+                            f"{field}: `{pkg}` is `{redact(spec)}` -- any published version is accepted.")
 
             # A package in the lockfile but not the manifest tree is worth a look.
             lock = repo / directory / "package-lock.json"
@@ -215,7 +233,7 @@ def offline_signals(repo: Path, files: list[str]) -> list[dict]:
                     continue
                 if NON_REGISTRY.match(s) or s.startswith("-e "):
                     add("non-registry-dependency", "medium", rel,
-                        f"installs from outside PyPI: {s[:120]}", line=i)
+                        f"installs from outside PyPI: {redact(s)}", line=i)
                 elif re.match(r"^[A-Za-z0-9._-]+$", s):
                     add("unpinned-dependency", "medium", rel,
                         f"`{s}` has no version constraint.", line=i)
