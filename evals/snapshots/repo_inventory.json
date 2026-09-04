@@ -8,6 +8,7 @@
     "npm run": [
       "build",
       "dev:start",
+      "postinstall",
       "test"
     ]
   },
@@ -37,7 +38,7 @@
     {
       "dir": "(root)",
       "files": 3,
-      "lines": 32
+      "lines": 37
     },
     {
       "dir": "tests",
@@ -69,6 +70,11 @@
   "flat_directories": [],
   "largest_files": [
     {
+      "bytes": 428,
+      "lines": 19,
+      "path": "package.json"
+    },
+    {
       "bytes": 373,
       "lines": 9,
       "path": "src/routes/exports.js"
@@ -87,11 +93,6 @@
       "bytes": 273,
       "lines": 9,
       "path": "src/server.js"
-    },
-    {
-      "bytes": 256,
-      "lines": 14,
-      "path": "package.json"
     },
     {
       "bytes": 247,
@@ -154,7 +155,7 @@
   "totals": {
     "doc_files": 1,
     "files": 15,
-    "lines": 114,
+    "lines": 119,
     "test_files": 3
   },
   "warnings": []

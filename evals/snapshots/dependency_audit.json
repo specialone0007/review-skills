@@ -1,0 +1,38 @@
+{
+  "ecosystems": [
+    "javascript"
+  ],
+  "network_allowed": false,
+  "offline_signals": [
+    {
+      "detail": "javascript: no lockfile beside this manifest (looked for package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb). Installs are not reproducible.",
+      "kind": "missing-lockfile",
+      "line": null,
+      "path": "package.json",
+      "severity": "medium"
+    },
+    {
+      "detail": "`postinstall` runs automatically on install (58 chars, not shown here). Install hooks are the usual supply-chain execution path. Read the `postinstall` script in this manifest before trusting the package.",
+      "kind": "install-hook",
+      "line": null,
+      "path": "package.json",
+      "severity": "high"
+    },
+    {
+      "detail": "dependencies: `left-pad` is `*` -- any published version is accepted.",
+      "kind": "unpinned-dependency",
+      "line": null,
+      "path": "package.json",
+      "severity": "medium"
+    },
+    {
+      "detail": "dependencies: `local-helper` resolves from outside the registry (file:../local-helper). Not covered by registry advisories.",
+      "kind": "non-registry-dependency",
+      "line": null,
+      "path": "package.json",
+      "severity": "medium"
+    }
+  ],
+  "repo": "<fixture>",
+  "warnings": []
+}

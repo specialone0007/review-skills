@@ -52,11 +52,16 @@ If scope is blurry, infer the smallest useful boundary and state it. If no scope
    - Data exposure: response shape, logs, error messages, exports, search results, pagination, cache keys, metadata leakage.
    - Injection: SQL/NoSQL, command, template, path traversal, SSRF, XSS, unsafe redirects, unsafe deserialization.
    - Secrets/config: committed secrets, permissive defaults, missing required env docs, overly broad tokens, client-exposed server secrets.
-   - Dependencies: newly added packages, abandoned packages, risky transitive use, vulnerable versions when lockfile/tooling reveals it.
+   - Dependencies and supply chain: newly added packages, abandoned packages, risky transitive use, vulnerable versions when lockfile/tooling reveals it, install hooks, non-registry version specs, and custom registries.
+     - Run the bundled `scripts/dependency_audit.py` when it is available. Its offline half needs no network and reports missing lockfiles, `postinstall`-style install hooks, `file:`/`git+` and unpinned specs, lockfile-only direct dependencies, and custom registries. The path is relative to this skill's own directory, which varies by host. Use `python` if `python3` is not on PATH.
+     - `python <skill-dir>/scripts/dependency_audit.py --top 25`, or `--format json` to filter results yourself.
+     - The script does not contact any package registry by default. Running a real auditor (`npm audit`, `pip-audit`, `cargo audit` and similar) needs `--allow-network`. Ask the user before using that flag, and say plainly in the report when advisory data was not fetched: no advisory findings is not evidence that dependencies are clean.
+     - The script redacts credentials out of anything it echoes from a manifest, because a private dependency URL often contains one. It does not scan for secrets; for that, use a dedicated scanner such as gitleaks and say in the report which tool you used.
    - Operations: audit logs for sensitive actions, alertable failures, rollback/feature flag behavior, secure migration/deploy ordering.
 
 4. Verify safely.
    - Use repo-native static checks, lint/typecheck, focused tests, dependency audit commands, or framework analyzers when available and safe.
+   - Never run a command that installs, upgrades, or rewrites a lockfile, and never a `fix` subcommand. Auditing is read-only; remediation is a separate, explicitly requested step.
    - Prefer source inspection when dependency install, services, credentials, browsers, or network are unavailable.
    - Record checks run and checks skipped.
 
