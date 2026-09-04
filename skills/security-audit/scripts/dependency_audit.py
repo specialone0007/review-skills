@@ -244,11 +244,17 @@ def offline_signals(repo: Path, files: list[str]) -> list[dict]:
         if base in (".npmrc", "pip.conf", ".pypirc", "Cargo.toml") or base == "pip.ini":
             text = read(repo / rel)
             for i, line in enumerate(text.splitlines(), start=1):
-                if re.search(r"(registry|index-url|extra-index-url|replace-with)\s*=", line, re.I):
-                    # Report the setting, not any token that might follow it.
-                    key = line.split("=", 1)[0].strip()
+                m = re.match(r"\s*([A-Za-z0-9_-]*(?:registry|index-url|extra-index-url|replace-with))\s*=",
+                             line, re.I)
+                if m:
+                    # Files like .npmrc hold auth tokens beside registry settings, so
+                    # nothing read out of them is echoed. Only the matched setting NAME
+                    # is reported, taken from a fixed alternation above rather than from
+                    # the line, and never the remainder after the `=`.
+                    setting = m.group(1).lower()
                     add("custom-registry", "medium", rel,
-                        f"`{key}` points package resolution somewhere other than the default registry.",
+                        f"a `{setting}` setting redirects package resolution away from the default "
+                        "registry. Value not shown; open the file to review it.",
                         line=i)
 
     for rel in files:
