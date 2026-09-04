@@ -169,9 +169,14 @@ def offline_signals(repo: Path, files: list[str]) -> list[dict]:
             scripts = data.get("scripts") or {}
             for hook in INSTALL_HOOKS:
                 if hook in scripts:
+                    # Deliberately does not echo the command body: an install hook can
+                    # carry an inline credential, and this skill must never print one.
+                    # The hook name plus the manifest path is enough to go look.
+                    body = scripts[hook] if isinstance(scripts[hook], str) else ""
                     add("install-hook", "high", rel,
-                        f"`{hook}` script runs automatically on install: {scripts[hook][:120]!r}. "
-                        "Install hooks are the usual supply-chain execution path.")
+                        f"`{hook}` runs automatically on install ({len(body)} chars, not shown here). "
+                        "Install hooks are the usual supply-chain execution path. "
+                        f"Read the `{hook}` script in this manifest before trusting the package.")
             for field in ("dependencies", "devDependencies", "optionalDependencies"):
                 for pkg, spec in (data.get(field) or {}).items():
                     if not isinstance(spec, str):
@@ -395,15 +400,15 @@ def render(d: dict, top: int) -> str:
             L.append(f"    tool output: {a['raw_excerpt'].splitlines()[0][:200]}")
     L.append("")
 
-    if d["secrets"] is not None:
+    if d["secret_shaped_locations"] is not None:
         L.append("## Secret-shaped strings")
         L.append("Rule name and location only. Values are never printed, and this is a narrow")
         L.append("shape check, not a replacement for gitleaks or trufflehog.")
-        if d["secrets"]:
-            for h in d["secrets"][:top]:
+        if d["secret_shaped_locations"]:
+            for h in d["secret_shaped_locations"][:top]:
                 L.append(f"- [{h['rule']}] {h['path']}:{h['line']}")
-            if len(d["secrets"]) > top:
-                L.append(f"  TRUNCATED: showing {top} of {len(d['secrets'])}")
+            if len(d["secret_shaped_locations"]) > top:
+                L.append(f"  TRUNCATED: showing {top} of {len(d['secret_shaped_locations'])}")
         else:
             L.append("- none matched")
         L.append("")
@@ -454,7 +459,7 @@ def main() -> int:
         "network_allowed": args.allow_network,
         "offline_signals": offline_signals(repo, files),
         "auditors": run_auditors(repo, files, args.allow_network),
-        "secrets": scan_secrets(repo, files) if args.secrets else None,
+        "secret_shaped_locations": scan_secrets(repo, files) if args.secrets else None,
         "warnings": warnings,
     }
     print(json.dumps(data, indent=2) if args.format == "json" else render(data, args.top))

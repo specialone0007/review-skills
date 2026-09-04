@@ -12,7 +12,7 @@
       "severity": "medium"
     },
     {
-      "detail": "`postinstall` script runs automatically on install: 'node -e \"console.log(\\'fixture postinstall, does nothing\\')\"'. Install hooks are the usual supply-chain execution path.",
+      "detail": "`postinstall` runs automatically on install (58 chars, not shown here). Install hooks are the usual supply-chain execution path. Read the `postinstall` script in this manifest before trusting the package.",
       "kind": "install-hook",
       "line": null,
       "path": "package.json",
@@ -34,6 +34,6 @@
     }
   ],
   "repo": "<fixture>",
-  "secrets": null,
+  "secret_shaped_locations": null,
   "warnings": []
 }
