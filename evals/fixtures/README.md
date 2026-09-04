@@ -29,6 +29,8 @@ That is not a credential. It is deliberately structurally invalid so it cannot b
 
 ## Regenerating script snapshots
 
+`docs_drift.py` is expected to find three things here: the `npm run dev` command that does not exist, and both documented environment variables, which are read only inside `src/config.js` — a module nothing imports, so the documented settings cannot take effect. That last one is why `src/config.js` must stay unreferenced.
+
 The `postinstall` hook and the odd dependency specs are inert: nothing here is ever installed, and the hook only prints a line. They exist so `dependency_audit.py` has real supply-chain shapes to detect.
 
 `tools/validate_evals.py --update-snapshots` reruns the bundled scripts against `mini-app/` and rewrites the expected JSON. Do that only when a script's output format changed on purpose, and read the diff before committing it.

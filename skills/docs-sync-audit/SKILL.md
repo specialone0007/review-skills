@@ -47,6 +47,11 @@ If scope is unclear, infer the smallest useful boundary and state it. If no scop
    - For generated docs, locate the source file, generator command, committed output, and any docs build or codegen step before deciding where updates belong.
 
 3. Compare code and docs.
+   - Run the bundled `scripts/docs_drift.py` first when it is available. It checks only claims with a definite answer: documented `npm run` scripts and `make` targets against the ones that exist, relative Markdown links against the filesystem, and environment variable names in both directions between docs and code. The path is relative to this skill's own directory, which varies by host. Use `python` if `python3` is not on PATH.
+   - `python <skill-dir>/scripts/docs_drift.py --top 30`, or `--format json` to filter results yourself.
+   - It flags a documented setting that is read only inside a module nothing imports, which is config that reads as working but cannot take effect. Confirm the module really is unreachable before reporting it: the check uses name matching and cannot see dynamic imports.
+   - Add `--check-paths` only when you want backticked paths checked too. It is off by default because most such references are ambiguous, and on a large repo the noise buries the real findings. Read its output as leads, not findings.
+   - The script never judges prose. Wording, completeness, and whether an explanation is actually correct are your job, and are usually where the important drift is.
    - Commands/scripts: names, arguments, package manager, working directory, prerequisites, outputs.
    - APIs: routes, methods, auth requirements, request/response shape, status codes, errors, pagination, webhooks, versioning.
    - Config/env: required vars, defaults, examples, secrets, feature flags, deployment settings.

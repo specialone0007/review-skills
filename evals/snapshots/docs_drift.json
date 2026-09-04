@@ -1,0 +1,38 @@
+{
+  "findings": [
+    {
+      "detail": "documents `dev`, which is not a script in any package.json. Closest existing: dev:start.",
+      "doc": "README.md",
+      "kind": "missing-script",
+      "line": 10,
+      "severity": "high",
+      "source": "package.json"
+    },
+    {
+      "detail": "`API_TOKEN` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
+      "doc": ".env.example",
+      "kind": "documented-env-in-unreferenced-module",
+      "line": 2,
+      "severity": "medium",
+      "source": "src/config.js:2"
+    },
+    {
+      "detail": "`MAX_EXPORT_ROWS` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
+      "doc": "README.md",
+      "kind": "documented-env-in-unreferenced-module",
+      "line": 18,
+      "severity": "medium",
+      "source": "src/config.js:3"
+    }
+  ],
+  "repo": "<fixture>",
+  "totals": {
+    "docs_checked": 1,
+    "env_names_documented": 2,
+    "env_names_in_code": 2,
+    "findings": 3,
+    "make_targets_found": 0,
+    "npm_scripts_found": 4
+  },
+  "warnings": []
+}

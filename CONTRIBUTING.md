@@ -105,4 +105,6 @@ Scripts must:
 - be read-only on the target repo by default, following the `--allow-repo-output` pattern in `skills/pr-branch-summary/scripts/collect_pr_context.py`;
 - support `--format text|json` and cap their output, printing a truncation notice when they do;
 - call `sys.stdout.reconfigure(encoding="utf-8", errors="replace")` before printing, or stay strictly ASCII. A single non-ASCII character crashes a default Windows console;
-- never use `shell=True`, and resolve executables with `shutil.which`.
+- never use `shell=True`, and resolve executables with `shutil.which`;
+- redact anything read out of a file before reporting it. A dependency spec or a registry setting routinely carries a credential, and a helper must not undercut the skill's own rule against printing secret values;
+- put a check behind an opt-in flag when it is ambiguous on real repositories rather than shipping it on by default. `docs_drift.py --check-paths` is the worked example: it produced 211 findings on one real repo, almost all of them paths a doc was telling you to create or that an archived report described accurately at the time. A noisy check buries the sound ones.

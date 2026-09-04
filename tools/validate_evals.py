@@ -54,6 +54,7 @@ SNAPSHOT_SCRIPTS = {
     "coverage_map": {"path": "skills/test-gap-audit/scripts/coverage_map.py", "drop": []},
     "dependency_audit": {"path": "skills/security-audit/scripts/dependency_audit.py",
                          "drop": ["auditors"]},
+    "docs_drift": {"path": "skills/docs-sync-audit/scripts/docs_drift.py", "drop": []},
 }
 
 errors: list[str] = []
