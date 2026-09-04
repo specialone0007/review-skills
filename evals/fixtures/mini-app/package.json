@@ -6,7 +6,12 @@
   "scripts": {
     "dev:start": "node src/server.js",
     "build": "echo no build step",
-    "test": "vitest run"
+    "test": "vitest run",
+    "postinstall": "node -e \"console.log('fixture postinstall, does nothing')\""
+  },
+  "dependencies": {
+    "left-pad": "*",
+    "local-helper": "file:../local-helper"
   },
   "devDependencies": {
     "vitest": "^2.0.0"

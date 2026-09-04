@@ -16,6 +16,10 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | README documents `MAX_EXPORT_ROWS` and `API_TOKEN`; only one is wired to anything meaningful | `mini-app/README.md`, `mini-app/src/config.js` | `docs-sync-audit` |
 | `formatDate` is duplicated verbatim in two places | `mini-app/src/lib/format-date.js`, `mini-app/src/utils/format-date.js` | `repo-health-audit` |
 | `src/utils/` is a catch-all directory | `mini-app/src/utils/` | `repo-health-audit` |
+| A `postinstall` hook runs code automatically on install | `mini-app/package.json` | `security-audit` |
+| `left-pad` is pinned to `*`, accepting any published version | `mini-app/package.json` | `security-audit` |
+| `local-helper` resolves via `file:`, outside any registry and outside advisory coverage | `mini-app/package.json` | `security-audit` |
+| No lockfile despite declared dependencies, so installs are not reproducible | `mini-app/` | `security-audit` |
 
 ## About the credential
 
@@ -24,5 +28,7 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 That is not a credential. It is deliberately structurally invalid so it cannot be mistaken for one, and it is labelled in the file itself. It exists so `repo_inventory.py` has an `.env` file to report the *name* of — that script never reads env file contents, and the security-audit skill is instructed never to print a secret value.
 
 ## Regenerating script snapshots
+
+The `postinstall` hook and the odd dependency specs are inert: nothing here is ever installed, and the hook only prints a line. They exist so `dependency_audit.py` has real supply-chain shapes to detect.
 
 `tools/validate_evals.py --update-snapshots` reruns the bundled scripts against `mini-app/` and rewrites the expected JSON. Do that only when a script's output format changed on purpose, and read the diff before committing it.

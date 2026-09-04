@@ -42,11 +42,18 @@ FIXTURE = EVALS / "fixtures" / "mini-app"
 KINDS = ("trigger", "anti-trigger", "behavior")
 MIN_CASES = 3
 
-# Scripts that get snapshot-tested against the fixture, and the argv to do it with.
-# --no-git-root keeps the survey inside the fixture instead of expanding to this repo.
+# Scripts that get snapshot-tested against the fixture. --no-git-root keeps the
+# survey inside the fixture instead of expanding to this repo.
+#
+# `drop` removes keys whose value depends on the machine rather than the fixture,
+# so a snapshot stays comparable between a laptop and a CI runner. dependency_audit
+# reports which auditors are installed, which legitimately differs per machine; its
+# offline_signals are the deterministic part worth locking down.
 SNAPSHOT_SCRIPTS = {
-    "repo_inventory": ["skills/repo-health-audit/scripts/repo_inventory.py"],
-    "coverage_map": ["skills/test-gap-audit/scripts/coverage_map.py"],
+    "repo_inventory": {"path": "skills/repo-health-audit/scripts/repo_inventory.py", "drop": []},
+    "coverage_map": {"path": "skills/test-gap-audit/scripts/coverage_map.py", "drop": []},
+    "dependency_audit": {"path": "skills/security-audit/scripts/dependency_audit.py",
+                         "drop": ["auditors"]},
 }
 
 errors: list[str] = []
@@ -137,7 +144,7 @@ def validate_cases(docs: dict[str, dict], skill_names: set[str]) -> int:
     return total
 
 
-def run_script(rel: str) -> dict | None:
+def run_script(rel: str, drop: list[str]) -> dict | None:
     """Run one bundled script against the fixture and return its normalised JSON."""
     proc = subprocess.run(
         [sys.executable, str(REPO / rel), "--repo", str(FIXTURE), "--no-git-root", "--format", "json"],
@@ -155,13 +162,16 @@ def run_script(rel: str) -> dict | None:
         return None
     # The absolute fixture path differs per machine, so it can never be snapshotted.
     data["repo"] = "<fixture>"
+    for key in drop:
+        data.pop(key, None)
     return data
 
 
 def check_snapshots(update: bool) -> None:
     SNAPSHOTS.mkdir(parents=True, exist_ok=True)
-    for key, (rel,) in ((k, tuple(v)) for k, v in SNAPSHOT_SCRIPTS.items()):
-        actual = run_script(rel)
+    for key, spec in SNAPSHOT_SCRIPTS.items():
+        rel = spec["path"]
+        actual = run_script(rel, spec["drop"])
         if actual is None:
             continue
         snap = SNAPSHOTS / f"{key}.json"
