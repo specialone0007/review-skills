@@ -92,7 +92,7 @@ Or copy a skill folder into your agent's skills directory:
 ~/.cursor/skills/<skill-name>/
 ```
 
-Each folder holds a `SKILL.md`, an `agents/openai.yaml` with Codex interface metadata, and — for some skills — a bundled read-only Python script that uses only the standard library. Scripts are accelerators; every skill still works without them.
+Each folder holds a `SKILL.md`, an `agents/openai.yaml` with Codex interface metadata, and, for most of them, a bundled read-only Python script that uses only the standard library. Scripts are accelerators; every skill still works without them.
 
 ## Safety
 
@@ -102,7 +102,7 @@ One precise exception: `pr-branch-summary` may run `git fetch origin <base>` whe
 
 To authorize implementation, ask explicitly — "fix these findings", "add the suggested tests", "update the stale docs".
 
-As with any third-party agent skill, read the skill contents before enabling it in a trusted environment. Everything here is plain Markdown plus one small Python script, so it is quick to audit.
+As with any third-party agent skill, read the skill contents before enabling it in a trusted environment. Everything here is plain Markdown plus a handful of small standard-library Python scripts, so it is quick to audit.
 
 ## Contributing
 

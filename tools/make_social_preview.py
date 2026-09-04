@@ -37,6 +37,9 @@ ACCENT = "#7ee787"    # green, for the evidence path
 SEV = "#ff7b72"       # red, for the severity label
 BLUE = "#79c0ff"
 
+TITLE = "Review Skills"
+SUBTITLE = "Evidence-first code audits for any SKILL.md agent"
+
 SKILLS = [
     "feature-audit", "security-audit", "test-gap-audit", "docs-sync-audit",
     "repo-health-audit", "feature-brainstorm", "pr-branch-summary",
@@ -74,7 +77,14 @@ def main() -> int:
     ap.add_argument("--out", default="assets/social-preview.png", help="Output PNG path.")
     args = ap.parse_args()
 
+    # Auto-fit the title. It is the string most likely to be edited later, and a
+    # longer name would otherwise run off the canvas with no warning.
     f_title = font(SANS_BOLD, 68)
+    probe = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    size = 68
+    while size > 34 and probe.textlength(TITLE, font=f_title) > W - 62 * 2:
+        size -= 2
+        f_title = font(SANS_BOLD, size)
     f_sub = font(SANS, 30)
     f_chip = font(MONO, 23)
     f_code = font(MONO, 21)
@@ -89,9 +99,8 @@ def main() -> int:
     d.rectangle([0, 0, 10, H], fill=ACCENT)
 
     x = 62
-    d.text((x, 54), "Review Skills", font=f_title, fill=FG)
-    d.text((x, 138), "Evidence-first code audits for any SKILL.md agent",
-           font=f_sub, fill=MUTED)
+    d.text((x, 54), TITLE, font=f_title, fill=FG)
+    d.text((x, 138), SUBTITLE, font=f_sub, fill=MUTED)
 
     # Skill name chips, wrapped to fit the width.
     cx, cy = x, 200
