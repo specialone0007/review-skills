@@ -1,11 +1,12 @@
 {
   "ecosystems": [
-    "javascript"
+    "javascript",
+    "python"
   ],
   "network_allowed": false,
   "offline_signals": [
     {
-      "detail": "javascript: no lockfile beside this manifest (looked for package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb). Installs are not reproducible.",
+      "detail": "javascript: no lockfile beside this manifest (looked for package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb), and the manifest does not pin exact versions. Installs are not reproducible.",
       "kind": "missing-lockfile",
       "line": null,
       "path": "package.json",
@@ -31,6 +32,13 @@
       "line": null,
       "path": "package.json",
       "severity": "medium"
+    },
+    {
+      "detail": "python: no lockfile beside this manifest, but every direct dependency is pinned to an exact version. Direct versions are therefore reproducible; what is missing is hash pinning and pinned transitive dependencies, so a compromised transitive release could still be picked up.",
+      "kind": "missing-lockfile",
+      "line": null,
+      "path": "requirements.txt",
+      "severity": "low"
     }
   ],
   "repo": "<fixture>",

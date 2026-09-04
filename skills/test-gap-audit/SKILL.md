@@ -77,6 +77,7 @@ If scope is blurry, infer the smallest useful boundary and state it. If no scope
    - Run focused test discovery or relevant existing tests when quick and repo-conventional.
    - Use test list commands, grep/search, typecheck, lint, or focused test files as appropriate.
    - Do not install dependencies, start long-running services, or run expensive full suites unless the user asks or the repo clearly expects it.
+   - Never run a command that writes into the repository as a side effect. `python -m compileall` and `py_compile` emit `.pyc` files, formatters rewrite sources, and installers touch lockfiles. `.pyc` output is usually gitignored, so `git status` will look clean while the tree has in fact been modified. Prefer checks that write nothing, and if a language offers no read-only check, say so under checks skipped.
    - Record checks run and skipped.
 
 ## Severity Rubric
@@ -88,6 +89,10 @@ If scope is blurry, infer the smallest useful boundary and state it. If no scope
 
 ## Evidence Standards
 
+- Verify every citation before you write it. Re-read the exact range and confirm it contains what you are describing. When citing a named symbol, function, CTE, or block, cite the line where the name is defined, not a line inside a neighbouring block. When quoting text, cite the file the quote is actually in. Prefer a single anchor line containing a distinctive token over a hand-counted range.
+- When you attribute a finding to a tool's output, quote the path and line the tool itself reported. Never infer which lines a linter or type checker fired on by reading the code. If the tool's output does not name the line, report the pattern without claiming the tool flagged it.
+- Never restate a count from a grep, a script, or a tool without the raw output in front of you. If you cannot re-derive the number, describe the pattern instead of counting it.
+- Before reporting that something is absent -- undocumented config, an unused dependency, a missing control, a variable nothing reads -- check every plausible location, not the first one. For a config variable that means the README, env sample files, deploy manifests, comments, and the transitive callers of whatever helper reads it. For a dependency it means whether it is a documented transitive requirement of something you do use. A negative claim from a single grep is not evidence.
 - Cite the behavior or changed code and the existing/missing test area.
 - Include file and line references whenever possible.
 - Explain what current tests prove and what they do not prove.

@@ -27,7 +27,8 @@
     "tests/smoke.test.js",
     ".env.example",
     "README.md",
-    "package.json"
+    "package.json",
+    "requirements.txt"
   ],
   "directories": [
     {
@@ -37,8 +38,8 @@
     },
     {
       "dir": "(root)",
-      "files": 3,
-      "lines": 37
+      "files": 4,
+      "lines": 40
     },
     {
       "dir": "tests",
@@ -64,6 +65,10 @@
     },
     {
       "ext": ".json",
+      "files": 1
+    },
+    {
+      "ext": ".txt",
       "files": 1
     }
   ],
@@ -143,6 +148,11 @@
       "bytes": 56,
       "lines": 3,
       "path": "src/routes/health.js"
+    },
+    {
+      "bytes": 53,
+      "lines": 3,
+      "path": "requirements.txt"
     }
   ],
   "lockfiles": [],
@@ -150,12 +160,15 @@
   "stacks": {
     "JavaScript/TypeScript": [
       "package.json"
+    ],
+    "Python": [
+      "requirements.txt"
     ]
   },
   "totals": {
     "doc_files": 1,
-    "files": 15,
-    "lines": 119,
+    "files": 16,
+    "lines": 122,
     "test_files": 3
   },
   "warnings": []

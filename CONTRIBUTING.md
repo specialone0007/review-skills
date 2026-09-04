@@ -96,6 +96,21 @@ python tools/validate_evals.py --checklist security-audit
 
 Do this whenever you touch a `description`, since that is what decides routing. There is deliberately no LLM judge in CI: it costs money on every push, is flaky, needs an API key in a public repo, and would rot.
 
+## Trialling the skills on real code
+
+The eval fixture is deliberately small, which means it cannot catch everything. A 15-file fixture has no room for line numbers to drift, so citation errors are invisible in it. Running the skills against a real, non-trivial repository is the only way to find that class of defect, and it is worth doing before a release.
+
+**This repository is public. What you learn from a private repo stays private.**
+
+When you write up a trial, in a commit message, a pull request, an issue, or a file here:
+
+- Do not name the repository. "A real private production repository (JS frontend plus Python backend, roughly 50 files)" carries every bit of context a reader needs.
+- Do not quote its file paths, line numbers, function names, table names, or environment variable names. Describe the shape instead: "an audit cited a range seventeen lines away from the block it described" says the same thing as the real path and proves the same point.
+- Do not copy its dependency names, internal directory names, or config keys into examples or code comments. Use a generic placeholder.
+- Numbers and ratios are fine, and are usually the useful part: 91 of 106 findings verified, 211 findings before a fix and 3 after.
+
+Before pushing a write-up, grep your own commit message and PR body for the repository name and for any identifier you copied out of it. It is much easier than editing a published commit afterwards.
+
 ## Bundled scripts
 
 Scripts must:

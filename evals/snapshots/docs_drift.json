@@ -27,7 +27,7 @@
   ],
   "repo": "<fixture>",
   "totals": {
-    "docs_checked": 1,
+    "docs_checked": 2,
     "env_names_documented": 2,
     "env_names_in_code": 2,
     "findings": 3,
