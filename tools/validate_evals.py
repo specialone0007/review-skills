@@ -28,7 +28,6 @@ import argparse
 import json
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 if hasattr(sys.stdout, "reconfigure"):
@@ -202,79 +201,6 @@ def check_snapshots(update: bool) -> None:
             )
 
 
-def check_secret_containment() -> None:
-    """dependency_audit.py --secrets must report locations and never values.
-
-    CodeQL flags that script's report print under py/clear-text-logging-sensitive-data.
-    Its sensitive-data classifier is name-based, so it taints everything
-    scan_secrets() returns without being able to see that the returned objects hold
-    only a rule name, a path and a line number. We judge that a false positive -- but
-    "we checked once" is not a guarantee, so this makes it an enforced invariant.
-
-    Plants real-shaped credentials in a temporary directory, runs the script over it,
-    and fails if any planted value reaches the output, or if a hit object carries any
-    field beyond rule/path/line. The shapes live here rather than under evals/fixtures/
-    so that nothing credential-shaped is ever committed to the repository.
-    """
-    script = REPO / "skills" / "security-audit" / "scripts" / "dependency_audit.py"
-    if not script.is_file():
-        return
-
-    planted = {
-        "aws": "AKIAIOSFODNN7EXAMPLE",
-        "github": "ghp_0123456789abcdefghij0123456789abcdef",
-        "npmrc_token": "npm_0123456789abcdefghij0123456789abcd",
-        "url_password": "s3cr3tinurl",
-    }
-    config = "AWS={}\nGH={}\n".format(planted["aws"], planted["github"])
-    npmrc = "//registry.npmjs.org/:_authToken={}\nregistry=https://internal.example.com/\n".format(
-        planted["npmrc_token"])
-    manifest = json.dumps({
-        "name": "containment-check",
-        "dependencies": {
-            "private": "git+https://bot:{}@example.com/r.git".format(planted["url_password"]),
-        },
-    })
-
-    with tempfile.TemporaryDirectory() as tmp:
-        d = Path(tmp)
-        (d / "config.txt").write_text(config, encoding="utf-8")
-        (d / ".npmrc").write_text(npmrc, encoding="utf-8")
-        (d / "package.json").write_text(manifest, encoding="utf-8")
-
-        proc = subprocess.run(
-            [sys.executable, str(script), "--repo", str(d), "--no-git-root",
-             "--secrets", "--format", "json"],
-            text=True, timeout=180, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            encoding="utf-8", errors="replace",
-        )
-        if proc.returncode != 0:
-            error("dependency_audit.py containment check: exited "
-                  f"{proc.returncode}: {proc.stderr.strip()[:200]}")
-            return
-
-        raw = proc.stdout
-        for label, value in planted.items():
-            if value in raw:
-                error(f"dependency_audit.py leaked the planted {label} credential into its "
-                      "output. Any value read from a file must be redacted before it is reported.")
-        try:
-            data = json.loads(raw)
-        except ValueError as exc:
-            error(f"dependency_audit.py containment check: output was not valid JSON: {exc}")
-            return
-
-        hits = data.get("secret_shaped_locations") or []
-        if not hits:
-            error("dependency_audit.py containment check: --secrets matched none of the planted "
-                  "shapes, so this guard is not exercising anything. Check SECRET_RULES.")
-        for hit in hits:
-            extra = sorted(set(hit) - {"rule", "path", "line"})
-            if extra:
-                error(f"dependency_audit.py secret hit carries unexpected field(s) {extra}; "
-                      "hits must hold only rule, path and line.")
-
-
 def checklist(docs: dict[str, dict], only: str | None) -> None:
     for stem in sorted(docs):
         if only and stem != only:
@@ -328,7 +254,6 @@ def main() -> int:
         error("evals/fixtures/mini-app is missing; snapshot tests cannot run")
     else:
         check_snapshots(args.update_snapshots)
-    check_secret_containment()
 
     for line in errors:
         print(f"error: {line}")

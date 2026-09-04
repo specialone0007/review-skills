@@ -5,7 +5,6 @@ Read-only. Standard library only. Installs nothing. Modifies nothing.
 
     python dependency_audit.py                       # offline signals only
     python dependency_audit.py --allow-network       # also run auditors that need a registry
-    python dependency_audit.py --secrets             # add a high-precision secret-shape pass
     python dependency_audit.py --format json
 
 Two halves, and the split matters.
@@ -23,7 +22,12 @@ explicit opt-in and the skill is told to ask first. Tools that are absent are
 reported as skipped with a reason, never silently ignored.
 
 This never installs, never runs a `fix` subcommand, and never passes a flag that
-could rewrite a lockfile.
+could rewrite a lockfile. Any value read out of a file -- a dependency spec, a
+registry setting -- is redacted before it is reported, because a private
+dependency URL routinely carries a credential.
+
+Secret scanning is deliberately out of scope. Use gitleaks or trufflehog, which
+do it properly.
 """
 
 from __future__ import annotations
@@ -93,25 +97,11 @@ INSTALL_HOOKS = ("preinstall", "install", "postinstall", "prepare", "prepublish"
 NON_REGISTRY = re.compile(r"^(file:|link:|git\+|git:|https?:|github:|portal:)")
 UNPINNED = re.compile(r"^(\*|latest|x|X)$")
 
-# Deliberately narrow: shapes that are almost never anything but a credential.
-# Reports rule name and location only -- never the matched text. The security-audit
-# skill forbids printing a secret value, and a helper must not undercut that.
-SECRET_RULES = [
-    ("aws-access-key-id", re.compile(r"\b(?:AKIA|ASIA)[0-9A-Z]{16}\b")),
-    ("github-token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{36,}\b")),
-    ("slack-token", re.compile(r"\bxox[abprs]-[0-9A-Za-z-]{10,}\b")),
-    ("private-key-block", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----")),
-    ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
-    ("stripe-secret-key", re.compile(r"\bsk_live_[0-9A-Za-z]{24,}\b")),
-    ("npm-token", re.compile(r"\bnpm_[A-Za-z0-9]{36}\b")),
-]
-SECRET_SKIP_DIRS = {
+# Noise directories to skip when git is unavailable and we walk the tree ourselves.
+SKIP_DIRS = {
     ".git", "node_modules", "vendor", "venv", ".venv", "dist", "build", "target",
     "__pycache__", ".next", "coverage", ".terraform",
 }
-SECRET_SKIP_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".pdf", ".zip",
-                   ".gz", ".tar", ".woff", ".woff2", ".ttf", ".eot", ".mp4", ".mp3"}
-
 warnings: list[str] = []
 
 
@@ -148,7 +138,7 @@ def list_files(repo: Path) -> list[str]:
     warnings.append("git unavailable or empty index; scanning the filesystem instead")
     files = []
     for p in repo.rglob("*"):
-        if p.is_file() and not any(part in SECRET_SKIP_DIRS for part in p.parts):
+        if p.is_file() and not any(part in SKIP_DIRS for part in p.parts):
             files.append(p.relative_to(repo).as_posix())
     return sorted(files)
 
@@ -365,26 +355,6 @@ def parse_findings(tool: str, out: str) -> list[dict]:
     return findings
 
 
-def scan_secrets(repo: Path, files: list[str]) -> list[dict]:
-    """Report location and rule name only. Never the matched text."""
-    hits: list[dict] = []
-    for rel in files:
-        p = Path(rel)
-        if p.suffix.lower() in SECRET_SKIP_EXT or any(x in p.parts for x in SECRET_SKIP_DIRS):
-            continue
-        text = read(repo / rel)
-        if not text:
-            continue
-        for i, line in enumerate(text.splitlines(), start=1):
-            if len(line) > 2000:
-                continue
-            for rule, pattern in SECRET_RULES:
-                if pattern.search(line):
-                    hits.append({"rule": rule, "path": rel, "line": i})
-                    break
-    return hits
-
-
 def render(d: dict, top: int) -> str:
     L = ["# Dependency And Supply-Chain Survey", "", f"Repo: {d['repo']}",
          f"Ecosystems detected: {', '.join(d['ecosystems']) or 'none'}", ""]
@@ -424,19 +394,6 @@ def render(d: dict, top: int) -> str:
             L.append(f"    tool output: {a['raw_excerpt'].splitlines()[0][:200]}")
     L.append("")
 
-    if d["secret_shaped_locations"] is not None:
-        L.append("## Secret-shaped strings")
-        L.append("Rule name and location only. Values are never printed, and this is a narrow")
-        L.append("shape check, not a replacement for gitleaks or trufflehog.")
-        if d["secret_shaped_locations"]:
-            for h in d["secret_shaped_locations"][:top]:
-                L.append(f"- [{h['rule']}] {h['path']}:{h['line']}")
-            if len(d["secret_shaped_locations"]) > top:
-                L.append(f"  TRUNCATED: showing {top} of {len(d['secret_shaped_locations'])}")
-        else:
-            L.append("- none matched")
-        L.append("")
-
     if d["warnings"]:
         L.append("## Warnings")
         L.extend(f"- {w}" for w in d["warnings"])
@@ -456,8 +413,6 @@ def main() -> int:
     ap.add_argument("--top", type=int, default=25, help="Rows per section. Default 25.")
     ap.add_argument("--allow-network", action="store_true",
                     help="Permit auditors that contact a package registry or advisory service. Off by default.")
-    ap.add_argument("--secrets", action="store_true",
-                    help="Add a narrow secret-shape pass. Reports rule and location only, never the value.")
     ap.add_argument("--no-git-root", action="store_true",
                     help="Treat --repo literally instead of expanding to the enclosing git repository root.")
     args = ap.parse_args()
@@ -483,7 +438,6 @@ def main() -> int:
         "network_allowed": args.allow_network,
         "offline_signals": offline_signals(repo, files),
         "auditors": run_auditors(repo, files, args.allow_network),
-        "secret_shaped_locations": scan_secrets(repo, files) if args.secrets else None,
         "warnings": warnings,
     }
     print(json.dumps(data, indent=2) if args.format == "json" else render(data, args.top))
