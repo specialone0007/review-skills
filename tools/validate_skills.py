@@ -235,6 +235,11 @@ def check_skill(folder: Path, all_names: set[str]) -> str | None:
         error(skill_md, 1, "missing required section `## Agent Portability Notes`")
     if "## Report Format" not in text and "## Required Output" not in text:
         error(skill_md, 1, "missing an output contract: add `## Report Format` or `## Required Output`")
+    # The README promises every skill names its neighbours. Checking only that the
+    # entries resolve let feature-audit ship with no section at all.
+    if "## Related Skills" not in text:
+        error(skill_md, 1, "missing required section `## Related Skills`; the README states every "
+                           "skill names its nearest neighbours so the agent can route itself")
 
     # 9. Related Skills must resolve
     for i, raw in enumerate(lines, start=1):
@@ -260,6 +265,11 @@ def check_paths_and_links() -> None:
         # evals/fixtures/ is intentionally defective -- that is what the eval cases audit.
         # Policing it here would mean fixing the very drift the fixture exists to contain.
         if "fixtures" in path.parts and "evals" in path.parts:
+            continue
+        # examples/ holds verbatim skill output. Those reports quote paths and links as
+        # evidence -- including deliberately bad ones inside a suggested fix -- and their
+        # value depends on being unedited. They are regenerated wholesale, not maintained.
+        if "examples" in path.parts:
             continue
         for i, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
             if bad_path.search(raw):

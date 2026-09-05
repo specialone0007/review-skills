@@ -331,8 +331,14 @@ def run_auditors(repo: Path, files: list[str], allow_network: bool) -> list[dict
         # three skip reasons for one ecosystem obscures which tool is in play.
         chosen = next(((t, c, n) for t, c, n in ordered if shutil.which(c[0])), None)
         if preferred and chosen and chosen[0] != preferred:
-            lock_note = (f" The lockfile indicates {preferred}, but {preferred} is not installed, "
-                         f"so {chosen[0]} was used instead; its result may not match your install.")
+            known = {t for t, _, _ in candidates}
+            if preferred not in known:
+                # e.g. a bun.lockb: we can identify the manager but have no auditor for it.
+                lock_note = (f" The lockfile indicates {preferred}, which has no supported auditor here, "
+                             f"so {chosen[0]} was used instead; its result may not match your install.")
+            else:
+                lock_note = (f" The lockfile indicates {preferred}, but {preferred} is not installed, "
+                             f"so {chosen[0]} was used instead; its result may not match your install.")
         if chosen is None:
             names = ", ".join(c[0] for _, c, _ in candidates)
             results.append({"ecosystem": ecosystem, "tool": None, "command": None, "ran": False,

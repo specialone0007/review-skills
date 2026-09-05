@@ -15,7 +15,14 @@ concurrency:
 jobs:
   validate:
     name: Validate skills
-    runs-on: ubuntu-latest
+    # Both legs on purpose. This validator does path handling and file decoding, and
+    # the repository has already been bitten once by a line-ending difference, so the
+    # five seconds Windows costs is worth it.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
@@ -102,15 +109,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Use a base with real commits behind it. HEAD as its own base gives an
+          # empty diff, so the commit-and-diff printing path is never exercised --
+          # which is how a missing UTF-8 stdout guard survived here unnoticed.
+          BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
           python skills/pr-branch-summary/scripts/collect_pr_context.py \
-            --base "$(git rev-parse HEAD)" --max-diff-lines 20 > /dev/null
+            --base "$BASE" --max-diff-lines 200 > /dev/null
           # The skill promises it never writes to the working tree.
           test -z "$(git status --porcelain)" || {
             echo "script modified the working tree:"; git status --porcelain; exit 1;
           }
 
+      # Deliberately not py_compile: it writes .pyc into the checkout, the exact
+      # side effect skills/feature-audit/SKILL.md tells agents never to cause.
       - name: Bundled scripts are syntactically valid
         shell: bash
         run: |
           set -euo pipefail
-          find skills -name '*.py' -print0 | xargs -0 -n1 python -m py_compile
+          find skills tools -name '*.py' -print0 | xargs -0 python -c '
+          import ast, pathlib, sys
+          for f in sys.argv[1:]:
+              ast.parse(pathlib.Path(f).read_text(encoding="utf-8"), filename=f)
+          print(f"{len(sys.argv) - 1} scripts parsed")'
