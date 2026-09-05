@@ -105,6 +105,7 @@ If the user only asks for a Telegram/team message, return just `**Telegram Messa
 - Avoid over-explaining transient local/deploy fixes in Telegram messages unless the user specifically asks for build/deploy details.
 - Verify every commit you cite as evidence. Before naming a commit as a revert, a churn hotspot, or proof that a subsystem is risky, run `git show --stat <hash>` and confirm its diff actually touches that subsystem. Never assemble a revert or churn list from `git log --grep` alone; the message and the diff disagree often enough to matter.
 - State real counts. If you write "four reverts", list exactly four. A hedge like "at least four" followed by six hashes tells the reader the list was grepped rather than checked.
+- Any number you state -- files changed, commits, insertions -- must come from a command you actually ran, and name that command in the Testing section. `git diff --stat` reports the real figure; do not estimate it from a file list you scrolled past.
 
 ## Manual Git Fallback
 
