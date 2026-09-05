@@ -10,6 +10,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Everything this script prints is user content: commit subjects, git status and a
+# full diff. On a default Windows console one emoji or CJK character anywhere in the
+# branch would raise UnicodeEncodeError and kill the run, so never let it.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 def run_git(args: list[str], cwd: Path, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
