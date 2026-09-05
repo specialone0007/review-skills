@@ -77,7 +77,8 @@ Do not recommend:
 
 Evidence rules:
 
-- Verify every citation before you write it. Re-read the exact range and confirm it contains what you describe, and cite the line where a named symbol is defined rather than a neighbouring block. Prefer a single anchor line containing a distinctive token over a hand-counted range.
+- Verify every citation before you write it, and apply one test: the line you cite must literally contain the thing you name. Not the blank line above a definition, not the decorator above it, not a line inside a nearby multi-line literal. When you quote text, cite the line the quoted characters are on.
+- Any number you state must appear next to the command that produced it. If you will not show the command, describe the pattern instead of counting it.
 
 ## Report Format
 

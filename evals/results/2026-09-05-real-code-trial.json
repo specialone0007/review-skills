@@ -1,0 +1,50 @@
+{
+  "date": "2026-09-05",
+  "model": "claude-opus-5",
+  "kind": "real-code trial",
+  "target": "A real private production repository, JS frontend plus Python backend, roughly 50 files. Not named here: this repository is public. See the trial-write-up rules in CONTRIBUTING.md.",
+  "method": "Each of the seven skills produced a real report on the same repository, from the same prompt, in both runs. A separate judge then opened every cited file and checked the line numbers, rather than grading the prose. The judge was told to read the repository itself and was blocked from reading evals/.",
+
+  "runs": [
+    {
+      "run": 1,
+      "label": "baseline, before any trial fixes",
+      "spot_checked": 106,
+      "confirmed": 91,
+      "errors": 15,
+      "grading": "Holistic. The judge decided 'accurate or wrong' per finding, with no instruction separating a false claim from a true claim carrying a misplaced pointer.",
+      "findings": [
+        "Six of the seven skills independently produced the same fix suggestion: citation accuracy. Claims were usually true but the path:line pointers were not.",
+        "Worst cases: a citation seventeen lines from the block it described, missing the single line that proved its own case; linter findings attributed to four lines the linter never reported.",
+        "Two absence errors: a config variable reported as undocumented when the README documented it, and three packages recommended for removal that were transitive dependencies of a package the project does use. The second would have broken the running service.",
+        "One read-only breach: an audit ran compileall, writing two .pyc files into the target tree. Because __pycache__/ is gitignored, git status reported clean while the tree had been modified."
+      ]
+    },
+    {
+      "run": 2,
+      "label": "after the five fixes in the first correction pass",
+      "spot_checked": 117,
+      "confirmed": 95,
+      "citation_errors": 16,
+      "substantive_errors": 6,
+      "absence_errors": 0,
+      "unresolvable_pointers": 0,
+      "grading": "Stricter, and deliberately not comparable to run 1 as a percentage. Judges were told that a true claim with a misplaced pointer counts as a citation error rather than a confirmation. Run 1 had no such rule, so the confirmation rates measure different things. Treat the per-class counts as the real result.",
+      "verified_fixed": [
+        "Absence claims: 0 errors across all seven skills, against at least two in run 1 including the dependency-removal advice.",
+        "Read-only: compileall used by none of the seven, no files modified, and the target repository was byte-identical afterwards -- same HEAD, same tracked-change count, same .pyc count and timestamps as a snapshot taken before the run.",
+        "Gross misplacement: no pointer was unresolvable in either run, and judges repeatedly reported structural pointers -- decorators, except blocks, router dependencies, multi-line ranges -- as exact every time they were checked.",
+        "feature-audit specifically went from 3 errors to 0, rated 'excellent', with every pointer across 19 findings landing exactly. It had the worst citation problems in run 1. Its tool attributions were re-verified by re-running the linter and matched character for character."
+      ],
+      "still_broken": [
+        "Fine-grained anchoring. Pointers land on the blank line above a definition, on a decorator, or inside a multi-line literal near the symbol rather than on the symbol's own line. One skill's anchors in a single file sat consistently two lines above the def they named.",
+        "Quoted-text drift. When a report quotes a comment or a sentence of prose, the line number slides by a few lines, typically onto adjacent code or a nearby heading. One outlier pointed 179 lines away.",
+        "Count restatement. Two skills restated numbers that did not reproduce. The run-1 fix forbade this outright and was ignored twice, which is why the rule was rewritten as a requirement to show the command instead of a prohibition on stating the number."
+      ]
+    }
+  ],
+
+  "conclusion": "The skills are useful on real code, and that is now measured rather than assumed: no claim in either run was unresolvable, and the second run found zero absence errors and zero writes to the target repository. The citation rule fixed the class it was written for -- wrong block, wrong tool attribution -- and left a narrower one it never addressed, which the third pass targets: anchor on the line that literally contains the named symbol, cite quoted text at the line the characters are on, and evidence every number with the command that produced it.",
+  "lesson": "The 15-file fixture cannot surface this class of defect at all, because it is too small for line numbers to drift. Run a real-code trial before a release, and record it here.",
+  "next": "A third run would measure the anchoring fix. Expect diminishing returns: the remaining disagreements are about one or two lines, not about whether findings are real."
+}
