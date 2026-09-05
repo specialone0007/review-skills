@@ -284,16 +284,24 @@ def check_paths_and_links() -> None:
 
 
 def check_readme(all_names: set[str]) -> None:
-    """10. The README's skill table must list exactly the skills that exist."""
+    """10. The README must present exactly the skills that exist.
+
+    Format-agnostic on purpose: a skill may be introduced by a table row or by its own
+    heading. Pinning this to one layout meant a README rewrite failed the build for a
+    presentational change, which is not what this check is for. What it protects is that
+    the README and the skills/ directory agree.
+    """
     readme = REPO / "README.md"
     if not readme.is_file():
         errors.append("README.md: missing")
         return
-    listed = set(re.findall(r"^\|\s*`([a-z0-9-]+)`\s*\|", readme.read_text(encoding="utf-8"), re.MULTILINE))
+    text = readme.read_text(encoding="utf-8")
+    listed = set(re.findall(r"^\|\s*`([a-z0-9-]+)`\s*\|", text, re.MULTILINE))
+    listed |= set(re.findall(r"^#{2,4}\s+`([a-z0-9-]+)`", text, re.MULTILINE))
     for missing in sorted(all_names - listed):
-        errors.append(f"README.md: skill `{missing}` exists but is not listed in the skills table")
+        errors.append(f"README.md: skill `{missing}` exists but the README does not present it")
     for extra in sorted(listed - all_names):
-        errors.append(f"README.md: table lists `{extra}`, which is not a skill directory")
+        errors.append(f"README.md: presents `{extra}`, which is not a skill directory")
 
 
 def main() -> int:
