@@ -25,6 +25,8 @@ Ten mechanical rules, each with a fixed severity. None of them judges prose.
   R8  the same distinctive number in three or more docs (warning only)
   R9  a checklist index's todo / doing / done counts equal the boxes in the file (opt-in)
   R10 every doc under a folder appears in a registry table (opt-in)
+  R11 the front door points at the index: the root README links the central index, and
+      does not keep a parallel list of docs that would drift from it
 
 Configuration is a small JSON manifest, by default `docs/structure.json` under the repo.
 Without one the script discovers a docs root and proposes a manifest; it never writes it.
@@ -62,12 +64,14 @@ GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress")
 GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*")
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
-            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2"}
+            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1"}
+FRONT_DOOR_PARALLEL = 8  # a README linking this many docs under the roots is a second index
 RULE_TITLE = {
     "R1": "reachable from an index", "R2": "owner line", "R3": "oversize doc",
     "R4": "index and folder agree", "R5": "links and anchors resolve",
     "R6": "backticked paths exist", "R7": "line-number citations",
     "R8": "duplicated measurement", "R9": "checklist counts", "R10": "registry",
+    "R11": "front door links the index",
 }
 
 DEFAULT_MANIFEST = {
@@ -85,6 +89,7 @@ DEFAULT_MANIFEST = {
     "counts": [],
     "registries": [],
     "existingChecker": None,
+    "frontDoor": "README.md",
     "ignore": [],
 }
 
@@ -810,6 +815,21 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 if posix(f, repo) not in linked:
                     add("R10", posix(table, repo), 1, f"registry does not list {posix(f, repo)}")
 
+    # ---- R11 the front door. A repo's README is where a reader starts; if a central index
+    #      exists the README must hand off to it, and should not keep its own list of docs.
+    front_rel = manifest.get("frontDoor") or "README.md"
+    front = repo / front_rel
+    if central_exists and front.is_file() and not r1_off:
+        fdoc = by_rel.get(front_rel) or Doc(front, repo)
+        outgoing = links_out(fdoc)
+        if central_rel not in outgoing:
+            add("R11", front_rel, 1, f"front door does not link the central index {central_rel}")
+        root_dirs = [posix(r, repo) for r in roots if r.is_dir()]
+        parallel = sorted(t for t in outgoing if t != central_rel and any(t.startswith(rd + "/") for rd in root_dirs) and t in by_rel)
+        if len(parallel) >= FRONT_DOOR_PARALLEL:
+            add("R11", front_rel, 1,
+                f"front door links {len(parallel)} docs directly - a second index that will drift from {central_rel}; keep a handful and point at the index", "warn")
+
     # ---- placeholders
     placeholders = 0
     for d in docs:
@@ -842,6 +862,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             "counts": [],
             "registries": [],
             "existingChecker": None,
+            "frontDoor": "README.md",
             "ignore": ["**/*.csv", "**/*.xlsx"] if non_doc else [],
         }
 

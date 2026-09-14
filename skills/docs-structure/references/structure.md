@@ -35,6 +35,10 @@ plus 25 phase files, so an agent loads about 175 lines to start work instead of 
   at the code they described. Cite a symbol or a log tag.
 - **R8 duplicated measurement.** One doc owns the number, one headline mention elsewhere
   is fine, a third copy is what gets flagged. Warning only.
+- **R11 front door.** A README is where every reader starts. If it does not hand off to
+  the index, the index might as well not exist; if it keeps its own list of a dozen docs,
+  that list is a second index and the two drift within weeks. The README says what the
+  project is and how to run it, then points at the index once.
 - **R9 checklist counts** and **R10 registry** are conventions from one repo: a task index
   whose todo / doing / done columns must equal the boxes in the phase file, and a research
   folder whose every file must appear in one registry table. Off by default; the manifest
@@ -68,6 +72,7 @@ manifest carries the detected list so committing it freezes the result.
   "counts": [{ "index": "docs/CHECKLIST.md", "folder": "docs/checklist" }],
   "registries": [{ "folder": "docs/experiments", "table": "docs/REGISTRY.md", "except": ["LOG.md"] }],
   "existingChecker": null,
+  "frontDoor": "README.md",
   "ignore": ["**/*.csv"]
 }
 ```

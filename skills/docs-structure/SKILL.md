@@ -18,7 +18,7 @@ Check the shape of a repository's documentation, not its truth. Report what an a
 - No finding without severity and `path:line`, with two defined exceptions: a missing central index is a single P1 anchored to the manifest line or to the first unreachable doc, and an R8 duplicate anchors to the first doc carrying the number, without a line.
 - Never create a branch, stage, commit, push, or open a PR. Never edit `package.json`, a Makefile or CI configuration. Never copy the script into the target repo. Version control stays with the user.
 
-## The ten rules
+## The eleven rules
 
 | # | rule | default | severity |
 | --- | --- | --- | --- |
@@ -32,6 +32,7 @@ Check the shape of a repository's documentation, not its truth. Report what an a
 | R8 | the same distinctive measurement (`12.3%`, `$4.10`, `0.512`) in three or more docs | warning only; skipped in record folders | P3 |
 | R9 | a checklist index's todo / doing / done counts equal the boxes in the file it links | opt-in via manifest `counts` | P2 |
 | R10 | every doc under folder X is linked from table Y | opt-in via manifest `registries` | P2 |
+| R11 | the front door hands off to the index: the root README (manifest `frontDoor`) links the central index; a README that links eight or more docs directly is a second index and gets a warning | on when a central index exists | P1 |
 
 Record folders are `plans`, `specs`, `archive`, `log`, `logs`, `audit-*`, any folder with a date in its name, or one where more than half the files carry a ticket or date prefix. They describe a moment, so R6 and R7 downgrade to warnings there and R8 skips them. A manifest that sets `recordFolders` replaces the heuristic with that list; `exempt` handles single rules.
 
@@ -63,12 +64,12 @@ Without a scope, audit the whole repository. Do not ask for a scope; discovery b
 
 5. If there is no manifest, include the proposed one verbatim and mark it as a proposal. The user commits it, not you.
 
-The manual fallback when the script cannot run: list every `.md` under the docs root, check each for a link from the index, check each relative link and `#anchor` against the target's headings, grep for `\.(ts|js|py|...):\d+`, and count line lengths. Say which rules you could not check by hand.
+The manual fallback when the script cannot run: list every `.md` under the docs root, check each for a link from the index, check each relative link and `#anchor` against the target's headings, grep for `\.(ts|js|py|...):\d+`, count line lengths, and confirm the README links the index. Say which rules you could not check by hand.
 
 ## Severity Rubric
 
 - `P0`: not used. Nothing structural is an outage.
-- `P1`: a reader cannot get there. A doc unreachable from any index, a dead link or anchor, an index that omits a file in its folder.
+- `P1`: a reader cannot get there. A doc unreachable from any index, a dead link or anchor, an index that omits a file in its folder, a README that never points at the index.
 - `P2`: a reader gets there and is misled or overloaded. A doc with no owner statement, a doc past one context load, a citation into a line number that no longer holds, a checklist count that disagrees with its file, a registry with a gap.
 - `P3`: hygiene. A number copied into three or more docs, a backticked path that no longer exists.
 

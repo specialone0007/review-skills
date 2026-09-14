@@ -95,6 +95,13 @@
       "title": "registry",
       "warnings": 0
     },
+    "R11": {
+      "failures": 0,
+      "first": [],
+      "severity": "P1",
+      "title": "front door links the index",
+      "warnings": 0
+    },
     "R2": {
       "failures": 0,
       "first": [
