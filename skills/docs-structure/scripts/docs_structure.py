@@ -66,9 +66,14 @@ TOP_LEVEL_SKIP = {"dist", "build"}
 DOC_EXTS = {".md", ".mdx"}
 ROOT_FILES = ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md")
 DOCS_FOLDER_NAMES = ("docs", "doc", "documentation")
-RECORD_NAMES = {"plans", "specs", "archive", "log", "logs"}
-GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress")
-GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*")
+RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
+# A docs site generator owns navigation and URLs; looked for at the repo root and in each docs root.
+GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress", "hugo.toml", "book.toml")
+GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*", "astro.config.*", "conf.py")
+# Folders whose contents describe something other than this repo; ignored when deciding what the repo is.
+EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests", "__tests__", "spec", "specs"}
+CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".go", ".rs", ".rb", ".php",
+             ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh", ".sql", ".html", ".astro"}
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
             "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2"}
@@ -146,6 +151,19 @@ def read(path: Path) -> str:
         return path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return ""
+
+
+def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 12):
+    """os.walk with pruning: dot-folders, tooling folders and (optionally) more never get entered.
+    Yields (dirpath, dirnames, filenames) with dirnames already pruned."""
+    skip = ALWAYS_SKIP | (skip_names or set())
+    base_depth = len(root.parts)
+    for dirpath, dirnames, filenames in os.walk(root):
+        d = Path(dirpath)
+        if len(d.parts) - base_depth >= max_depth:
+            dirnames[:] = []
+        dirnames[:] = sorted(n for n in dirnames if n not in skip and not n.startswith("."))
+        yield d, dirnames, filenames
 
 
 _listing: dict[Path, set[str]] = {}
@@ -323,12 +341,12 @@ def load_manifest(repo: Path, explicit: str | None) -> tuple[dict, Path | None, 
 
 def skill_dirs(repo: Path) -> set[Path]:
     out = set()
-    for p in repo.rglob("SKILL.md"):
-        if p.parent == repo:
-            warnings.append("SKILL.md at the repo root is not used for exclusion; a single-skill repo is still audited")
-            continue
-        if not any(part in ALWAYS_SKIP or part.startswith(".") for part in p.relative_to(repo).parts[:-1]):
-            out.add(p.parent)
+    for d, _, files in walk(repo):
+        if "SKILL.md" in files:
+            if d == repo:
+                warnings.append("SKILL.md at the repo root is not used for exclusion; a single-skill repo is still audited")
+                continue
+            out.add(d)
     return out
 
 
@@ -352,10 +370,12 @@ def docs_under(folder: Path, repo: Path, skills: set[Path], ignore: list[str]) -
     out = []
     if folder.is_file():
         return [folder] if folder.suffix.lower() in DOC_EXTS else []
-    for p in sorted(folder.rglob("*")):
-        if p.is_file() and p.suffix.lower() in DOC_EXTS and not excluded(p, repo, skills, ignore):
-            out.append(p)
-    return out
+    for d, _, files in walk(folder):
+        for name in sorted(files):
+            p = d / name
+            if p.suffix.lower() in DOC_EXTS and not excluded(p, repo, skills, ignore):
+                out.append(p)
+    return sorted(out)
 
 
 def linked_folders(repo: Path, skills: set[Path], ignore: list[str]) -> dict[str, int]:
@@ -401,16 +421,24 @@ def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
         return {"rule": "b", "status": "resolved", "roots": list(linked), "candidates": linked}
     if len(linked) > 1:
         return {"rule": "b", "status": "ambiguous", "roots": [], "candidates": linked}
+    top_md = sorted(p.name for p in repo.iterdir() if p.is_file() and p.suffix.lower() in DOC_EXTS)
+    extra = [n for n in top_md if n not in ROOT_FILES]
+    if len(extra) >= 2 and (repo / "README.md").is_file():
+        # The repository's docs live at its root (an ops-notes repo, say). The README is the index.
+        return {"rule": "c", "status": "root-docs", "roots": top_md, "candidates": {}}
     return {"rule": "c", "status": "root-files-only", "roots": [], "candidates": {}}
 
 
-def detect_generator(repo: Path) -> str | None:
-    for m in GENERATOR_MARKERS:
-        if (repo / m).exists() or (repo / "docs" / m).exists():
-            return m
-    for g in GENERATOR_GLOBS:
-        if list(repo.glob(g)):
-            return g
+def detect_generator(repo: Path, roots: list[Path]) -> str | None:
+    places = [repo] + [r for r in roots if r.is_dir()]
+    for base in places:
+        for m in GENERATOR_MARKERS:
+            if (base / m).exists():
+                return posix(base / m, repo)
+        for g in GENERATOR_GLOBS:
+            hit = next(iter(base.glob(g)), None)
+            if hit is not None:
+                return posix(hit, repo)
     return None
 
 
@@ -471,17 +499,16 @@ def repo_conditions(repo: Path, skills: set[Path], ignore: list[str]) -> dict[st
     schema_dirs = {"migrations", "drizzle", "prisma", "alembic", "supabase"}
     api_dirs = {"api", "routes", "controllers"}
     fe_deps = ("react", "next", "vue", "svelte", "@angular/core", "solid-js", "astro")
-    for p in repo.rglob("*"):
+    def entries():
+        for d, dirnames, files in walk(repo, EVIDENCE_SKIP, max_depth=6):
+            for n in dirnames:
+                yield d / n
+            for n in files:
+                yield d / n
+    for p in entries():
         if all(found.values()):
             break
-        try:
-            rel_parts = p.relative_to(repo).parts
-        except ValueError:
-            continue
-        if any(part in ALWAYS_SKIP or part.startswith(".") for part in rel_parts[:-1]):
-            continue
-        if len(rel_parts) > 6:
-            continue
+        rel_parts = p.relative_to(repo).parts
         name = p.name.lower()
         rel = p.relative_to(repo).as_posix()
         if p.is_file():
@@ -505,6 +532,18 @@ def repo_conditions(repo: Path, skills: set[Path], ignore: list[str]) -> dict[st
             if not found["api"] and name in api_dirs and "src" in rel_parts[:-1] and any(c.suffix.lower() in (".ts", ".js", ".py", ".go", ".rb", ".php") for c in p.rglob("*") if c.is_file()):
                 found["api"] = rel
     return found
+
+
+def repo_has_code(repo: Path, roots: list[Path]) -> str | None:
+    """First source file outside the docs roots, or None for a docs-only repository."""
+    root_dirs = [r for r in roots if r.is_dir()]
+    for d, _, files in walk(repo, EVIDENCE_SKIP, max_depth=6):
+        if any(d == r or r in d.parents for r in root_dirs):
+            continue
+        for n in files:
+            if Path(n).suffix.lower() in CODE_EXTS:
+                return posix(d / n, repo)
+    return None
 
 
 def required_docs(repo: Path, manifest: dict, conditions: dict[str, str | None]) -> dict[str, str]:
@@ -710,7 +749,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     if not roots_rel:
         discovery = discover(repo, skills, ignore)
         roots_rel = list(discovery["roots"])
-        if discovery["status"] != "resolved":
+        if discovery["status"] == "root-docs":
+            pass  # every top-level doc is a root; the README is the index
+        elif discovery["status"] != "resolved":
             roots_rel = [f for f in ROOT_FILES if (repo / f).is_file()]
         else:
             roots_rel += [f for f in ROOT_FILES if (repo / f).is_file()]
@@ -719,8 +760,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if not (repo / r).exists():
             warnings.append(f"root {r} does not exist")
 
-    root_files_only = discovery is not None and discovery["status"] != "resolved"
-    generator = detect_generator(repo)
+    root_docs = discovery is not None and discovery["status"] == "root-docs"
+    root_files_only = discovery is not None and discovery["status"] not in ("resolved", "root-docs")
+    generator = detect_generator(repo, roots)
 
     # ---- doc set
     paths: list[Path] = []
@@ -729,13 +771,15 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if r.is_file():
             paths.append(r)
             continue
-        for p in sorted(r.rglob("*")):
-            if not p.is_file() or excluded(p, repo, skills, ignore):
-                continue
-            if p.suffix.lower() in DOC_EXTS:
-                paths.append(p)
-            elif p.name != "structure.json":
-                non_doc += 1
+        for d, _, files in walk(r):
+            for name in sorted(files):
+                p = d / name
+                if excluded(p, repo, skills, ignore):
+                    continue
+                if p.suffix.lower() in DOC_EXTS:
+                    paths.append(p)
+                elif p.name != "structure.json":
+                    non_doc += 1
     paths = sorted(set(paths))
     docs = [Doc(p, repo) for p in paths]
     by_rel = {d.rel: d for d in docs}
@@ -755,7 +799,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     convention = manifest.get("indexConvention") or "sibling"
     central_rel = manifest.get("centralIndex")
-    if not central_rel and not root_files_only:
+    if not central_rel and root_docs:
+        central_rel = "README.md"
+    if not central_rel and not root_files_only and not root_docs:
         for r in roots:
             if r.is_dir():
                 for name in ("INDEX.md", "index.md", "README.md"):
@@ -798,7 +844,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             warnings.append(f"{d.rel} is over {MAX_READ} bytes and was not analysed")
 
         # ---- R1 / R4
-        if not r1_off and d.path not in roots and central_rel != d.rel:
+        if not r1_off and (d.path not in roots or root_docs) and central_rel != d.rel:
             idx = index_for(d, repo, roots, convention)
             if idx is not None:
                 irel = posix(idx, repo)
@@ -829,7 +875,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     break
                 if seen >= 12:
                     break
-        if not has_owner and not exempt("R2", d.rel) and d.path not in roots and not d.skipped:
+        if not has_owner and not exempt("R2", d.rel) and not d.skipped and (root_docs and d.rel not in ROOT_FILES or d.path not in roots):
             add("R2", d.rel, 1, "no owner line near the top and no frontmatter description",
                 "fail" if enforce else "warn")
 
@@ -842,6 +888,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 continue
             file_part, _, anchor = target.partition("#")
             anchor = unquote(anchor).lower()
+            if generator is not None and (file_part.startswith("/") or (file_part and "." not in Path(file_part).name)):
+                continue  # a site route, resolved by the generator, not a file
             if not file_part:
                 if anchor and anchor not in d.anchors:
                     add("R5", d.rel, i, f"dead anchor #{anchor} (no such heading in this file)")
@@ -1003,9 +1051,13 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     # ---- R12 required docs, and the init block that would create the missing ones
     conditions = repo_conditions(repo, skills, ignore)
-    required = required_docs(repo, manifest, conditions)
-    missing = {d: why for d, why in required.items() if not exists_exact(repo / d)}
-    if not (generator is not None):
+    code_file = repo_has_code(repo, roots)
+    required = required_docs(repo, manifest, conditions) if (code_file or manifest.get("requiredDocs") is not None) else {}
+    def present(doc: str) -> bool:
+        # In a repo whose docs live at the root, docs/X.md is satisfied by X.md at the root.
+        return exists_exact(repo / doc) or (root_docs and exists_exact(repo / doc.split("/", 1)[1]))
+    missing = {d: why for d, why in required.items() if not present(d)}
+    if generator is None:
         for d, why in sorted(missing.items()):
             reason = "always required" if why == "always" else ("named in the manifest" if why == "manifest" else f"the repo has {why}")
             anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_path else front_rel)
@@ -1083,6 +1135,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         "proposed_manifest": proposed,
         "init": init,
         "conditions": conditions,
+        "code_file": code_file,
         "required_docs": required,
         "warnings": warnings,
     }
@@ -1103,6 +1156,8 @@ def render(d: dict, top: int) -> str:
         L.append("  Checked root files only for now; R1 and R4 are off.")
     elif disc and disc["status"] == "root-files-only":
         L.append("Manifest: none. No project docs folder found - root files only; R1 and R4 are off.")
+    elif disc and disc["status"] == "root-docs":
+        L.append(f"Manifest: none, proposed below. The docs live at the repo root ({len(d['roots'])} files); README.md is the index.")
     else:
         L.append(f"Manifest: none, proposed below. Roots: {', '.join(d['roots'])}")
     L.append(f"Docs checked: {t['docs_checked']}   non-doc files in docs folders: {t['non_doc_files']}")

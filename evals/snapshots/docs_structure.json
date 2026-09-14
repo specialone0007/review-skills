@@ -1,5 +1,6 @@
 {
   "central_index": null,
+  "code_file": "src/config.js",
   "conditions": {
     "api": "src/routes",
     "deploy": null,

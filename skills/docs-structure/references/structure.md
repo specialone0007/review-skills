@@ -94,7 +94,10 @@ in some `package.json`; `DATA_MODEL.md` when a `migrations`, `drizzle`, `prisma`
 or `supabase` folder or a `schema.prisma` exists; `API_REFERENCE.md` when an OpenAPI file or
 a `src/**/api|routes|controllers` folder with code exists. `docs/research/LOG.md` with its
 `log/` folder is asked for only when the manifest lists it; not every repo runs experiments.
-`requiredDocs` in the manifest replaces the whole set when a team disagrees.
+`requiredDocs` in the manifest replaces the whole set when a team disagrees. The set applies
+to repos that contain source code; a repository that is only notes is asked for nothing.
+Evidence for the conditional docs is never read from `fixtures`, `examples` or `tests`
+folders, which describe something other than the repo itself.
 
 Templates live in `references/templates/`, one per doc, derived from a repo that has used
 them for months. Each is a title, an owner line ending in `(skeleton, write me)`, and the
