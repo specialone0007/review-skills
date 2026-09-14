@@ -32,7 +32,7 @@ Check the shape of a repository's documentation, not its truth. Report what an a
 | R8 | the same distinctive measurement (`12.3%`, `$4.10`, `0.512`) in three or more docs | warning only; skipped in record folders | P3 |
 | R9 | a checklist index's todo / doing / done counts equal the boxes in the file it links | opt-in via manifest `counts` | P2 |
 | R10 | every doc under folder X is linked from table Y | opt-in via manifest `registries` | P2 |
-| R11 | the front door hands off to the index: the root README (manifest `frontDoor`) links the central index; a README that links eight or more docs directly is a second index and gets a warning | on when a central index exists | P1 |
+| R11 | the front door hands off to the index: the root README (manifest `frontDoor`) links the central index; a README that links eight or more docs directly is a second index and gets a warning | on when a central index exists and no site generator is detected; `exempt.R11` turns it off | P1 |
 
 Record folders are `plans`, `specs`, `archive`, `log`, `logs`, `audit-*`, any folder with a date in its name, or one where more than half the files carry a ticket or date prefix. They describe a moment, so R6 and R7 downgrade to warnings there and R8 skips them. A manifest that sets `recordFolders` replaces the heuristic with that list; `exempt` handles single rules.
 

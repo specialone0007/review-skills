@@ -10,7 +10,7 @@ Read-only. Standard library only. Writes nothing.
     python docs_structure.py --check-paths          # also check backticked repo paths (noisy)
     python docs_structure.py --fail-on-findings     # exit 1 when any rule fails (CI gate)
 
-Ten mechanical rules, each with a fixed severity. None of them judges prose.
+Eleven mechanical rules, each with a fixed severity. None of them judges prose.
 
   R1  every doc is reachable in one hop: linked from the central index, or from the
       index that sits beside its folder. No central index at all is ONE finding.
@@ -819,10 +819,16 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     #      exists the README must hand off to it, and should not keep its own list of docs.
     front_rel = manifest.get("frontDoor") or "README.md"
     front = repo / front_rel
-    if central_exists and front.is_file() and not r1_off:
+    if front_rel != "README.md" and not front.is_file():
+        warnings.append(f"frontDoor {front_rel} does not exist")
+    if (central_exists and front.is_file() and not r1_off and not exempt("R11", front_rel)
+            and front.resolve() != central.resolve()):
         fdoc = by_rel.get(front_rel) or Doc(front, repo)
         outgoing = links_out(fdoc)
-        if central_rel not in outgoing:
+        # `[docs](docs/)` renders as docs/README.md on GitHub, so a folder link reaches an
+        # index of that name.
+        folder_hit = central.name.lower() == "readme.md" and posix(central.parent, repo) in outgoing
+        if central_rel not in outgoing and not folder_hit:
             add("R11", front_rel, 1, f"front door does not link the central index {central_rel}")
         root_dirs = [posix(r, repo) for r in roots if r.is_dir()]
         parallel = sorted(t for t in outgoing if t != central_rel and any(t.startswith(rd + "/") for rd in root_dirs) and t in by_rel)
