@@ -10,7 +10,7 @@ Read-only. Standard library only. Writes nothing.
     python docs_structure.py --check-paths          # also check backticked repo paths (noisy)
     python docs_structure.py --fail-on-findings     # exit 1 when any rule fails (CI gate)
 
-Eleven mechanical rules, each with a fixed severity. None of them judges prose.
+Twelve mechanical rules, each with a fixed severity. None of them judges prose.
 
   R1  every doc is reachable in one hop: linked from the central index, or from the
       index that sits beside its folder. No central index at all is ONE finding.
@@ -27,6 +27,10 @@ Eleven mechanical rules, each with a fixed severity. None of them judges prose.
   R10 every doc under a folder appears in a registry table (opt-in)
   R11 the front door points at the index: the root README links the central index, and
       does not keep a parallel list of docs that would drift from it
+  R12 the required docs exist: PRODUCT, ARCHITECTURE and TASKLIST always; DEPLOYMENT,
+      DESIGN_GUIDELINES, DATA_MODEL and API_REFERENCE when the repo has the thing they
+      describe; a research log only when the manifest asks. A missing one is a skeleton
+      the apply workflow can create from references/templates/ - never content
 
 Configuration is a small JSON manifest, by default `docs/structure.json` under the repo.
 Without one the script discovers a docs root and proposes a manifest; it never writes it.
@@ -67,14 +71,14 @@ GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress")
 GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*")
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
-            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1"}
+            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2"}
 FRONT_DOOR_PARALLEL = 8  # a README linking this many docs under the roots is a second index
 RULE_TITLE = {
     "R1": "reachable from an index", "R2": "owner line", "R3": "oversize doc",
     "R4": "index and folder agree", "R5": "links and anchors resolve",
     "R6": "backticked paths exist", "R7": "line-number citations",
     "R8": "duplicated measurement", "R9": "checklist counts", "R10": "registry",
-    "R11": "front door links the index",
+    "R11": "front door links the index", "R12": "required docs exist",
 }
 
 DEFAULT_MANIFEST = {
@@ -93,7 +97,23 @@ DEFAULT_MANIFEST = {
     "registries": [],
     "existingChecker": None,
     "frontDoor": "README.md",
+    "requiredDocs": None,
     "ignore": [],
+}
+
+# R12 default set. Conditional entries name the evidence that the repo has the thing.
+REQUIRED_ALWAYS = ["docs/PRODUCT.md", "docs/ARCHITECTURE.md", "docs/TASKLIST.md"]
+REQUIRED_IF = {
+    "docs/DEPLOYMENT.md": "deploy",
+    "docs/DESIGN_GUIDELINES.md": "frontend",
+    "docs/DATA_MODEL.md": "schema",
+    "docs/API_REFERENCE.md": "api",
+}
+TEMPLATES = Path(__file__).resolve().parent.parent / "references" / "templates"
+# A required doc that comes with companions (an index plus its first part).
+COMPANIONS = {
+    "docs/TASKLIST.md": ["docs/tasklist/phase-00-foundations.md"],
+    "docs/research/LOG.md": ["docs/research/log/YYYY-MM.md"],
 }
 
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
@@ -109,7 +129,7 @@ CODESPAN_RE = re.compile(r"`[^`\n]*`")
 BOX_RE = re.compile(r"^\s*[-*] \[( |~|x|X)\]")
 DATE_RE = re.compile(r"\b20\d{2}-\d{2}(-\d{2})?\b")
 PREFIX_RE = re.compile(r"^([A-Z]{2,}-\d+|20\d{2}-\d{2}(-\d{2})?)[-_ .]")
-PLACEHOLDER_MARKERS = ("(auto, review me)", "| unreviewed |")
+PLACEHOLDER_MARKERS = ("(auto, review me)", "| unreviewed |", "(skeleton, write me)", "| skeleton |")
 # Link targets that are examples, not promises: `[text](url)`, `[x](javascript:...)`, `[y](path/to/file)`.
 PLACEHOLDER_TARGET = re.compile(r"^(url|link|path|file|href)$|^javascript:|^\.{3}|[<>{}$*]|(^|/)(path/to|your[-_]|my[-_]|example|foo|bar|placeholder)(?=[./-]|$)", re.I)
 MAX_JSON_FINDINGS = 1000
@@ -444,8 +464,79 @@ Rules that keep this true:
 """
 
 
-def init_block(repo: Path, front_rel: str) -> dict:
-    """Skeleton for a repo with no docs folder. Text only; the agent writes it in apply."""
+def repo_conditions(repo: Path, skills: set[Path], ignore: list[str]) -> dict[str, str | None]:
+    """Mechanical evidence for the conditional required docs. Value = the file that proves it."""
+    found: dict[str, str | None] = {"deploy": None, "frontend": None, "schema": None, "api": None}
+    deploy_names = {"dockerfile", "railway.json", "fly.toml", "render.yaml", "vercel.json", "procfile", "app.yaml"}
+    schema_dirs = {"migrations", "drizzle", "prisma", "alembic", "supabase"}
+    api_dirs = {"api", "routes", "controllers"}
+    fe_deps = ("react", "next", "vue", "svelte", "@angular/core", "solid-js", "astro")
+    for p in repo.rglob("*"):
+        if all(found.values()):
+            break
+        try:
+            rel_parts = p.relative_to(repo).parts
+        except ValueError:
+            continue
+        if any(part in ALWAYS_SKIP or part.startswith(".") for part in rel_parts[:-1]):
+            continue
+        if len(rel_parts) > 6:
+            continue
+        name = p.name.lower()
+        rel = p.relative_to(repo).as_posix()
+        if p.is_file():
+            if not found["deploy"] and (name in deploy_names or name.startswith("dockerfile") or name.startswith("docker-compose")):
+                found["deploy"] = rel
+            if not found["api"] and (name.startswith("openapi.") or name.startswith("swagger.")):
+                found["api"] = rel
+            if not found["schema"] and name == "schema.prisma":
+                found["schema"] = rel
+            if not found["frontend"] and name == "package.json":
+                try:
+                    data = json.loads(read(p))
+                    deps = {**data.get("dependencies", {}), **data.get("devDependencies", {})}
+                    if any(d in deps for d in fe_deps):
+                        found["frontend"] = rel
+                except (ValueError, AttributeError):
+                    pass
+        elif p.is_dir():
+            if not found["schema"] and name in schema_dirs and any(c.suffix.lower() in (".sql", ".ts", ".py", ".prisma") for c in p.rglob("*") if c.is_file()):
+                found["schema"] = rel
+            if not found["api"] and name in api_dirs and "src" in rel_parts[:-1] and any(c.suffix.lower() in (".ts", ".js", ".py", ".go", ".rb", ".php") for c in p.rglob("*") if c.is_file()):
+                found["api"] = rel
+    return found
+
+
+def required_docs(repo: Path, manifest: dict, conditions: dict[str, str | None]) -> dict[str, str]:
+    """Required doc -> reason ('always', or the evidence file for a conditional one)."""
+    explicit = manifest.get("requiredDocs")
+    if explicit is not None:
+        return {d: "manifest" for d in explicit}
+    out = {d: "always" for d in REQUIRED_ALWAYS}
+    for doc, cond in REQUIRED_IF.items():
+        if conditions.get(cond):
+            out[doc] = conditions[cond]
+    return out
+
+
+def template_for(doc_rel: str) -> Path | None:
+    t = TEMPLATES / doc_rel.split("/", 1)[1] if doc_rel.startswith("docs/") else None
+    return t if t is not None and t.is_file() else None
+
+
+def owner_text(template: Path) -> str:
+    for line in read(template).splitlines():
+        if "This document owns:" in line:
+            return line.split("This document owns:**", 1)[-1].replace("*(skeleton, write me)*", "").strip(" *")
+    return ""
+
+
+def init_block(repo: Path, front_rel: str, missing: dict[str, str], have_docs: bool, have_index: bool,
+               have_manifest: bool, front_links_index: bool) -> dict | None:
+    """What apply would create. Names templates, never carries content; the agent copies them."""
+    files: dict[str, dict] = {}
+    if not have_index:
+        files["docs/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
     manifest = {
         "roots": ["docs"] + [f for f in ROOT_FILES if (repo / f).is_file()],
         "centralIndex": "docs/INDEX.md",
@@ -453,22 +544,36 @@ def init_block(repo: Path, front_rel: str) -> dict:
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
         "splitAt": 500,
         "pathPrefixes": top_level_dirs(repo),
-        "recordFolders": [],
+        "recordFolders": ["docs/research/log"] if "docs/research/LOG.md" in missing else [],
+        "counts": [{"index": "docs/TASKLIST.md", "folder": "docs/tasklist"}] if "docs/TASKLIST.md" in missing else [],
         "frontDoor": front_rel,
         "ignore": [],
     }
-    files = {
-        "docs/INDEX.md": INDEX_TEMPLATE,
-        "docs/structure.json": json.dumps(manifest, indent=2) + "\n",
-    }
-    readme_line = "Every doc is listed in [docs/INDEX.md](docs/INDEX.md) - what each one owns and its state. Start there."
-    return {
-        "files": files,
-        "readme_line": {"path": front_rel, "append": readme_line,
-                        "why": "so the front door links the index (R11) from day one"},
-        "print_only": {"CLAUDE.md or AGENTS.md": ROUTING_STARTER},
-        "then": "run the checker again; it should report 0 failures and the empty index",
-    }
+    if not have_manifest:
+        files["docs/structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()),
+                                        "content": manifest}
+    rows = []
+    for doc, why in sorted(missing.items()):
+        t = template_for(doc)
+        if t is None:
+            continue
+        files[doc] = {"template": f"references/templates/{doc.split('/', 1)[1]}", "lines": len(read(t).splitlines()), "why": why}
+        for comp in COMPANIONS.get(doc, []):
+            ct = template_for(comp)
+            if ct is not None:
+                files[comp] = {"template": f"references/templates/{comp.split('/', 1)[1]}", "lines": len(read(ct).splitlines()), "why": f"companion of {doc}"}
+        title = doc.rsplit("/", 1)[-1][:-3]
+        rows.append(f"| [{title}]({doc.split('/', 1)[1]}) | {owner_text(t)} | skeleton |")
+    if not files and front_links_index:
+        return None
+    out: dict = {"files": files, "index_rows": rows,
+                 "print_only": {"CLAUDE.md or AGENTS.md": ROUTING_STARTER},
+                 "then": "run the checker again; skeletons show up in the placeholder count until written"}
+    if not front_links_index:
+        out["readme_line"] = {"path": front_rel,
+                              "append": "Every doc is listed in [docs/INDEX.md](docs/INDEX.md) - what each one owns and its state. Start there.",
+                              "why": "so the front door links the index (R11) from day one"}
+    return out
 
 
 # ---------------------------------------------------------------- analysis
@@ -896,10 +1001,23 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             add("R11", front_rel, 1,
                 f"front door links {len(parallel)} docs directly - a second index that will drift from {central_rel}; keep a handful and point at the index", "warn")
 
-    # ---- init: nothing to index yet, so hand the agent the skeleton
-    init = None
-    if discovery is not None and discovery["status"] == "root-files-only" and not (repo / "docs").exists():
-        init = init_block(repo, front_rel)
+    # ---- R12 required docs, and the init block that would create the missing ones
+    conditions = repo_conditions(repo, skills, ignore)
+    required = required_docs(repo, manifest, conditions)
+    missing = {d: why for d, why in required.items() if not exists_exact(repo / d)}
+    if not (generator is not None):
+        for d, why in sorted(missing.items()):
+            reason = "always required" if why == "always" else ("named in the manifest" if why == "manifest" else f"the repo has {why}")
+            anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_path else front_rel)
+            add("R12", anchor_path, 1, f"required doc missing: {d} ({reason}) - apply creates a skeleton from the template", "fail")
+    have_docs = (repo / "docs").is_dir()
+    # Against the index that exists, or the one init would create.
+    front_links_index = True
+    if front.is_file():
+        fl = links_out(by_rel.get(front_rel) or Doc(front, repo))
+        target = central_rel or "docs/INDEX.md"
+        front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
+    init = None if generator is not None else init_block(repo, front_rel, missing, have_docs, central_exists, source == "found", front_links_index)
 
     # ---- placeholders
     placeholders = 0
@@ -964,6 +1082,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         "unreachable": unreachable,
         "proposed_manifest": proposed,
         "init": init,
+        "conditions": conditions,
+        "required_docs": required,
         "warnings": warnings,
     }
 
@@ -1019,11 +1139,15 @@ def render(d: dict, top: int) -> str:
         L.append(json.dumps(d["proposed_manifest"], indent=2))
     if d.get("init"):
         L.append("")
-        L.append("No docs folder. Apply would create this skeleton (nothing is written now):")
-        for path, body in d["init"]["files"].items():
-            L.append(f"  {path}  ({len(body.splitlines())} lines)")
-        rl = d["init"]["readme_line"]
-        L.append(f"  {rl['path']}  + one line: {rl['append']}")
+        L.append("Apply would create these skeletons from the skill's templates (nothing is written now):")
+        for path, info in d["init"]["files"].items():
+            why = f"  - {info['why']}" if info.get("why") else ""
+            L.append(f"  {path}  ({info['lines']} lines, {info['template']}){why}")
+        for row in d["init"].get("index_rows", []):
+            L.append(f"  index row: {row}")
+        rl = d["init"].get("readme_line")
+        if rl:
+            L.append(f"  {rl['path']}  + one line: {rl['append']}")
         L.append("  and print a starter 'Docs routing' section for CLAUDE.md or AGENTS.md (not written).")
     if d["warnings"]:
         L.append("")

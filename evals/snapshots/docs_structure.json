@@ -1,5 +1,11 @@
 {
   "central_index": null,
+  "conditions": {
+    "api": "src/routes",
+    "deploy": null,
+    "frontend": null,
+    "schema": null
+  },
   "discovery": null,
   "findings": [
     {
@@ -17,6 +23,38 @@
       "path": "docs/setup.md",
       "rule": "R5",
       "severity": "P1"
+    },
+    {
+      "level": "fail",
+      "line": 1,
+      "message": "required doc missing: docs/API_REFERENCE.md (the repo has src/routes) - apply creates a skeleton from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "fail",
+      "line": 1,
+      "message": "required doc missing: docs/ARCHITECTURE.md (always required) - apply creates a skeleton from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "fail",
+      "line": 1,
+      "message": "required doc missing: docs/PRODUCT.md (always required) - apply creates a skeleton from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "fail",
+      "line": 1,
+      "message": "required doc missing: docs/TASKLIST.md (always required) - apply creates a skeleton from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
     },
     {
       "level": "fail",
@@ -68,7 +106,54 @@
     }
   ],
   "generator": null,
-  "init": null,
+  "init": {
+    "files": {
+      "docs/API_REFERENCE.md": {
+        "lines": 23,
+        "template": "references/templates/API_REFERENCE.md",
+        "why": "src/routes"
+      },
+      "docs/ARCHITECTURE.md": {
+        "lines": 23,
+        "template": "references/templates/ARCHITECTURE.md",
+        "why": "always"
+      },
+      "docs/INDEX.md": {
+        "lines": 8,
+        "template": "INDEX.md (built in)"
+      },
+      "docs/PRODUCT.md": {
+        "lines": 35,
+        "template": "references/templates/PRODUCT.md",
+        "why": "always"
+      },
+      "docs/TASKLIST.md": {
+        "lines": 17,
+        "template": "references/templates/TASKLIST.md",
+        "why": "always"
+      },
+      "docs/tasklist/phase-00-foundations.md": {
+        "lines": 6,
+        "template": "references/templates/tasklist/phase-00-foundations.md",
+        "why": "companion of docs/TASKLIST.md"
+      }
+    },
+    "index_rows": [
+      "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
+      "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
+      "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
+      "| [TASKLIST](TASKLIST.md) | the index of the plan \u2014 one file per phase under `tasklist/`, and the count of todo / doing / done in each. | skeleton |"
+    ],
+    "print_only": {
+      "CLAUDE.md or AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| <a kind of change> | `docs/<OWNER>.md` |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+    },
+    "readme_line": {
+      "append": "Every doc is listed in [docs/INDEX.md](docs/INDEX.md) - what each one owns and its state. Start there.",
+      "path": "README.md",
+      "why": "so the front door links the index (R11) from day one"
+    },
+    "then": "run the checker again; skeletons show up in the placeholder count until written"
+  },
   "manifest": {
     "path": "docs/structure.json",
     "source": "found"
@@ -76,6 +161,12 @@
   "proposed_manifest": null,
   "record_folders": [],
   "repo": "<fixture>",
+  "required_docs": {
+    "docs/API_REFERENCE.md": "src/routes",
+    "docs/ARCHITECTURE.md": "always",
+    "docs/PRODUCT.md": "always",
+    "docs/TASKLIST.md": "always"
+  },
   "roots": [
     "docs"
   ],
@@ -101,6 +192,17 @@
       "first": [],
       "severity": "P1",
       "title": "front door links the index",
+      "warnings": 0
+    },
+    "R12": {
+      "failures": 4,
+      "first": [
+        "docs/structure.json:1",
+        "docs/structure.json:1",
+        "docs/structure.json:1"
+      ],
+      "severity": "P2",
+      "title": "required docs exist",
       "warnings": 0
     },
     "R2": {
@@ -192,7 +294,7 @@
   ],
   "totals": {
     "docs_checked": 5,
-    "failures": 3,
+    "failures": 7,
     "non_doc_files": 0,
     "placeholders": 0,
     "split_candidates": 2,

@@ -109,8 +109,10 @@ Whether every doc is reachable from one central index, says what it owns, and st
 enough to load in one pass; whether indexes still agree with their folders, whether heading
 anchors and relative links still resolve, and whether anything cites a line number into
 source that has since moved, and whether the README hands off to that index or keeps a
-second list that drifts. Bundles a checker for all eleven rules and proposes a small per-repo
-manifest to start from.
+second list that drifts. Bundles a checker for all twelve rules, proposes a small per-repo manifest, and on a
+new repo lays down the skeleton every repo of this shape has - index, task list, product,
+architecture, and the deploy, design, data-model and API docs the repo's files call for -
+as templates with the sections named and nothing written in them.
 
 Shape only. Whether the docs are *true* is `docs-sync-audit`'s job. `docs-structure`'s own apply
 workflow, when you ask for it by name, edits Markdown in your working tree and nothing else.

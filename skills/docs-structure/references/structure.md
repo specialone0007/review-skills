@@ -83,15 +83,28 @@ falls to `docs/a/`'s index, then to the central index. `existingChecker` names a
 the repo already runs, so the report can say which rules it does not cover instead of
 proposing a second one.
 
-## Init, for a repo with no docs folder
+## Required docs (R12) and init
 
-Discovery lands on "root files only" and the script's JSON carries an `init` block. Apply
-writes exactly what the block names: `docs/INDEX.md` with the H1, the owner line and an
-empty three-column table; `docs/structure.json` with roots, central index, the sibling
-convention and the repo's real top-level directories as path prefixes; one line appended to
-the README pointing at the index. It prints a starter "Docs routing" section for `CLAUDE.md`
-or `AGENTS.md` and leaves writing it to the maintainer. It authors no doc: the first real
-docs are written by people or by a skill whose job is content, then get their row.
+A repo of this shape has a fixed core: `docs/PRODUCT.md` (what it is and where it is going),
+`docs/ARCHITECTURE.md` (services, data flow, decisions), `docs/TASKLIST.md` with a
+`tasklist/` folder (the plan as a checklist, counts checked by R9). Four more depend on what
+the repo contains, decided by file presence: `DEPLOYMENT.md` when a Dockerfile, compose file
+or platform config exists; `DESIGN_GUIDELINES.md` when a frontend framework is a dependency
+in some `package.json`; `DATA_MODEL.md` when a `migrations`, `drizzle`, `prisma`, `alembic`
+or `supabase` folder or a `schema.prisma` exists; `API_REFERENCE.md` when an OpenAPI file or
+a `src/**/api|routes|controllers` folder with code exists. `docs/research/LOG.md` with its
+`log/` folder is asked for only when the manifest lists it; not every repo runs experiments.
+`requiredDocs` in the manifest replaces the whole set when a team disagrees.
+
+Templates live in `references/templates/`, one per doc, derived from a repo that has used
+them for months. Each is a title, an owner line ending in `(skeleton, write me)`, and the
+section headings with one italic line each saying what goes there. That marker keeps a
+skeleton in the checker's placeholder count until a person writes it, so a skeleton cannot
+pass as a doc. Init copies templates verbatim and adds an index row with state `skeleton`.
+
+Init also covers a repo with no docs folder at all: the index, the manifest built from the
+repo's real layout, one README line pointing at the index, and the starter "Docs routing"
+section printed for `CLAUDE.md` or `AGENTS.md`. The skill authors no content in any case.
 
 ## The split, exactly
 

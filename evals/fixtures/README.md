@@ -28,6 +28,7 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | `history.md` has two H1 headings, so a split must refuse it; `guide.md` is over the fixture's `splitAt` and splits cleanly into three parts | `mini-app/docs/history.md`, `mini-app/docs/guide.md` | `docs-structure` |
 | `42.5%` appears in four docs | `mini-app/docs/*.md` | `docs-structure` (warning) |
 | `crlf-sample.md` has Windows line endings; its `## Notes` anchor must still resolve from `limits.md` | `mini-app/docs/crlf-sample.md` | `docs-structure` |
+| `docs/` has none of the required docs: no PRODUCT, ARCHITECTURE or TASKLIST, and `src/routes` makes API_REFERENCE required too; DEPLOYMENT, DESIGN_GUIDELINES and DATA_MODEL stay optional because nothing in the fixture calls for them | `mini-app/docs/` | `docs-structure` (R12, four P2s) |
 | The root README never mentions `docs/`. R11 stays silent here because no central index exists (R1 owns that case); it fires on a repo whose README skips an existing index | `mini-app/README.md` | `docs-structure` (by omission) |
 
 ## About the docs folder
