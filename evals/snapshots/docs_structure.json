@@ -68,6 +68,7 @@
     }
   ],
   "generator": null,
+  "init": null,
   "manifest": {
     "path": "docs/structure.json",
     "source": "found"

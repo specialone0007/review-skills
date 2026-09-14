@@ -33,6 +33,12 @@
       "expect_skill": "docs-structure"
     },
     {
+      "id": "init-new-repo",
+      "kind": "trigger",
+      "prompt": "this repo has no docs folder yet - set one up the way our other repos are structured",
+      "expect_skill": "docs-structure"
+    },
+    {
       "id": "accuracy-goes-to-sync",
       "kind": "anti-trigger",
       "prompt": "is docs/ARCHITECTURE.md still accurate after the auth refactor?",

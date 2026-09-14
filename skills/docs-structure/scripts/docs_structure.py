@@ -30,6 +30,9 @@ Eleven mechanical rules, each with a fixed severity. None of them judges prose.
 
 Configuration is a small JSON manifest, by default `docs/structure.json` under the repo.
 Without one the script discovers a docs root and proposes a manifest; it never writes it.
+When there is no docs folder at all, the JSON carries an `init` block: the skeleton files
+(index, manifest, one README line) and a starter routing section, as text for the agent to
+write in the apply workflow. The script itself still writes nothing.
 
 Exit codes: 0 when the run completed (findings are data, not failure), 1 only with
 --fail-on-findings and at least one failure, 2 for a bad flag or manifest.
@@ -409,6 +412,63 @@ def top_level_dirs(repo: Path) -> list[str]:
         if p.is_dir() and not p.name.startswith(".") and p.name not in ALWAYS_SKIP | TOP_LEVEL_SKIP:
             out.append(p.name)
     return out
+
+
+# ---------------------------------------------------------------- init skeleton
+
+INDEX_TEMPLATE = """# Docs index
+
+> **This document owns:** the list of every doc in this repository, what each one owns, and its state.
+
+Pick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.
+
+| doc | owns | state |
+| --- | --- | --- |
+"""
+
+ROUTING_STARTER = """## Docs routing - where a change gets written down
+
+One doc owns each fact; the others link. Every doc's header says what it owns. When you change
+one of these, update the owner in the same change.
+
+| you changed... | update |
+|---|---|
+| <a kind of change> | `docs/<OWNER>.md` |
+
+Rules that keep this true:
+
+- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.
+- Strike superseded figures (`~~old~~ -> new`), do not delete them.
+- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.
+- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.
+"""
+
+
+def init_block(repo: Path, front_rel: str) -> dict:
+    """Skeleton for a repo with no docs folder. Text only; the agent writes it in apply."""
+    manifest = {
+        "roots": ["docs"] + [f for f in ROOT_FILES if (repo / f).is_file()],
+        "centralIndex": "docs/INDEX.md",
+        "indexConvention": "sibling",
+        "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
+        "splitAt": 500,
+        "pathPrefixes": top_level_dirs(repo),
+        "recordFolders": [],
+        "frontDoor": front_rel,
+        "ignore": [],
+    }
+    files = {
+        "docs/INDEX.md": INDEX_TEMPLATE,
+        "docs/structure.json": json.dumps(manifest, indent=2) + "\n",
+    }
+    readme_line = "Every doc is listed in [docs/INDEX.md](docs/INDEX.md) - what each one owns and its state. Start there."
+    return {
+        "files": files,
+        "readme_line": {"path": front_rel, "append": readme_line,
+                        "why": "so the front door links the index (R11) from day one"},
+        "print_only": {"CLAUDE.md or AGENTS.md": ROUTING_STARTER},
+        "then": "run the checker again; it should report 0 failures and the empty index",
+    }
 
 
 # ---------------------------------------------------------------- analysis
@@ -836,6 +896,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             add("R11", front_rel, 1,
                 f"front door links {len(parallel)} docs directly - a second index that will drift from {central_rel}; keep a handful and point at the index", "warn")
 
+    # ---- init: nothing to index yet, so hand the agent the skeleton
+    init = None
+    if discovery is not None and discovery["status"] == "root-files-only" and not (repo / "docs").exists():
+        init = init_block(repo, front_rel)
+
     # ---- placeholders
     placeholders = 0
     for d in docs:
@@ -898,6 +963,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         "split_candidates": candidates,
         "unreachable": unreachable,
         "proposed_manifest": proposed,
+        "init": init,
         "warnings": warnings,
     }
 
@@ -951,6 +1017,14 @@ def render(d: dict, top: int) -> str:
         L.append("")
         L.append("Proposed manifest (docs/structure.json) - review before committing:")
         L.append(json.dumps(d["proposed_manifest"], indent=2))
+    if d.get("init"):
+        L.append("")
+        L.append("No docs folder. Apply would create this skeleton (nothing is written now):")
+        for path, body in d["init"]["files"].items():
+            L.append(f"  {path}  ({len(body.splitlines())} lines)")
+        rl = d["init"]["readme_line"]
+        L.append(f"  {rl['path']}  + one line: {rl['append']}")
+        L.append("  and print a starter 'Docs routing' section for CLAUDE.md or AGENTS.md (not written).")
     if d["warnings"]:
         L.append("")
         L.extend(f"note: {w}" for w in d["warnings"])

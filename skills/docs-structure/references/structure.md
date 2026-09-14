@@ -83,6 +83,16 @@ falls to `docs/a/`'s index, then to the central index. `existingChecker` names a
 the repo already runs, so the report can say which rules it does not cover instead of
 proposing a second one.
 
+## Init, for a repo with no docs folder
+
+Discovery lands on "root files only" and the script's JSON carries an `init` block. Apply
+writes exactly what the block names: `docs/INDEX.md` with the H1, the owner line and an
+empty three-column table; `docs/structure.json` with roots, central index, the sibling
+convention and the repo's real top-level directories as path prefixes; one line appended to
+the README pointing at the index. It prints a starter "Docs routing" section for `CLAUDE.md`
+or `AGENTS.md` and leaves writing it to the maintainer. It authors no doc: the first real
+docs are written by people or by a skill whose job is content, then get their row.
+
 ## The split, exactly
 
 Input: one doc the user confirmed from the candidate list. Every step is mechanical and

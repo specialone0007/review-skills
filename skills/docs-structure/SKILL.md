@@ -1,6 +1,6 @@
 ---
 name: docs-structure
-description: Read-only audit of the shape of a repository's Markdown documentation - whether every doc is reachable from one central index, states what it owns, stays small enough to load in one pass, and whether indexes, relative links, heading anchors and line-number citations still hold. Use when the user asks about docs layout, a docs index, orphaned or oversized docs, splitting a big doc into parts, owner lines, or a checker that keeps docs organised. Not for whether docs match the code (use docs-sync-audit) and not for source-code structure or naming (use repo-health-audit).
+description: Read-only audit of the shape of a repository's Markdown documentation - whether every doc is reachable from one central index, states what it owns, stays small enough to load in one pass, and whether indexes, relative links, heading anchors and line-number citations still hold. Use when the user asks about docs layout, a docs index, orphaned or oversized docs, splitting a big doc into parts, owner lines, a checker that keeps docs organised, or setting up the docs folder of a new repo. Not for whether docs match the code (use docs-sync-audit) and not for source-code structure or naming (use repo-health-audit).
 license: MIT
 ---
 
@@ -41,6 +41,7 @@ Record folders are `plans`, `specs`, `archive`, `log`, `logs`, `audit-*`, any fo
 - Whole repository: `is our docs folder organised`, `can an agent find the right doc in one hop`.
 - One folder: `check docs/ structure`, `audit the index under docs/research`.
 - One doc: `this 3,000-line plan is too big to load, how would it split`.
+- A new repo: `set up a docs folder the way our other repos have it`, `initialise the docs structure`.
 - A checker: `add a check so heading anchors stop rotting`, `what would keep docs/ from drifting`.
 
 Without a scope, audit the whole repository. Do not ask for a scope; discovery below picks one or asks only when two folders genuinely compete.
@@ -63,6 +64,8 @@ Without a scope, audit the whole repository. Do not ask for a scope; discovery b
 4. Turn the JSON into the report below. Keep the decision on the first line. Cap detail at three examples per rule; the JSON has the rest.
 
 5. If there is no manifest, include the proposed one verbatim and mark it as a proposal. The user commits it, not you.
+
+6. If the JSON has an `init` block (no docs folder at all), the report's first line says so and lists the skeleton apply would create. Nothing is written in plan mode.
 
 The manual fallback when the script cannot run: list every `.md` under the docs root, check each for a link from the index, check each relative link and `#anchor` against the target's headings, grep for `\.(ts|js|py|...):\d+`, count line lengths, and confirm the README links the index. Say which rules you could not check by hand.
 
@@ -110,6 +113,7 @@ Compute every edit in memory first. Build the whole output tree, run the gate an
 
 Edits, all additive:
 
+0. **Init**, only when the JSON carries an `init` block: write exactly its `files` (`docs/INDEX.md` with the header, owner line and empty table; `docs/structure.json`), append its one `readme_line` to the front door so R11 passes from the start, and print its `print_only` text - the starter "Docs routing" section - for the maintainer to paste into `CLAUDE.md` or `AGENTS.md`. Do not write that file; it is theirs. Do not author any doc. Then run the checker: 0 failures and an empty index is the expected result.
 1. Write the manifest the user accepted.
 2. Create the central index when none exists (H1, owner line, one table: doc, owns, state), and add missing rows to the last table: a link to the doc, its H1 text with links stripped, and the state `unreviewed`. If the index has no table, refuse and say so.
 3. Add owner lines only to docs the user named: `> **This document owns:** <H1 text> *(auto, review me)*`. Parts created by a split get no owner line; their `Part of` header already satisfies R2.
