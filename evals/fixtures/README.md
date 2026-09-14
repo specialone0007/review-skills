@@ -21,6 +21,23 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | `local-helper` resolves via `file:`, outside any registry and outside advisory coverage | `mini-app/package.json` | `security-audit` |
 | No lockfile despite declared dependencies, so installs are not reproducible | `mini-app/` | `security-audit` |
 | `requirements.txt` pins every dependency with `==` but has no lockfile, so this must be reported as **low**, not medium | `mini-app/requirements.txt` | `security-audit` |
+| `docs/` has no central index; the manifest names `docs/INDEX.md`, which does not exist. Must be reported as **one** finding, anchored to the manifest line | `mini-app/docs/structure.json` | `docs-structure` |
+| `setup.md` links to `#configuration`; the heading is `## Config` | `mini-app/docs/setup.md` | `docs-structure` (anchors; link *existence* stays with `docs-sync-audit`) |
+| `setup.md` cites `src/config.js:12`, a line number into source | `mini-app/docs/setup.md` | `docs-structure` |
+| `setup.md` and `history.md` have no owner line | `mini-app/docs/` | `docs-structure` (warning) |
+| `history.md` has two H1 headings, so a split must refuse it; `guide.md` is over the fixture's `splitAt` and splits cleanly into three parts | `mini-app/docs/history.md`, `mini-app/docs/guide.md` | `docs-structure` |
+| `42.5%` appears in four docs | `mini-app/docs/*.md` | `docs-structure` (warning) |
+| `crlf-sample.md` has Windows line endings; its `## Notes` anchor must still resolve from `limits.md` | `mini-app/docs/crlf-sample.md` | `docs-structure` |
+
+## About the docs folder
+
+`docs/structure.json` sets `splitAt: 20` so the oversize rule fires on 23-line files. Without
+it the two-H1 refusal and the three-part split would need a 500-line fixture, and the
+snapshot runner passes no `--manifest`, so the script reads this default path. It is the
+only manifest in the fixture and the only thing there that is not a planted defect.
+
+`crlf-sample.md` is pinned `-text` in `.gitattributes` on purpose: the fixture is otherwise
+normalised to LF, which would erase the line-ending defect the file exists to plant.
 
 ## About the credential
 

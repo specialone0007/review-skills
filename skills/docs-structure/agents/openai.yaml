@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docs Structure"
+  short_description: "Audit the shape of a repo's Markdown docs"
+  default_prompt: "Use $docs-structure to check whether every doc is reachable from one index, states what it owns, stays small enough to load, and whether links, anchors and citations still hold. Report only; do not edit."

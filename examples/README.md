@@ -1,6 +1,6 @@
 # Examples
 
-Real runs of each skill against **this repository**, at commit `cc100ad`.
+Real runs of each skill against **this repository**, at commit `cc100ad` (`docs-structure`, added later, at `eae49b9`).
 
 Nothing here is illustrative or hand-written. Each report is what the skill actually produced, citations included, and you can re-run any of them yourself and compare:
 
@@ -12,6 +12,7 @@ git clone https://github.com/specialone0007/review-skills && cd review-skills
 
 | Skill | Prompt used | Report |
 | --- | --- | --- |
+| `docs-structure` | is our docs folder organised | [docs-structure.md](docs-structure.md) |
 | `docs-sync-audit` | check the docs against the code | [docs-sync-audit.md](docs-sync-audit.md) |
 | `feature-audit` | audit my repo for launch risks | [feature-audit.md](feature-audit.md) |
 | `feature-brainstorm` | what could we improve here | [feature-brainstorm.md](feature-brainstorm.md) |

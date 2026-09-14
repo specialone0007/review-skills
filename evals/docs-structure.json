@@ -1,0 +1,79 @@
+{
+  "skill": "docs-structure",
+  "version": 1,
+  "cases": [
+    {
+      "id": "no-index",
+      "kind": "trigger",
+      "prompt": "our docs folder has no index - can an agent find the right doc in one hop?",
+      "expect_skill": "docs-structure"
+    },
+    {
+      "id": "split-big-doc",
+      "kind": "trigger",
+      "prompt": "this 3,000-line plan doc is too big to load; propose how to split it into parts without changing the text",
+      "expect_skill": "docs-structure"
+    },
+    {
+      "id": "orphans-and-anchors",
+      "kind": "trigger",
+      "prompt": "is every file under docs/ linked from an index, and do the heading anchors still resolve?",
+      "expect_skill": "docs-structure"
+    },
+    {
+      "id": "owner-lines-and-copies",
+      "kind": "trigger",
+      "prompt": "which docs are missing a 'what this document owns' line, and which numbers are copy-pasted across three docs?",
+      "expect_skill": "docs-structure"
+    },
+    {
+      "id": "accuracy-goes-to-sync",
+      "kind": "anti-trigger",
+      "prompt": "is docs/ARCHITECTURE.md still accurate after the auth refactor?",
+      "expect_skill": "docs-sync-audit"
+    },
+    {
+      "id": "env-drift-goes-to-sync",
+      "kind": "anti-trigger",
+      "prompt": "the env vars in the README don't match .env.example - find the drift",
+      "expect_skill": "docs-sync-audit"
+    },
+    {
+      "id": "code-layout-goes-to-health",
+      "kind": "anti-trigger",
+      "prompt": "src/lib has duplicate helpers and files over 1,000 lines - is the codebase getting messy?",
+      "expect_skill": "repo-health-audit"
+    },
+    {
+      "id": "pr-summary-goes-elsewhere",
+      "kind": "anti-trigger",
+      "prompt": "summarise what changed under docs/ on this branch versus staging for the PR body",
+      "expect_skill": "pr-branch-summary"
+    },
+    {
+      "id": "finds-planted-shape-defects",
+      "kind": "behavior",
+      "prompt": "check the structure of the docs",
+      "fixture": "fixtures/mini-app",
+      "must_include": [
+        "Docs Structure: ",
+        "Plan only, no files changed",
+        "Evidence:"
+      ],
+      "must_not_include": [
+        "I edited",
+        "I created",
+        "I updated the file",
+        "I split"
+      ],
+      "rubric": [
+        "reports one P1 that there is no central index, not one finding per doc",
+        "reports the dead anchor `#configuration` in docs/setup.md with its line",
+        "reports the `src/config.js:12` citation in docs/setup.md as a line-number citation",
+        "reports that docs/history.md cannot be split because it has two H1 headings, and that docs/guide.md could become three parts",
+        "reports `42.5%` as duplicated across docs as a warning, not a failure",
+        "modifies no files in the fixture"
+      ]
+    }
+  ]
+}

@@ -19,6 +19,12 @@
     "src/routes/health.js",
     "src/utils/format-date.js",
     "src/utils/misc.js",
+    "docs/crlf-sample.md",
+    "docs/guide.md",
+    "docs/history.md",
+    "docs/limits.md",
+    "docs/setup.md",
+    "docs/structure.json",
     "src/config.js",
     "src/db.js",
     "src/server.js",
@@ -31,6 +37,11 @@
     "requirements.txt"
   ],
   "directories": [
+    {
+      "dir": "docs",
+      "files": 6,
+      "lines": 84
+    },
     {
       "dir": "src",
       "files": 9,
@@ -56,15 +67,15 @@
       "files": 12
     },
     {
-      "ext": ".example",
-      "files": 1
-    },
-    {
       "ext": ".md",
-      "files": 1
+      "files": 6
     },
     {
       "ext": ".json",
+      "files": 2
+    },
+    {
+      "ext": ".example",
       "files": 1
     },
     {
@@ -75,6 +86,16 @@
   "flat_directories": [],
   "largest_files": [
     {
+      "bytes": 754,
+      "lines": 23,
+      "path": "docs/guide.md"
+    },
+    {
+      "bytes": 517,
+      "lines": 28,
+      "path": "docs/history.md"
+    },
+    {
       "bytes": 428,
       "lines": 19,
       "path": "package.json"
@@ -83,6 +104,16 @@
       "bytes": 373,
       "lines": 9,
       "path": "src/routes/exports.js"
+    },
+    {
+      "bytes": 310,
+      "lines": 12,
+      "path": "docs/setup.md"
+    },
+    {
+      "bytes": 298,
+      "lines": 9,
+      "path": "docs/limits.md"
     },
     {
       "bytes": 282,
@@ -103,6 +134,11 @@
       "bytes": 247,
       "lines": 8,
       "path": "tests/format-date.test.js"
+    },
+    {
+      "bytes": 243,
+      "lines": 7,
+      "path": "docs/crlf-sample.md"
     },
     {
       "bytes": 227,
@@ -145,6 +181,11 @@
       "path": "src/utils/misc.js"
     },
     {
+      "bytes": 76,
+      "lines": 5,
+      "path": "docs/structure.json"
+    },
+    {
       "bytes": 56,
       "lines": 3,
       "path": "src/routes/health.js"
@@ -166,9 +207,9 @@
     ]
   },
   "totals": {
-    "doc_files": 1,
-    "files": 16,
-    "lines": 122,
+    "doc_files": 7,
+    "files": 22,
+    "lines": 206,
     "test_files": 3
   },
   "warnings": []

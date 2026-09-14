@@ -151,6 +151,7 @@ When the user asks to update docs:
 ## Related Skills
 
 - Use `repo-health-audit` when the ask is about structure, naming, or duplication rather than doc accuracy.
+- Use `docs-structure` when the ask is the layout of the docs themselves - an index, owner lines, oversized docs, dead anchors - rather than whether they match the code.
 - Use `feature-audit` when the ask is implementation review or product readiness.
 
 ## Agent Portability Notes
