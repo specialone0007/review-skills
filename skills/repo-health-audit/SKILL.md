@@ -1,6 +1,6 @@
 ---
 name: repo-health-audit
-description: Read-only repository health and organization audit for finding naming drift, unclear file or folder placement, weak module boundaries, dead code, duplicate code, repeated patterns that should become shared helpers, duplicate concepts, inconsistent conventions, oversized files, circular dependencies, and structural issues that make a codebase harder to navigate or more likely to become spaghetti over time. Use when the user asks to review repo organization, folder structure, naming, architecture hygiene, codebase structure, module layout, dead code, duplicate code, reuse opportunities, or whether a repository is getting messy.
+description: Read-only repository health and organization audit for finding naming drift, unclear file or folder placement, weak module boundaries, dead code, duplicate code, repeated patterns that should become shared helpers, duplicate concepts, inconsistent conventions, oversized files, circular dependencies, and structural issues that make a codebase harder to navigate or more likely to become spaghetti over time. Use when the user asks to review repo organization, folder structure, naming, architecture hygiene, codebase structure, module layout, dead code, duplicate code, reuse opportunities, or whether a repository is getting messy. For the layout of Markdown documentation use docs-structure.
 license: MIT
 ---
 
@@ -181,7 +181,7 @@ When the user asks to fix findings after the audit:
 ## Related Skills
 
 - Use `docs-sync-audit` when the ask is whether docs match the code.
-- Use `test-gap-audit` when the ask is missing or weak test coverage.
+- Use `docs-structure` when the ask is the layout of Markdown documentation - an index, oversized docs, dead anchors - rather than source structure.
 - Use `feature-audit` when the ask is runtime behavior, product readiness, or user-facing regressions.
 
 ## Agent Portability Notes

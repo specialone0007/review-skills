@@ -7,3 +7,8 @@
 # Eval fixtures must be byte-identical on every platform, because script snapshot
 # tests compare file sizes. Without this, the Windows and Ubuntu CI legs disagree.
 evals/fixtures/** text eol=lf
+
+# One structure-check fixture keeps its Windows line endings on purpose: the docs-structure
+# script must compute anchors without a trailing carriage return, and eol=lf above would
+# normalise the defect away.
+evals/fixtures/mini-app/docs/crlf-sample.md -text

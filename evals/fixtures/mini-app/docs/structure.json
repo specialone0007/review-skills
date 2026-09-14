@@ -1,0 +1,5 @@
+{
+  "roots": ["docs"],
+  "centralIndex": "docs/INDEX.md",
+  "splitAt": 20
+}

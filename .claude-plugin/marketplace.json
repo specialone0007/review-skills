@@ -1,6 +1,6 @@
 {
   "name": "review-skills",
-  "description": "Seven evidence-first code review and audit skills: launch readiness, security, test gaps, doc drift, repo health, improvement ideas, and PR communication.",
+  "description": "Eight evidence-first code review and audit skills: launch readiness, security, test gaps, doc drift, docs structure, repo health, improvement ideas, and PR communication.",
   "owner": {
     "name": "specialone0007",
     "url": "https://github.com/specialone0007"
@@ -9,7 +9,7 @@
     {
       "name": "review-skills",
       "source": "./",
-      "description": "Seven evidence-first review and audit skills with a consistent P0-P3 report shape."
+      "description": "Eight evidence-first review and audit skills with a consistent P0-P3 report shape."
     }
   ]
 }

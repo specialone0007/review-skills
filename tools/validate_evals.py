@@ -55,6 +55,7 @@ SNAPSHOT_SCRIPTS = {
     "dependency_audit": {"path": "skills/security-audit/scripts/dependency_audit.py",
                          "drop": ["auditors"]},
     "docs_drift": {"path": "skills/docs-sync-audit/scripts/docs_drift.py", "drop": []},
+    "docs_structure": {"path": "skills/docs-structure/scripts/docs_structure.py", "drop": []},
 }
 
 errors: list[str] = []

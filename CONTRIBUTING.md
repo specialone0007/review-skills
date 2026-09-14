@@ -34,7 +34,7 @@ It needs no dependencies. Every diagnostic is `path:line: message`.
 
 Please hold these by hand.
 
-- **Read-only by default.** Audit and brainstorm skills must not edit, stage, or commit anything during the review phase. If a skill needs to run something that changes state, say exactly what changes and use the narrowest possible command. `pr-branch-summary` is the one skill that touches git state, and it is limited to fetching a single remote-tracking ref.
+- **Read-only by default.** Audit and brainstorm skills must not edit, stage, or commit anything during the review phase. If a skill needs to run something that changes state, say exactly what changes and use the narrowest possible command. `pr-branch-summary` is the one skill that touches git state, and it is limited to fetching a single remote-tracking ref. `docs-structure`'s apply workflow edits Markdown in the working tree only when the user asks for it by name; it never branches, stages, commits, or writes a non-Markdown file.
 - **Evidence or it does not ship.** Every finding needs a severity and a `path:line`. That contract is the product.
 - **Repository-agnostic.** Do not assume a framework, language, test runner, package manager, or file layout. Discover conventions from the repo.
 - **Be concise.** Assume the model is capable. Do not explain what a PR is, or what pagination means. If a paragraph does not change what the agent does, cut it.
@@ -49,7 +49,7 @@ Please hold these by hand.
 5. Point at most three nearest-confusion neighbours from `## Related Skills`. Do not cross-reference all of them; that bloats every request.
 6. Run the validator.
 
-Before proposing a new skill, check whether it overlaps an existing one. Seven overlapping review skills already make routing hard; an eighth needs to earn its place by covering something none of the others do.
+Before proposing a new skill, check whether it overlaps an existing one. Eight overlapping review skills already make routing hard; a ninth needs to earn its place by covering something none of the others do.
 
 ## Evals
 
@@ -62,7 +62,7 @@ python tools/validate_evals.py
 Three kinds of case, and every skill needs all three:
 
 - **`trigger`** — this prompt should activate this skill.
-- **`anti-trigger`** — this prompt looks like it belongs here but should activate a *different* skill, named in `expect_skill`. With seven overlapping review skills this is the case that actually matters, and the validator rejects an eval file that has none.
+- **`anti-trigger`** — this prompt looks like it belongs here but should activate a *different* skill, named in `expect_skill`. With eight overlapping review skills this is the case that actually matters, and the validator rejects an eval file that has none.
 - **`behavior`** — run against a fixture, with `must_include` / `must_not_include` strings and a human `rubric`. This is what checks the report contract and the read-only posture.
 
 Evals live at the repo root rather than inside skill folders on purpose: installing a skill copies its directory, so in-folder evals would ship to every user and could be pulled into an agent's context.
