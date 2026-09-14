@@ -108,8 +108,9 @@ cannot take effect.
 Whether every doc is reachable from one central index, says what it owns, and stays small
 enough to load in one pass; whether indexes still agree with their folders, whether heading
 anchors and relative links still resolve, and whether anything cites a line number into
-source that has since moved. Bundles a checker for all ten rules and proposes a small
-per-repo manifest to start from.
+source that has since moved, and whether the README hands off to that index or keeps a
+second list that drifts. Bundles a checker for all eleven rules and proposes a small per-repo
+manifest to start from.
 
 Shape only. Whether the docs are *true* is `docs-sync-audit`'s job. `docs-structure`'s own apply
 workflow, when you ask for it by name, edits Markdown in your working tree and nothing else.
