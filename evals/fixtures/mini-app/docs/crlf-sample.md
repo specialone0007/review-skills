@@ -4,4 +4,4 @@
 
 ## Notes
 
-The cap is 42.5% here too, so three files now carry the same number.
+The cap is 42.5% here too, a fourth file carrying the same number.

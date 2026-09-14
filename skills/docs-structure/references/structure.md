@@ -11,10 +11,8 @@ links every part. Every doc says what it owns under its title, so a fact has one
 the other docs link to it. Links point at headings that exist, paths that exist, and never
 at line numbers. An agent then loads the central index plus one part, not the whole tree.
 
-Worked example, by shape: one repository kept its task list as a single 824-line file that
-every agent read whole. After the split it is a 60-line index and 25 phase files of 20 to 40
-lines; an agent loads about 175 lines to start work instead of 824, and a checker fails the
-build if the index and the folder ever disagree.
+Measured once, by shape: an 824-line task list every agent read whole became a 60-line index
+plus 25 phase files, so an agent loads about 175 lines to start work instead of 824.
 
 ## Why each rule
 
@@ -44,11 +42,11 @@ build if the index and the folder ever disagree.
 
 ## Record folders
 
-`plans`, `specs`, `archive`, `log`, `logs`, `audit-*`, a folder with a date in its name, or
-one where more than half the files carry a ticket or date prefix. A record describes a
-moment; calling it stale is a category error. R6 and R7 downgrade to warnings there, R8
-skips them. The heuristic misses some (a `builds/` folder whose files carry a project code
-but no number); the manifest's `recordFolders` and `exempt` keys cover those by hand.
+Defined in `SKILL.md`. A record describes a moment; calling it stale is a category error.
+The heuristic guesses both ways (a `builds/` folder whose files carry a project code but no
+number is missed; an experiments folder named `EXP-001.md`, `EXP-002.md` is caught), so a
+manifest that sets `recordFolders` replaces the guess with the list, and the proposed
+manifest carries the detected list so committing it freezes the result.
 
 ## The manifest
 

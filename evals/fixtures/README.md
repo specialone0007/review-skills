@@ -22,7 +22,7 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | No lockfile despite declared dependencies, so installs are not reproducible | `mini-app/` | `security-audit` |
 | `requirements.txt` pins every dependency with `==` but has no lockfile, so this must be reported as **low**, not medium | `mini-app/requirements.txt` | `security-audit` |
 | `docs/` has no central index; the manifest names `docs/INDEX.md`, which does not exist. Must be reported as **one** finding, anchored to the manifest line | `mini-app/docs/structure.json` | `docs-structure` |
-| `setup.md` links to `#configuration`; the heading is `## Config` | `mini-app/docs/setup.md` | `docs-structure` (anchors; link *existence* stays with `docs-sync-audit`) |
+| `setup.md` links to `#configuration`; the heading is `## Config` | `mini-app/docs/setup.md` | `docs-structure` (anchors are this skill's alone; both skills flag a dead relative link) |
 | `setup.md` cites `src/config.js:12`, a line number into source | `mini-app/docs/setup.md` | `docs-structure` |
 | `setup.md` and `history.md` have no owner line | `mini-app/docs/` | `docs-structure` (warning) |
 | `history.md` has two H1 headings, so a split must refuse it; `guide.md` is over the fixture's `splitAt` and splits cleanly into three parts | `mini-app/docs/history.md`, `mini-app/docs/guide.md` | `docs-structure` |

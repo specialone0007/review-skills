@@ -136,7 +136,7 @@
       "path": "tests/format-date.test.js"
     },
     {
-      "bytes": 243,
+      "bytes": 241,
       "lines": 7,
       "path": "docs/crlf-sample.md"
     },

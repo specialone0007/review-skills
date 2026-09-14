@@ -38,11 +38,13 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -86,19 +88,23 @@ DEFAULT_MANIFEST = {
     "ignore": [],
 }
 
-FENCE_RE = re.compile(r"^ {0,3}(```|~~~)")
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 LINK_RE = re.compile(r"(!?)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+\S")
 REF_USE_RE = re.compile(r"\[[^\]]+\]\[([^\]]+)\]")
 FOOTNOTE_RE = re.compile(r"\[\^[^\]]+\]")
-MEASURE_RE = re.compile(r"\$\d+\.\d+|\b\d{1,3}\.\d+%|\b0\.\d{3,}\b")
+MEASURE_RE = re.compile(r"\$\d+\.\d+|(?<![\d.])\d{1,3}\.\d+%|(?<![\d.])0\.\d{3,}\b")
+TRIVIAL_MEASURES = {"$0.00", "0.0%", "100.0%"}
+SETEXT_RE = re.compile(r"^ {0,3}(=+|-+)\s*$")
+CODESPAN_RE = re.compile(r"`[^`\n]*`")
 BOX_RE = re.compile(r"^\s*[-*] \[( |~|x|X)\]")
 DATE_RE = re.compile(r"\b20\d{2}-\d{2}(-\d{2})?\b")
-PREFIX_RE = re.compile(r"^([A-Z]{2,}-\d+|20\d{2}-\d{2}(-\d{2})?)[-_ ]")
+PREFIX_RE = re.compile(r"^([A-Z]{2,}-\d+|20\d{2}-\d{2}(-\d{2})?)[-_ .]")
 PLACEHOLDER_MARKERS = ("(auto, review me)", "| unreviewed |")
 # Link targets that are examples, not promises: `[text](url)`, `[x](javascript:...)`, `[y](path/to/file)`.
-PLACEHOLDER_TARGET = re.compile(r"^(url|link|path|file|href)$|^javascript:|^\.{3}|[<>{}$*]|(^|/)(path/to|your[-_]|my[-_]|example|foo|bar|placeholder)", re.I)
+PLACEHOLDER_TARGET = re.compile(r"^(url|link|path|file|href)$|^javascript:|^\.{3}|[<>{}$*]|(^|/)(path/to|your[-_]|my[-_]|example|foo|bar|placeholder)(?=[./-]|$)", re.I)
+MAX_JSON_FINDINGS = 1000
 
 warnings: list[str] = []
 
@@ -109,9 +115,25 @@ def read(path: Path) -> str:
     try:
         if path.stat().st_size > MAX_READ:
             return ""
-        return path.read_text(encoding="utf-8", errors="replace")
+        return path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return ""
+
+
+_listing: dict[Path, set[str]] = {}
+
+
+def exists_exact(path: Path) -> bool:
+    """Case-exact existence check, so a Windows run agrees with Linux and GitHub."""
+    if not path.exists():
+        return False
+    parent = path.parent
+    if parent not in _listing:
+        try:
+            _listing[parent] = set(os.listdir(parent))
+        except OSError:
+            _listing[parent] = set()
+    return path.name in _listing[parent]
 
 
 def posix(p: Path, repo: Path) -> str:
@@ -134,22 +156,6 @@ def git_root(start: Path) -> Path | None:
     return Path(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else None
 
 
-def git_tracked_md(repo: Path) -> list[Path] | None:
-    git = shutil.which("git")
-    if git is None:
-        return None
-    try:
-        p = subprocess.run([git, "ls-files", "--cached", "--other", "--exclude-standard", "*.md", "*.mdx"],
-                           cwd=str(repo), text=True, timeout=GIT_TIMEOUT,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                           encoding="utf-8", errors="replace")
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if p.returncode != 0:
-        return None
-    return [repo / x.strip() for x in p.stdout.splitlines() if x.strip()]
-
-
 def strip_fences(lines: list[str]) -> list[str]:
     """Blank out fenced blocks, keeping line numbers stable."""
     out: list[str] = []
@@ -161,7 +167,7 @@ def strip_fences(lines: list[str]) -> list[str]:
             out.append("")
             continue
         if fence is not None:
-            if m and m.group(1) == fence:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
                 fence = None
             out.append("")
             continue
@@ -173,8 +179,12 @@ def fences_balanced(lines: list[str]) -> bool:
     fence: str | None = None
     for line in lines:
         m = FENCE_RE.match(line)
-        if m and (fence is None or m.group(1) == fence):
-            fence = None if fence else m.group(1)
+        if not m:
+            continue
+        if fence is None:
+            fence = m.group(1)
+        elif m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+            fence = None
     return fence is None
 
 
@@ -193,6 +203,10 @@ def headings(clean: list[str]) -> list[tuple[int, int, str]]:
         m = HEADING_RE.match(line)
         if m:
             out.append((i, len(m.group(1)), m.group(2)))
+            continue
+        # setext: a non-blank line followed by === or ---
+        if i < len(clean) and clean[i - 1].strip() and SETEXT_RE.match(clean[i]) and not clean[i - 1].lstrip().startswith(("|", "-", "*", "#")):
+            out.append((i, 1 if clean[i].strip()[0] == "=" else 2, clean[i - 1].strip()))
     return out
 
 
@@ -219,29 +233,52 @@ def frontmatter_end(lines: list[str]) -> int:
 
 def matches_any(rel: str, patterns: list[str]) -> bool:
     for pat in patterns:
-        if fnmatch.fnmatch(rel, pat) or rel == pat.rstrip("/") or rel.startswith(pat.rstrip("/") + "/"):
+        if fnmatch.fnmatchcase(rel, pat) or rel == pat.rstrip("/") or rel.startswith(pat.rstrip("/") + "/"):
             return True
     return False
 
 
 # ---------------------------------------------------------------- manifest
 
+raw_keys: set[str] = set()
+
+
 def load_manifest(repo: Path, explicit: str | None) -> tuple[dict, Path | None, str]:
     """Returns (manifest, path or None, source) where source is found | none."""
-    candidates = [Path(explicit)] if explicit else [repo / "docs" / "structure.json", repo / "docs-structure.json"]
+    if explicit:
+        e = Path(explicit)
+        candidates = [e] if e.is_absolute() else [Path.cwd() / e, repo / e]
+        candidates = [c for c in candidates if c.is_file()] or [candidates[-1]]
+    else:
+        candidates = [repo / "docs" / "structure.json", repo / "docs-structure.json"]
     for c in candidates:
-        c = c if c.is_absolute() else repo / c
         if c.is_file():
             try:
                 data = json.loads(read(c))
             except ValueError as exc:
                 sys.stderr.write(f"error: manifest {c} is not valid JSON: {exc}\n")
                 raise SystemExit(2)
+            if not isinstance(data, dict):
+                sys.stderr.write(f"error: manifest {c} must be a JSON object\n")
+                raise SystemExit(2)
             unknown = sorted(set(data) - set(DEFAULT_MANIFEST))
             if unknown:
                 sys.stderr.write(f"error: manifest {c} has unknown key(s): {', '.join(unknown)}\n")
                 raise SystemExit(2)
+            for k, v in data.items():
+                d = DEFAULT_MANIFEST[k]
+                if v is None or d is None:
+                    continue
+                want = bool if isinstance(d, bool) else int if isinstance(d, int) else type(d)
+                if not isinstance(v, want) or (want is int and isinstance(v, bool)):
+                    sys.stderr.write(f"error: manifest {c}: key {k} must be {want.__name__}\n")
+                    raise SystemExit(2)
+            ol = data.get("ownerLine")
+            if isinstance(ol, dict) and not isinstance(ol.get("markers", []), list):
+                sys.stderr.write(f"error: manifest {c}: ownerLine.markers must be a list\n")
+                raise SystemExit(2)
             merged = json.loads(json.dumps(DEFAULT_MANIFEST))
+            raw_keys.update(data.keys())
             for k, v in data.items():
                 if k == "ownerLine" and isinstance(v, dict):
                     merged["ownerLine"].update(v)
@@ -259,6 +296,9 @@ def load_manifest(repo: Path, explicit: str | None) -> tuple[dict, Path | None, 
 def skill_dirs(repo: Path) -> set[Path]:
     out = set()
     for p in repo.rglob("SKILL.md"):
+        if p.parent == repo:
+            warnings.append("SKILL.md at the repo root is not used for exclusion; a single-skill repo is still audited")
+            continue
         if not any(part in ALWAYS_SKIP or part.startswith(".") for part in p.relative_to(repo).parts[:-1]):
             out.add(p.parent)
     return out
@@ -348,7 +388,7 @@ def detect_generator(repo: Path) -> str | None:
 
 def is_record_folder(folder: Path, repo: Path, docs: list[Path]) -> bool:
     name = folder.name
-    if name in RECORD_NAMES or fnmatch.fnmatch(name, "audit-*") or DATE_RE.search(name):
+    if name in RECORD_NAMES or fnmatch.fnmatchcase(name, "audit-*") or DATE_RE.search(name):
         return True
     here = [d for d in docs if d.parent == folder]
     if len(here) >= 2:
@@ -372,9 +412,15 @@ class Doc:
     def __init__(self, path: Path, repo: Path):
         self.path = path
         self.rel = posix(path, repo)
+        try:
+            self.skipped = path.stat().st_size > MAX_READ
+        except OSError:
+            self.skipped = True
         self.raw = read(path)
         self.lines = self.raw.splitlines()
         self.clean = strip_fences(self.lines)
+        # links and citations are scanned with inline code removed as well
+        self.nocode = [CODESPAN_RE.sub("", l) for l in self.clean]
         self.balanced = fences_balanced(self.lines)
         self.headings = headings(self.clean)
         self.anchors = anchors(self.clean)
@@ -382,9 +428,17 @@ class Doc:
 
     def links(self):
         """(line_no, is_image, target) for every link outside fences."""
-        for i, line in enumerate(self.clean, start=1):
+        for i, line in enumerate(self.nocode, start=1):
             for img, target in LINK_RE.findall(line):
                 yield i, bool(img), target
+
+
+def resolve_target(doc_path: Path, repo: Path, file_part: str) -> Path:
+    """Resolve a link target the way GitHub does: root-relative from the repo, else from the doc."""
+    file_part = unquote(file_part)
+    if file_part.startswith("/"):
+        return repo / file_part.lstrip("/")
+    return doc_path.parent / file_part
 
 
 def sibling_index(folder: Path, repo: Path, convention: str) -> Path | None:
@@ -488,6 +542,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         roots_rel = list(discovery["roots"])
         if discovery["status"] != "resolved":
             roots_rel = [f for f in ROOT_FILES if (repo / f).is_file()]
+        else:
+            roots_rel += [f for f in ROOT_FILES if (repo / f).is_file()]
     roots = [repo / r for r in roots_rel if (repo / r).exists()]
     for r in roots_rel:
         if not (repo / r).exists():
@@ -516,7 +572,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     folders = sorted({d.path.parent for d in docs if d.path.parent not in roots and d.path.parent != repo})
     detected_records = sorted(posix(f, repo) for f in folders if is_record_folder(f, repo, paths))
-    record_folders = sorted(set(detected_records) | set(manifest.get("recordFolders") or []))
+    # A manifest that names recordFolders is authoritative; the heuristic only runs when it is
+    # silent, so committing the proposed manifest freezes the result instead of re-guessing.
+    explicit_records = manifest.get("recordFolders")
+    record_folders = sorted(explicit_records) if explicit_records is not None and source == "found" and "recordFolders" in raw_keys else detected_records
 
     def in_record(rel: str) -> bool:
         return matches_any(rel, record_folders)
@@ -546,8 +605,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             if not t or t.startswith(("http://", "https://", "mailto:", "<")):
                 continue
             try:
-                out.add(posix((doc.path.parent / t).resolve(), repo))
-            except ValueError:
+                out.add(posix(resolve_target(doc.path, repo, t).resolve(), repo))
+            except (ValueError, OSError):
                 continue
         return out
 
@@ -558,8 +617,15 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     r1_off = root_files_only or generator is not None
     unreachable: list[str] = []
 
+    prefixes = list(manifest.get("pathPrefixes") or []) or top_level_dirs(repo)
+    path_pat = re.compile(r"`((?:%s)/[^`\s]+?\.[a-z]{1,5})`" % "|".join(re.escape(p) for p in prefixes)) if prefixes else None
+    exts = "|".join(manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"])
+    cite = re.compile(r"[\w./\[\]-]+\.(?:%s):\d+(?:-\d+)?" % exts)
+
     for d in docs:
         rec = in_record(d.rel)
+        if d.skipped:
+            warnings.append(f"{d.rel} is over {MAX_READ} bytes and was not analysed")
 
         # ---- R1 / R4
         if not r1_off and d.path not in roots and central_rel != d.rel:
@@ -593,24 +659,25 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     break
                 if seen >= 12:
                     break
-        if not has_owner and not exempt("R2", d.rel) and d.path not in roots:
+        if not has_owner and not exempt("R2", d.rel) and d.path not in roots and not d.skipped:
             add("R2", d.rel, 1, "no owner line near the top and no frontmatter description",
                 "fail" if enforce else "warn")
 
         # ---- R5 links, anchors, images, reference definitions
         defs = {m.group(1).lower() for l in d.clean for m in [REF_DEF_RE.match(l)] if m}
-        for i, is_img, target in d.links():
+        for i, is_img, target in ([] if d.skipped else d.links()):
             if target.startswith(("http://", "https://", "mailto:", "<", "tel:", "data:")):
                 continue
             if PLACEHOLDER_TARGET.search(target):
                 continue
             file_part, _, anchor = target.partition("#")
+            anchor = unquote(anchor).lower()
             if not file_part:
                 if anchor and anchor not in d.anchors:
                     add("R5", d.rel, i, f"dead anchor #{anchor} (no such heading in this file)")
                 continue
-            tgt = (d.path.parent / file_part)
-            if not tgt.exists():
+            tgt = resolve_target(d.path, repo, file_part)
+            if not exists_exact(tgt):
                 add("R5", d.rel, i, f"{'image' if is_img else 'link'} target does not exist: {file_part}")
                 continue
             if anchor and tgt.suffix.lower() in DOC_EXTS:
@@ -624,28 +691,23 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     add("R5", d.rel, i, f"dead anchor {file_part}#{anchor}")
         # `[text][id]` is a reference-style link only in a doc that defines at least one
         # reference; elsewhere adjacent brackets are tags like `[R7][R8]`.
-        if defs:
-            for i, line in enumerate(d.clean, start=1):
+        if defs and not d.skipped:
+            for i, line in enumerate(d.nocode, start=1):
                 for ref in REF_USE_RE.findall(line):
                     if ref.lower() not in defs:
                         add("R5", d.rel, i, f"reference-style link [{ref}] has no definition")
 
         # ---- R6 backticked repo paths (opt-in)
-        if check_paths and not exempt("R6", d.rel):
-            prefixes = list(manifest.get("pathPrefixes") or []) or top_level_dirs(repo)
-            if prefixes:
-                pat = re.compile(r"`((?:%s)/[^`\s]+?\.[a-z]{1,5})`" % "|".join(re.escape(p) for p in prefixes))
-                for i, line in enumerate(d.clean, start=1):
-                    for m in pat.findall(line):
-                        if "*" in m or "<" in m or re.search(r"(^|/)\.env(\.|$)", m):
-                            continue
-                        if not (repo / m).exists():
-                            add("R6", d.rel, i, f"path does not exist: {m}", "warn" if rec else "fail")
+        if check_paths and path_pat is not None and not exempt("R6", d.rel) and not d.skipped:
+            for i, line in enumerate(d.clean, start=1):
+                for m in path_pat.findall(line):
+                    if "*" in m or "<" in m or re.search(r"(^|/)\.env(\.|$)", m):
+                        continue
+                    if not exists_exact(repo / m):
+                        add("R6", d.rel, i, f"path does not exist: {m}", "warn" if rec else "fail")
 
         # ---- R7 line-number citations
-        if not exempt("R7", d.rel):
-            exts = "|".join(manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"])
-            cite = re.compile(r"[\w./\[\]-]+\.(?:%s):\d+(?:-\d+)?" % exts)
+        if not exempt("R7", d.rel) and not d.skipped:
             for i, line in enumerate(d.clean, start=1):
                 for tok in line.split():
                     if "://" in tok:
@@ -672,6 +734,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     max_parts = int(manifest.get("maxParts") or 30)
     candidates = []
     for d in docs:
+        if d.skipped:
+            add("R3", d.rel, 1, f"over {MAX_READ} bytes, not analysed - oversize by any measure", "warn")
+            continue
         if len(d.lines) > split_at and not exempt("R3", d.rel):
             a = split_analysis(d, split_at, max_parts)
             candidates.append(a)
@@ -686,10 +751,13 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     for d in docs:
         if in_record(d.rel) or matches_any(d.rel, dup_exempt) or exempt("R8", d.rel):
             continue
+        if d.skipped:
+            continue
         seen = set()
         for line in d.clean:
             for m in MEASURE_RE.findall(line):
-                seen.add(m)
+                if m not in TRIVIAL_MEASURES:
+                    seen.add(m)
         for m in seen:
             owners.setdefault(m, []).append(d.rel)
     for m, where in sorted(owners.items()):
@@ -762,7 +830,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if saw_inside:
             conv = "inside"
         proposed = {
-            "roots": roots_rel + [f for f in ("README.md", "CLAUDE.md", "AGENTS.md") if (repo / f).is_file() and f not in roots_rel],
+            "roots": roots_rel,
             "centralIndex": central_rel or (f"{roots_rel[0]}/INDEX.md" if roots_rel and not root_files_only else None),
             "indexConvention": conv,
             "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
@@ -866,7 +934,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Check the shape of a repository's Markdown docs. Read-only.")
     ap.add_argument("--repo", default=".", help="repository path (default: current directory)")
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
-    ap.add_argument("--manifest", help="manifest path (default: <repo>/docs/structure.json)")
+    ap.add_argument("--manifest", help="manifest path, relative to the current directory (default: <repo>/docs/structure.json)")
     ap.add_argument("--propose-manifest", action="store_true", help="print only a proposed manifest as JSON")
     ap.add_argument("--check-paths", action="store_true", help="also check backticked repo paths (R6, noisy)")
     ap.add_argument("--fail-on-findings", action="store_true", help="exit 1 when any rule fails")
@@ -890,6 +958,9 @@ def main() -> int:
         print(json.dumps(data["proposed_manifest"] or manifest, indent=2))
         return 0
     if args.format == "json":
+        if len(data["findings"]) > MAX_JSON_FINDINGS:
+            data["warnings"].append(f"findings truncated to {MAX_JSON_FINDINGS} of {len(data['findings'])}")
+            data["findings"] = data["findings"][:MAX_JSON_FINDINGS]
         print(json.dumps(data, indent=2, sort_keys=True))
     else:
         print(render(data, args.top))

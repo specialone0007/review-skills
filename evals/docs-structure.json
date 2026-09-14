@@ -27,6 +27,12 @@
       "expect_skill": "docs-structure"
     },
     {
+      "id": "anchor-checker",
+      "kind": "trigger",
+      "prompt": "add a check so heading anchors in our docs stop rotting",
+      "expect_skill": "docs-structure"
+    },
+    {
       "id": "accuracy-goes-to-sync",
       "kind": "anti-trigger",
       "prompt": "is docs/ARCHITECTURE.md still accurate after the auth refactor?",

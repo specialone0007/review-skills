@@ -1,6 +1,6 @@
 # Examples
 
-Real runs of each skill against **this repository**, at commit `cc100ad` (`docs-structure`, added later, at `eae49b9`).
+Real runs of each skill against **this repository**, at commit `cc100ad` (`docs-structure`, added later, at the head of its own pull request).
 
 Nothing here is illustrative or hand-written. Each report is what the skill actually produced, citations included, and you can re-run any of them yourself and compare:
 

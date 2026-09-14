@@ -111,8 +111,8 @@ anchors and relative links still resolve, and whether anything cites a line numb
 source that has since moved. Bundles a checker for all ten rules and proposes a small
 per-repo manifest to start from.
 
-Shape only. Whether the docs are *true* is `docs-sync-audit`'s job; its apply workflow, when
-you ask for it by name, edits Markdown in your working tree and nothing else.
+Shape only. Whether the docs are *true* is `docs-sync-audit`'s job. `docs-structure`'s own apply
+workflow, when you ask for it by name, edits Markdown in your working tree and nothing else.
 
 ### `repo-health-audit` — structure, duplication, dead code
 
