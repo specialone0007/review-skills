@@ -146,7 +146,7 @@ CONCERNS = [
     ("architecture", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
      {"architecture", "components", "services", "system", "data flow", "how it works", "design decisions", "modules", "structure"}, "ARCHITECTURE.md", []),
     ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
-     {"development", "developing", "getting started", "quickstart", "quick start", "local", "setup", "install", "installation", "prerequisites", "running", "run it", "environment setup"}, "DEVELOPMENT.md", []),
+     {"development", "developing", "getting started", "quickstart", "quick start", "local", "locally", "setup", "install", "installation", "prerequisites", "running", "run it", "run locally", "building", "environment setup", "hacking"}, "DEVELOPMENT.md", []),
     ("plan", lambda inv: "always", lambda inv: "TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "roadmap", "checklist"}, "TASKLIST.md", ["tasklist/phase-00-foundations.md"]),
     ("deploy", _svc, lambda inv: "DEPLOYMENT.md",
@@ -155,7 +155,7 @@ CONCERNS = [
      {"releasing", "release", "releases", "publish", "publishing", "versioning", "changelog"}, "RELEASING.md", []),
     ("data", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables") else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"] else None)), lambda inv: "DATA_MODEL.md",
      {"data model", "schema", "database", "tables", "migrations", "entities", "storage"}, "DATA_MODEL.md", []),
-    ("http", lambda inv: (f"routes: {inv['routes']['items'][0]['evidence']}" if inv.get("routes") and inv["routes"].get("items") else None), lambda inv: "API_REFERENCE.md",
+    ("http", lambda inv: (f"routes: {inv['routes']['items'][0]['evidence']}" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API_REFERENCE.md",
      {"api", "endpoints", "endpoint", "routes", "openapi", "rest", "http", "reference"}, "API_REFERENCE.md", []),
     ("commands", lambda inv: _first([c for c in inv.get("cli") or [] if not c.get("hint")], "cli"), lambda inv: "CLI_REFERENCE.md",
      {"cli", "command", "commands", "command line", "usage", "flags", "options"}, "CLI_REFERENCE.md", []),
@@ -310,6 +310,9 @@ def headings(clean: list[str]) -> list[tuple[int, int, str]]:
     return out
 
 
+HTML_ANCHOR_RE = re.compile(r"""<(?:a|h[1-6]|div|span|p)\b[^>]*\b(?:name|id)\s*=\s*["']([^"']+)["']""", re.I)
+
+
 def anchors(clean: list[str]) -> set[str]:
     seen: dict[str, int] = {}
     out: set[str] = set()
@@ -318,6 +321,9 @@ def anchors(clean: list[str]) -> set[str]:
         n = seen.get(base, 0)
         seen[base] = n + 1
         out.add(f"{base}-{n}" if n else base)
+    for line in clean:
+        for m in HTML_ANCHOR_RE.findall(line):
+            out.add(m.lower())
     return out
 
 
@@ -605,6 +611,10 @@ def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door:
         score += (2 if front_door else 1) * len(hits2)
         how.append(("README sections: " if front_door else "H2: ") + ", ".join(hits2[:3]))
     distinct = len(set(hits) | set(hits2))
+    if front_door:
+        if not hits2:
+            return 0, ""
+        return max(score, 3), "; ".join(how)
     if not name_hit and not (distinct >= 2 or (hits and hits2)):
         return 0, ""
     return score, "; ".join(how)
@@ -1047,7 +1057,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     add("R5", d.rel, i, f"dead anchor {file_part}#{anchor}")
         # `[text][id]` is a reference-style link only in a doc that defines at least one
         # reference; elsewhere adjacent brackets are tags like `[R7][R8]`.
-        if defs and not d.skipped:
+        if defs and not d.skipped and generator is None:  # a site generator resolves shared reference definitions
             for i, line in enumerate(d.nocode, start=1):
                 for ref in REF_USE_RE.findall(line):
                     if ref.lower() not in defs:

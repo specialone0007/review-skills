@@ -93,6 +93,7 @@
       "fastapi-flask": 2
     },
     "count": 2,
+    "hints_in_library_code": 0,
     "items": [
       {
         "evidence": "app/routes.py",

@@ -14,7 +14,7 @@ cite its evidence sentence by sentence. It describes; it never judges and never 
 Keys, the same for every stack:
 
   ecosystems  which manifest families were recognised (node, python, go, rust, java, ruby,
-              php, dotnet, move); `unknown: true` when none matched
+              php, dotnet, elixir, move); `unknown: true` when none matched
   kinds       what the repo is: application, library, cli, infrastructure, docs-only, monorepo
   packages    units of code: name, path, language, manifest, script names, dependency names
   services    deployable units from Dockerfiles, compose, platform configs, k8s, Helm, Terraform
@@ -65,9 +65,10 @@ MAX_CODE_FILES = 6000
 ALWAYS_SKIP = {"node_modules", ".venv", "venv", "__pycache__", ".git", "dist", "build", "target",
                "vendor", ".next", ".nuxt", "coverage", ".terraform", "site-packages", ".tox", ".mypy_cache"}
 EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests",
-                 "__tests__", "spec", "specs", "__mocks__", "mocks"}
+                 "__tests__", "spec", "specs", "__mocks__", "mocks", "benches", "bench", "benchmarks"}
 CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".go", ".rs", ".rb",
              ".php", ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".move"}
+# `phoenix` routes live in .ex files, Ecto migrations in .exs
 
 ENV_ALLOW = re.compile(r"^\.env(\.[A-Za-z0-9_-]+)?\.(example|sample|template)$")
 SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
@@ -420,8 +421,9 @@ def det_rust(ctx: Ctx, inv: dict) -> None:
             kind = "bin" if (src / "main.rs").is_file() or (p.parent / "src" / "bin").is_dir() or data.get("bin") else ("lib" if (src / "lib.rs").is_file() else "unknown")
             inv["packages"].append(item(ctx, "rust", p, name=str(pkg.get("name") or p.parent.name), path=ctx.rel(p.parent), language="rust", manifest="Cargo.toml", scripts=[], dependencies=sorted(deps)[:80], version=str(pkg.get("version") or ""), crate_kind=kind))
             inv["_eco"].add("rust")
-            if kind == "bin" and any(d in deps for d in ("clap", "structopt", "argh")):
-                inv["cli"].append(item(ctx, "rust", p, commands=[str(pkg.get("name") or p.parent.name)], parser=[d for d in deps if d in ("clap", "structopt", "argh")][0]))
+            if kind == "bin":
+                parser = next((d for d in deps if d in ("clap", "structopt", "argh", "lexopt", "pico-args", "bpaf")), "main.rs")
+                inv["cli"].append(item(ctx, "rust", p, commands=[str(pkg.get("name") or p.parent.name)], parser=parser))
             if (src / "lib.rs").is_file():
                 inv["exports"].append(item(ctx, "rust", src / "lib.rs", entry="src/lib.rs", has_exports_map=False, types=""))
             if pkg.get("version") and not (pkg.get("publish") is False):
@@ -503,6 +505,19 @@ def det_dotnet(ctx: Ctx, inv: dict) -> None:
             inv["tests"].append(item(ctx, "dotnet", p, runners=["dotnet test"], package=ctx.rel(p.parent)))
     if ctx.glob_name("*.sln"):
         inv["_mono"] = True
+
+
+def det_elixir(ctx: Ctx, inv: dict) -> None:
+    for p in ctx.named("mix.exs"):
+        text = read(p)
+        m = re.search(r"app[:]\s*:(\w+)", text)
+        deps = re.findall(r"\{:(\w+),", text)
+        inv["packages"].append(item(ctx, "elixir", p, name=m.group(1) if m else p.parent.name, path=ctx.rel(p.parent), language="elixir", manifest="mix.exs", scripts=[], dependencies=sorted(set(deps))[:80], version=str((re.search(r"version[:]\s*\"([^\"]+)\"", text) or [None, ""])[1] if re.search(r"version[:]\s*\"([^\"]+)\"", text) else "")))
+        inv["_eco"].add("elixir")
+        if (p.parent / "test").is_dir():
+            inv["tests"].append(item(ctx, "elixir", p, runners=["mix test"], package=ctx.rel(p.parent)))
+        if "phoenix" in deps:
+            inv["frontend"].append(item(ctx, "elixir", p, frameworks=["phoenix"], package=ctx.rel(p.parent)))
 
 
 def det_move(ctx: Ctx, inv: dict) -> None:
@@ -622,7 +637,7 @@ def det_k8s(ctx: Ctx, inv: dict) -> None:
                 continue
             meta = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
             name = str(meta.get("name") or "")
-            if kind in ("Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Service", "Ingress"):
+            if kind in ("Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob"):
                 inv["_infra"] = True
                 spec = data.get("spec") if isinstance(data.get("spec"), dict) else {}
                 tmpl = spec.get("template", {}).get("spec", {}) if isinstance(spec.get("template"), dict) and isinstance(spec["template"].get("spec"), dict) else {}
@@ -638,8 +653,11 @@ def det_k8s(ctx: Ctx, inv: dict) -> None:
                     inv["ops"].append(item(ctx, "k8s", p, kind="healthcheck", service=name))
                 if kind == "CronJob":
                     inv["ops"].append(item(ctx, "k8s", p, kind="cron", schedule=str(spec.get("schedule") or ""), service=name))
-                if kind == "Ingress":
-                    inv["ops"].append(item(ctx, "k8s", p, kind="ingress", service=name))
+            elif kind == "Ingress":
+                inv["_infra"] = True
+                inv["ops"].append(item(ctx, "k8s", p, kind="ingress", service=name))
+            elif kind == "Service":
+                inv["_infra"] = True
             elif kind == "ConfigMap" and isinstance(data.get("data"), dict):
                 inv["env"].append({"source": ctx.rel(p), "kind": "configmap", "names": sorted(data["data"].keys())[:80]})
             elif kind == "Secret":
@@ -750,6 +768,7 @@ SCHEMA_PATTERNS = [
     ("laravel", re.compile(r"Schema::create\(\s*['\"](\w+)['\"]"), (".php",)),
     ("ef", re.compile(r"CreateTable\(\s*name[:]\s*\"(\w+)\""), (".cs",)),
     ("liquibase", re.compile(r"createTable\s+tableName=\"(\w+)\""), (".xml",)),
+    ("ecto", re.compile(r"create\s+table\(:(\w+)"), (".exs",)),
 ]
 SCHEMA_DIRS = {"migrations", "migration", "drizzle", "prisma", "alembic", "supabase", "db", "sql", "schema", "flyway", "liquibase"}
 FK_RE = re.compile(r"REFERENCES\s+[`\"']?([A-Za-z_][\w.]*)|references\(\s*\(\)\s*=>\s*(\w+)\.|@relation|foreign_key\s*[:=]|add_foreign_key|belongsTo|HasOne|HasMany", re.I)
@@ -763,7 +782,7 @@ def det_schema(ctx: Ctx, inv: dict) -> None:
         parts = {x.lower() for x in p.relative_to(ctx.repo).parts[:-1]}
         in_schema_dir = bool(parts & SCHEMA_DIRS)
         ext = p.suffix.lower()
-        if ext == ".prisma" or (in_schema_dir and ext in (".sql", ".ts", ".js", ".py", ".rb", ".php", ".cs", ".xml")):
+        if ext == ".prisma" or (in_schema_dir and ext in (".sql", ".ts", ".js", ".py", ".rb", ".php", ".cs", ".xml", ".exs")):
             text = read(p)
             if in_schema_dir and re.match(r"^\d{3,}|^V\d|^\d{4}-\d{2}|^\d{14}", p.name):
                 migrations.append(ctx.rel(p))
@@ -790,10 +809,18 @@ ROUTE_PATTERNS = [
     ("actix", re.compile(r"#\[(get|post|put|patch|delete)\(\s*\"([^\"]+)\""), (".rs",)),
     ("spring", re.compile(r"@(Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:value\s*=\s*)?\"([^\"]*)\""), (".java", ".kt")),
     ("rails", re.compile(r"^\s*(get|post|put|patch|delete|resources|resource)\s+['\":]([^'\",\s]+)", re.M), (".rb",)),
+    ("phoenix", re.compile(r"^\s*(get|post|put|patch|delete|resources|live)\s+\"([^\"]+)\"", re.M), (".ex",)),
     ("laravel", re.compile(r"Route::(get|post|put|patch|delete|resource|apiResource)\(\s*['\"]([^'\"]+)['\"]"), (".php",)),
     ("dotnet", re.compile(r"\[Http(Get|Post|Put|Patch|Delete)\(\s*\"?([^\"\)]*)\"?\s*\)\]|app\.Map(Get|Post|Put|Patch|Delete)\(\s*\"([^\"]+)\""), (".cs",)),
 ]
 VERB_LESS = {"django", "go-net-http", "rails"}
+COMMENT_LINE = re.compile(r"^\s*(//|#|\*|/\*|--|<!--)")
+TEST_FILE = re.compile(r"(_test\.go|\.test\.[jt]sx?|\.spec\.[jt]sx?|^test_.*\.py|_test\.py|Tests?\.java|Test\.kt|_spec\.rb|Tests?\.cs|_test\.exs|_test\.rs)$")
+
+
+def strip_comment_lines(text: str) -> str:
+    """Drop whole-line comments so a route in a doc-comment example is not a route."""
+    return "\n".join(l for l in text.splitlines() if not COMMENT_LINE.match(l))
 
 
 def det_routes(ctx: Ctx, inv: dict) -> None:
@@ -819,15 +846,18 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
         m = re.search(r"(?:^|/)(?:src/)?pages/api/(.+)\.(ts|js|tsx|jsx)$", rel)
         if m:
             routes.append({"method": "?", "path": "/api/" + re.sub(r"/index$", "", m.group(1)), "framework": "next-pages-api", "evidence": rel})
-    # framework patterns
+    # framework patterns; test files never define the surface
+    lib_roots = [pk["path"] for pk in inv.get("packages", []) if pk.get("crate_kind") == "lib"]
     for p in ctx.code_files:
+        if TEST_FILE.search(p.name):
+            continue
         ext = p.suffix.lower()
         text = None
         for fw, rx, exts in ROUTE_PATTERNS:
             if ext not in exts:
                 continue
             if text is None:
-                text = read(p)
+                text = strip_comment_lines(read(p))
                 if not text:
                     break
             for mt in rx.finditer(text):
@@ -843,7 +873,9 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
                     method, path = g[0].upper(), (g[1] if len(g) > 1 else "")
                 if fw == "django" and (path.endswith((".html",)) or "static" in path):
                     continue
-                routes.append({"method": method, "path": path, "framework": fw, "evidence": ctx.rel(p)})
+                rel = ctx.rel(p)
+                in_lib = any(rel.startswith(root + "/") or root == "." for root in lib_roots)
+                routes.append({"method": method, "path": path, "framework": fw, "evidence": rel, **({"hint": True} if in_lib else {})})
     # de-duplicate
     seen = set()
     uniq = []
@@ -852,11 +884,13 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
         if k not in seen:
             seen.add(k)
             uniq.append(r)
+    real = [r for r in uniq if not r.get("hint")]
     if uniq:
         by_fw: dict[str, int] = {}
-        for r in uniq:
+        for r in real:
             by_fw[r["framework"]] = by_fw.get(r["framework"], 0) + 1
-        inv["routes"] = {"count": len(uniq), "by_framework": by_fw, "items": cap(sorted(uniq, key=lambda r: (r["path"], r["method"])), ctx.cap, "routes.items", inv),
+        inv["routes"] = {"count": len(real), "hints_in_library_code": len(uniq) - len(real), "by_framework": by_fw,
+                         "items": cap(sorted(real, key=lambda r: (r["path"], r["method"])), ctx.cap, "routes.items", inv),
                          "auth_hints": sorted({ctx.rel(p) for p in ctx.code_files if re.search(r"(auth|guard|middleware|session)", p.name, re.I)})[:20]}
 
 
@@ -907,6 +941,8 @@ def det_tests_folders(ctx: Ctx, inv: dict) -> None:
 
 def det_ops_signals(ctx: Ctx, inv: dict) -> None:
     for p in ctx.code_files:
+        if TEST_FILE.search(p.name):
+            continue
         rel = ctx.rel(p)
         if re.search(r"(^|/)(health|healthz|ready|readiness|liveness)(\.|/)", rel, re.I):
             inv["ops"].append(item(ctx, "code", p, kind="health-route"))
@@ -962,7 +998,7 @@ def det_git(ctx: Ctx, inv: dict) -> None:
 
 DETECTORS = [
     ("node", det_node), ("python", det_python), ("go", det_go), ("rust", det_rust), ("java", det_java),
-    ("ruby", det_ruby), ("php", det_php), ("dotnet", det_dotnet), ("move", det_move),
+    ("ruby", det_ruby), ("php", det_php), ("dotnet", det_dotnet), ("elixir", det_elixir), ("move", det_move),
     ("dockerfiles", det_dockerfiles), ("compose", det_compose), ("platforms", det_platforms), ("k8s", det_k8s),
     ("terraform", det_terraform), ("ci", det_ci), ("envfiles", det_envfiles), ("code_reads", det_code_reads),
     ("schema", det_schema), ("routes", det_routes), ("cli_parsers", det_cli_parsers), ("frontend", det_frontend_tokens),
@@ -976,7 +1012,7 @@ def derive_kinds(inv: dict, code_files: int) -> list[str]:
     kinds: list[str] = []
     has_code = bool(inv["packages"]) or code_files > 0
     has_services = any(s.get("source") in ("Dockerfile", "compose", "railway", "fly", "render", "vercel", "netlify", "Procfile", "app.yaml", "k8s", "helm") for s in inv["services"])
-    has_routes = bool(inv["routes"])
+    has_routes = bool(inv["routes"]) and inv["routes"].get("count", 0) > 0
     has_cli = any(not c.get("hint") for c in inv["cli"])
     has_exports = bool(inv["exports"])
     if inv.get("_infra") and not has_code:

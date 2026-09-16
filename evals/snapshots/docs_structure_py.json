@@ -27,10 +27,18 @@
       "applies": "always",
       "companions": [],
       "concern": "develop",
-      "covered_by": null,
+      "covered_by": "README.md",
       "default_path": "docs/DEVELOPMENT.md",
-      "matched_by": "",
+      "matched_by": "README sections: getting started",
+      "missing_sections": [
+        "Prerequisites",
+        "Setup",
+        "Daily commands",
+        "How to know it works",
+        "Common problems"
+      ],
       "runner_up": null,
+      "state": "reviewed",
       "template": "DEVELOPMENT.md",
       "universal": true
     },
@@ -110,14 +118,6 @@
     {
       "level": "fail",
       "line": 1,
-      "message": "no doc covers 'develop' (always) - apply creates docs/DEVELOPMENT.md from the template",
-      "path": "README.md",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
       "message": "no doc covers 'plan' (always) - apply creates docs/TASKLIST.md from the template",
       "path": "README.md",
       "rule": "R12",
@@ -174,12 +174,6 @@
         "lines": 21,
         "template": "references/templates/DATA_MODEL.md",
         "why": "data (schema: alembic/versions/0001_initial.py)"
-      },
-      "docs/DEVELOPMENT.md": {
-        "concern": "develop",
-        "lines": 25,
-        "template": "references/templates/DEVELOPMENT.md",
-        "why": "develop (always)"
       },
       "docs/INDEX.md": {
         "lines": 8,
@@ -240,7 +234,6 @@
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
       "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
-      "| [DEVELOPMENT](DEVELOPMENT.md) | how to run this repository on one machine \u2014 prerequisites, setup, the daily commands, and how to know it is working. | skeleton |",
       "| [TASKLIST](TASKLIST.md) | the index of the plan \u2014 one file per phase under `tasklist/`, and the count of todo / doing / done in each. | skeleton |",
       "| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |",
       "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
@@ -292,7 +285,7 @@
       "warnings": 0
     },
     "R12": {
-      "failures": 7,
+      "failures": 6,
       "first": [
         "README.md:1",
         "README.md:1",
@@ -359,20 +352,35 @@
       "warnings": 0
     }
   },
-  "sections": {},
+  "sections": {
+    "README.md": {
+      "concern": "develop",
+      "missing": [
+        "Prerequisites",
+        "Setup",
+        "Daily commands",
+        "How to know it works",
+        "Common problems"
+      ],
+      "owner": "reviewed",
+      "sections": {
+        "Getting started": "reviewed"
+      }
+    }
+  },
   "split_candidates": [],
   "totals": {
-    "concerns_covered": 0,
-    "concerns_missing": 7,
+    "concerns_covered": 1,
+    "concerns_missing": 6,
     "docs_checked": 1,
-    "failures": 7,
+    "failures": 6,
     "non_doc_files": 0,
     "placeholders": 0,
     "split_candidates": 0,
     "states": {
       "draft": 0,
-      "missing": 0,
-      "reviewed": 0,
+      "missing": 5,
+      "reviewed": 1,
       "skeleton": 0
     },
     "warnings": 0
