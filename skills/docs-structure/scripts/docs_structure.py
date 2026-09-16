@@ -721,7 +721,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     if not have_index and not root_docs:
         files["docs/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
     manifest = {
-        "roots": (["docs"] if not root_docs else []) + [f for f in ROOT_FILES if (repo / f).is_file()],
+        "roots": (["docs"] + [f for f in ROOT_FILES if (repo / f).is_file()]) if not root_docs else ["*.md"],
         "centralIndex": "README.md" if root_docs else "docs/INDEX.md",
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
@@ -903,6 +903,14 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             roots_rel = [f for f in ROOT_FILES if (repo / f).is_file()]
         else:
             roots_rel += [f for f in ROOT_FILES if (repo / f).is_file()]
+    expanded: list[str] = []
+    for r in roots_rel:
+        if r.endswith("*.md") or r.endswith("*.mdx"):
+            folder = repo / r.rsplit("/", 1)[0] if "/" in r else repo
+            expanded += sorted(posix(p, repo) for p in folder.glob(r.rsplit("/", 1)[-1]) if p.is_file())
+        else:
+            expanded.append(r)
+    roots_rel = list(dict.fromkeys(expanded))
     roots = [repo / r for r in roots_rel if (repo / r).exists()]
     for r in roots_rel:
         if not (repo / r).exists():
@@ -947,6 +955,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     convention = manifest.get("indexConvention") or "sibling"
     central_rel = manifest.get("centralIndex")
+    if central_rel == "README.md" or (roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2):
+        root_docs = True  # the docs live at the repo root and the README is their index
     if not central_rel and root_docs:
         central_rel = "README.md"
     if not central_rel and not root_files_only and not root_docs:
@@ -1204,7 +1214,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         for c in coverage:
             if c["covered_by"]:
                 continue
-            anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_path else front_rel)
+            manifest_inside = manifest_path is not None and not posix(manifest_path, repo).startswith(("/", "C:", "c:")) and ":" not in posix(manifest_path, repo)
+            anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_inside else front_rel)
             why = "always" if c["applies"] == "always" else ("named in the manifest" if c["applies"] == "manifest" else f"the repo has {c['applies']}")
             add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}) - apply creates {c['default_path']} from the template", "fail")
     states: dict[str, dict] = {}
@@ -1222,7 +1233,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         state_totals["missing"] += len(st["missing"])
     # Against the index that exists, or the one init would create.
     front_links_index = True
-    if front.is_file():
+    if front.is_file() and front_rel != (central_rel or "docs/INDEX.md"):
         fl = links_out(by_rel.get(front_rel) or Doc(front, repo))
         target = central_rel or "docs/INDEX.md"
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
@@ -1248,7 +1259,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if saw_inside:
             conv = "inside"
         proposed = {
-            "roots": roots_rel,
+            "roots": ["*.md"] if root_docs else roots_rel,
             "centralIndex": central_rel or (f"{roots_rel[0]}/INDEX.md" if roots_rel and not root_files_only else None),
             "indexConvention": conv,
             "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
