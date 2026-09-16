@@ -1,0 +1,19 @@
+{
+  "roots": [
+    "README.md",
+    "CONTRIBUTING.md",
+    "ARCHITECTURE.md",
+    "examples/README.md",
+    "evals/fixtures/README.md"
+  ],
+  "centralIndex": "README.md",
+  "requiredDocs": {
+    "purpose": "README.md",
+    "plan": false
+  },
+  "exempt": {
+    "R7": [
+      "evals/fixtures/README.md"
+    ]
+  }
+}

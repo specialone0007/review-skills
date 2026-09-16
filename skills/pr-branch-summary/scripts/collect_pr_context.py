@@ -25,6 +25,10 @@ def run_git(args: list[str], cwd: Path, check: bool = True) -> subprocess.Comple
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        # Git output is UTF-8. Without this, Python decodes it with the machine's locale codec,
+        # and one non-ASCII character in a diff kills the reader thread on a Windows runner.
+        encoding="utf-8",
+        errors="replace",
     )
 
 
@@ -48,6 +52,8 @@ def resolve_repo(path: Path) -> Path:
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        encoding="utf-8",
+        errors="replace",
     )
     if result.returncode != 0:
         raise SystemExit(f"Not inside a git repository: {path}")

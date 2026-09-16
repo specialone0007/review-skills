@@ -202,6 +202,24 @@ legend, no sections; its counts are checked only when the manifest's `counts` na
 `research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
 carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
 
+## What cannot cover a concern
+
+Four kinds of doc are checked like any other but never become the home of a concern: a record
+folder's docs and the parts of a split doc, because they are snapshots and fragments; a doc under
+`fixtures`, `testdata`, `mocks`, `golden` or `snapshots`, because it describes test material rather
+than the project; and a dedicated index such as `docs/INDEX.md`, because it is a list. A README is
+the exception: when it is both the front door and the central index it is a document with sections,
+and those sections cover concerns as any other doc's would.
+
+## The agent file
+
+The routing table belongs in the file agents read before they work: `AGENTS.md` if the repo tracks
+one, else `CLAUDE.md`. The checker fills it from the coverage table, one row per concern this repo
+has, so "a route, its method or path, its auth guard" points at whichever doc covers `http` here.
+It is printed, not written, unless the user names the file: a README that is wrong misleads a
+reader, an agent file that is wrong misleads every run after it. A gitignored agent file is one
+person's copy - it reaches nobody who clones the repo, and the report says so.
+
 ## Writing into a file somebody else wrote
 
 Apply edits three kinds of existing file: the central index (a row), the front door (the block

@@ -1,5 +1,7 @@
 # Examples
 
+> **This document owns:** what the example reports are, how each was produced, and what they are evidence of.
+
 Real runs of each skill against **this repository**, at commit `cc100ad` (`docs-structure`, added later, at the head of its own pull request).
 
 Nothing here is illustrative or hand-written. Each report is what the skill actually produced, citations included, and you can re-run any of them yourself and compare:
