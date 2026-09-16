@@ -18,6 +18,7 @@ Check the shape of a repository's documentation, build the docs it is missing, a
 - The scripts never write. The checker (`scripts/docs_structure.py`) reports; the inventory (`scripts/docs_evidence.py`) describes; the agent does every edit, in memory first, behind the gate.
 - Secret safety is structural: env files are opened only from an allow-list of example files (`.env.example`, `.env.sample`, `.env.template`, `.env.*.example`, `.env.*.sample`, `.env.*.template`); only variable names are ever read or written; ports come from `EXPOSE` and `ports:`, never from a value; a start command is kept to its first token.
 - No finding without severity and `path:line` where a line exists. Three anchors are defined: a missing central index anchors to the manifest line or the first unreachable doc; a duplicated measurement anchors to the first doc carrying it, without a line; an uncovered concern anchors to the central index, else to the manifest when it lives in the repo, else to the front door, always line 1.
+- Editing an existing file keeps its bytes: the same newline style (a CRLF README stays CRLF), the same trailing newline, the same encoding. A whole-file diff caused by a rewritten line ending is a failed apply, not a formatting choice.
 - Never create a branch, stage, commit, push, or open a PR. The only non-Markdown file apply may write is the JSON manifest the user accepted. Never edit `package.json`, a Makefile or CI configuration. Never copy a script into the target repo.
 
 ## The thirteen rules

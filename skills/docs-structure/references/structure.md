@@ -202,6 +202,14 @@ legend, no sections; its counts are checked only when the manifest's `counts` na
 `research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
 carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
 
+## Writing into a file somebody else wrote
+
+Apply edits three kinds of existing file: the central index (a row), the front door (the block
+below) and a doc getting an owner line. Each keeps the file's own bytes - newline style, trailing
+newline, encoding - so the diff shows the added lines and nothing else. Reading with text mode and
+writing back with a fixed newline rewrites every line of a CRLF file; check the diff line count
+against the lines you meant to add before the write counts as done.
+
 ## The front door
 
 Every README the skill touches gets the same hand-off, so a reader coming from another repo knows
