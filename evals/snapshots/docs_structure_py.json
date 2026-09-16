@@ -67,7 +67,7 @@
       "universal": false
     },
     {
-      "applies": "routes: app/routes.py",
+      "applies": "2 routes (fastapi-flask 2)",
       "companions": [],
       "concern": "http",
       "covered_by": null,
@@ -91,6 +91,7 @@
   ],
   "discovery": {
     "candidates": {},
+    "package_docs": [],
     "roots": [],
     "rule": "c",
     "status": "root-files-only"
@@ -134,7 +135,7 @@
     {
       "level": "fail",
       "line": 1,
-      "message": "no doc covers 'http' (the repo has routes: app/routes.py) - apply creates docs/API_REFERENCE.md from the template",
+      "message": "no doc covers 'http' (the repo has 2 routes (fastapi-flask 2)) - apply creates docs/API_REFERENCE.md from the template",
       "path": "README.md",
       "rule": "R12",
       "severity": "P2"
@@ -155,7 +156,7 @@
         "concern": "http",
         "lines": 25,
         "template": "references/templates/API_REFERENCE.md",
-        "why": "http (routes: app/routes.py)"
+        "why": "http (2 routes (fastapi-flask 2))"
       },
       "docs/ARCHITECTURE.md": {
         "concern": "architecture",

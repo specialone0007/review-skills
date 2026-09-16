@@ -80,6 +80,8 @@ TOP_LEVEL_SKIP = {"dist", "build"}
 DOC_EXTS = {".md", ".mdx"}
 ROOT_FILES = ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md")
 DOCS_FOLDER_NAMES = ("docs", "doc", "documentation")
+PACKAGE_MANIFESTS = ("package.json", "pyproject.toml", "setup.py", "setup.cfg", "go.mod", "Cargo.toml", "pom.xml",
+                     "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs", "Move.toml")
 RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
 # A docs site generator owns navigation and URLs; looked for at the repo root and in each docs root.
 GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress", "hugo.toml", "book.toml")
@@ -163,7 +165,7 @@ CONCERNS = [
      {"releasing", "release", "releases", "publish", "publishing", "versioning", "changelog"}, "RELEASING.md", []),
     ("data", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables") else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"] else None)), lambda inv: "DATA_MODEL.md",
      {"data model", "schema", "database", "tables", "migrations", "entities", "storage"}, "DATA_MODEL.md", []),
-    ("http", lambda inv: (f"routes: {inv['routes']['items'][0]['evidence']}" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API_REFERENCE.md",
+    ("http", lambda inv: (f"{inv['routes']['count']} routes ({', '.join(f'{k} {v}' for k, v in sorted(inv['routes'].get('by_framework', {}).items()))})" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API_REFERENCE.md",
      {"api", "endpoints", "endpoint", "routes", "openapi", "rest", "http", "reference"}, "API_REFERENCE.md", []),
     ("commands", lambda inv: _first([c for c in inv.get("cli") or [] if not c.get("hint")], "cli"), lambda inv: "CLI_REFERENCE.md",
      {"cli", "command", "commands", "command line", "usage", "flags", "options"}, "CLI_REFERENCE.md", []),
@@ -468,7 +470,7 @@ def linked_folders(repo: Path, skills: set[Path], ignore: list[str]) -> dict[str
                 rel = p.relative_to(repo).as_posix()
             except ValueError:
                 continue
-            if rel in found or excluded(p, repo, skills, ignore):
+            if rel in found or excluded(p, repo, skills, ignore) or is_package_dir(p):
                 continue
             n = len(docs_under(p, repo, skills, ignore))
             if n >= 2:
@@ -476,25 +478,60 @@ def linked_folders(repo: Path, skills: set[Path], ignore: list[str]) -> dict[str
     return found
 
 
+def is_package_dir(p: Path) -> bool:
+    """A folder with a build manifest is a unit of code (a workspace package, a service), not a docs folder."""
+    return any((p / m).is_file() for m in PACKAGE_MANIFESTS) or any(p.glob("*.csproj"))
+
+
+def linked_package_docs(repo: Path, skills: set[Path], ignore: list[str]) -> list[str]:
+    """Markdown files the root files link to inside package folders - a monorepo's per-package
+    READMEs. A reader reaches them in one hop from the front door, so they join the doc set."""
+    out: list[str] = []
+    for name in ROOT_FILES:
+        f = repo / name
+        if not f.is_file():
+            continue
+        for _, target in LINK_RE.findall("\n".join(strip_fences(read(f).splitlines()))):
+            t = target.split("#")[0].strip()
+            if not t or t.startswith(("http://", "https://", "mailto:", "<", "/")):
+                continue
+            p = (repo / t).resolve()
+            if p.is_dir():
+                p = p / "README.md"
+            if not p.is_file() or p.suffix.lower() not in DOC_EXTS or p.parent == repo:
+                continue
+            try:
+                rel = p.relative_to(repo).as_posix()
+            except ValueError:
+                continue
+            if excluded(p, repo, skills, ignore) or rel in out:
+                continue
+            folders = [p.parent] + [a for a in p.parent.parents if a != repo and repo in a.parents]
+            if any(is_package_dir(a) for a in folders):
+                out.append(rel)
+    return out
+
+
 def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
+    pkg = linked_package_docs(repo, skills, ignore)
     for name in DOCS_FOLDER_NAMES:
         d = repo / name
         if d.is_dir() and docs_under(d, repo, skills, ignore):
-            return {"rule": "a", "status": "resolved", "roots": [name], "candidates": {}}
+            return {"rule": "a", "status": "resolved", "roots": [name], "candidates": {}, "package_docs": pkg}
     linked = linked_folders(repo, skills, ignore)
     for child in list(linked):
         if any(child != other and child.startswith(other + "/") for other in linked):
             del linked[child]
     if len(linked) == 1:
-        return {"rule": "b", "status": "resolved", "roots": list(linked), "candidates": linked}
+        return {"rule": "b", "status": "resolved", "roots": list(linked), "candidates": linked, "package_docs": pkg}
     if len(linked) > 1:
-        return {"rule": "b", "status": "ambiguous", "roots": [], "candidates": linked}
+        return {"rule": "b", "status": "ambiguous", "roots": [], "candidates": linked, "package_docs": pkg}
     top_md = sorted(p.name for p in repo.iterdir() if p.is_file() and p.suffix.lower() in DOC_EXTS)
     extra = [n for n in top_md if n not in ROOT_FILES]
     if len(extra) >= 2 and (repo / "README.md").is_file():
         # The repository's docs live at its root (an ops-notes repo, say). The README is the index.
-        return {"rule": "c", "status": "root-docs", "roots": top_md, "candidates": {}}
-    return {"rule": "c", "status": "root-files-only", "roots": [], "candidates": {}}
+        return {"rule": "c", "status": "root-docs", "roots": top_md, "candidates": {}, "package_docs": pkg}
+    return {"rule": "c", "status": "root-files-only", "roots": [], "candidates": {}, "package_docs": pkg}
 
 
 def detect_generator(repo: Path, roots: list[Path]) -> str | None:
@@ -599,8 +636,8 @@ def tokens(text: str) -> str:
 
 
 def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door: bool = False) -> tuple[int, str]:
-    """How strongly a doc covers a concern: file name, H1, then H2s. The front door's H1 is the
-    project name, so only its H2s count there, at double weight (a README section is a real home).
+    """How strongly a doc covers a concern: file name, H1, then H2s. A README's H1 is the
+    project's or package's name, so only its H2s count there, at double weight (a README section is a real home).
     One generic word in a title is not coverage: a doc needs the file name, or two distinct hits,
     or a title hit backed by a section hit."""
     score = 0
@@ -648,6 +685,17 @@ def repo_inventory(repo: Path, cap_n: int = 100) -> dict:
     return inv
 
 
+def pick_docs_root(repo: Path, roots: list[Path]) -> str:
+    """Where new skeletons and the index go: the docs folder at the repo root if there is one, else
+    the first root folder that is a direct child of the repo, else a new `docs/`. A nested folder
+    such as `server/docs` belongs to one package and never becomes the whole repo's docs home."""
+    tops = [r for r in roots if r.is_dir() and r.parent == repo]
+    for r in tops:
+        if r.name in DOCS_FOLDER_NAMES:
+            return r.name
+    return posix(tops[0], repo) if tops else "docs"
+
+
 def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, roots: list[Path], root_docs: bool,
                      central_rel: str | None, front_rel: str, convention: str = "sibling", record_folders: list[str] | None = None) -> list[dict]:
     """One row per concern: whether it applies, why, and which doc covers it."""
@@ -657,7 +705,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
         pin_map = {c: True for c in pins}
     elif isinstance(pins, dict):
         pin_map = dict(pins)
-    docs_root = "docs" if any(r.is_dir() and r.name == "docs" for r in roots) else (posix(next((r for r in roots if r.is_dir()), repo), repo) if any(r.is_dir() for r in roots) else "docs")
+    docs_root = pick_docs_root(repo, roots)
     records = record_folders or []
     candidates = []
     for d in docs:
@@ -692,7 +740,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             covered_by = pin if exists_exact(repo / pin) else None
             how = "manifest"
         else:
-            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel)), d) for d in candidates), key=lambda x: -x[0][0])
+            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel or d.path.name.lower() == "readme.md")), d) for d in candidates), key=lambda x: -x[0][0])
             if scored and scored[0][0][0] >= 3:
                 (sc, how), d = scored[0]
                 covered_by = d.rel
@@ -917,6 +965,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             roots_rel = [f for f in ROOT_FILES if (repo / f).is_file()]
         else:
             roots_rel += [f for f in ROOT_FILES if (repo / f).is_file()]
+        roots_rel += [p for p in discovery.get("package_docs", []) if p not in roots_rel]  # a monorepo's per-package READMEs
     expanded: list[str] = []
     for r in roots_rel:
         if r.endswith("*.md") or r.endswith("*.mdx"):
@@ -1125,7 +1174,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     # ---- R1 aggregate when no central index
     if not r1_off and not central_exists and unreachable:
-        if manifest_path is not None:
+        if manifest_path is not None and repo.resolve() in manifest_path.resolve().parents:
             anchor_path, anchor_line = posix(manifest_path, repo), 1
             for i, line in enumerate(read(manifest_path).splitlines(), start=1):
                 if "centralIndex" in line:
@@ -1244,7 +1293,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     _TEMPLATES_DIR = (repo / td) if td and (repo / td).is_dir() else None
     if td and _TEMPLATES_DIR is None:
         warnings.append(f"templatesDir {td} does not exist; bundled templates used")
-    docs_root = next((posix(r, repo) for r in roots if r.is_dir()), "docs")
+    docs_root = pick_docs_root(repo, roots)
     inv = repo_inventory(repo)
     coverage = concern_coverage(inv, manifest, docs, repo, roots, root_docs, central_rel, front_rel, convention, record_folders) if generator is None else []
     if generator is None:

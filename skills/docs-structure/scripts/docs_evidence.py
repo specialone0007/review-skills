@@ -605,6 +605,14 @@ def det_dockerfiles(ctx: Ctx, inv: dict) -> None:
     each(ctx, ctx.glob_name("Dockerfile*"), one, "dockerfiles")
 
 
+def container_port(spec) -> str:
+    """`8080`, `"5432:5432"`, `"127.0.0.1:8080:80/tcp"` or `"${HOST:-8000}:8000"` -> the container port."""
+    s = re.sub(r"\$\{[^}]*?:-([^}]*)\}", r"\1", str(spec))
+    s = re.sub(r"\$\{[^}]*\}|\$\w+", "", s)
+    last = s.rsplit(":", 1)[-1].split("/")[0].strip()
+    return last if last.isdigit() or re.fullmatch(r"\d+-\d+", last) else ""
+
+
 def det_compose(ctx: Ctx, inv: dict) -> None:
     def one(p: Path) -> None:
         data = yaml_scan(read(p))
@@ -625,7 +633,7 @@ def det_compose(ctx: Ctx, inv: dict) -> None:
             root = build.get("context") if isinstance(build, dict) else (build if isinstance(build, str) else "")
             dep = svc.get("depends_on")
             inv["services"].append(item(ctx, "compose", p, name=str(name), root=str(root or ""), image=str(svc.get("image") or ""),
-                                        ports=[str(x).split(":")[0] for x in ports if isinstance(x, (str, int))][:8],
+                                        ports=[pp for pp in (container_port(x) for x in ports if isinstance(x, (str, int))) if pp][:8],
                                         depends_on=list(dep.keys()) if isinstance(dep, dict) else (dep if isinstance(dep, list) else []),
                                         healthcheck=isinstance(svc.get("healthcheck"), dict), env_file=svc.get("env_file") if isinstance(svc.get("env_file"), (str, list)) else "", source="compose"))
             if env_names:
