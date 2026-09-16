@@ -119,6 +119,9 @@ DEFAULT_MANIFEST = {
     "existingChecker": None,
     "frontDoor": "README.md",
     "requiredDocs": None,
+    # A README section stops counting as coverage once the evidence behind a concern is this large:
+    # routes for http, tables for data, deployable units for deploy and architecture. 0 turns it off.
+    "heavyEvidence": {"http": 20, "data": 10, "deploy": 3, "architecture": 3},
     "templatesDir": None,
     "verifiedStaleDays": 90,
     "ignore": [],
@@ -685,6 +688,20 @@ def repo_inventory(repo: Path, cap_n: int = 100) -> dict:
     return inv
 
 
+def evidence_weight(cid: str, inv: dict) -> tuple[int, str]:
+    """How much the inventory holds for a concern, as a count and a label for the report."""
+    if cid == "http":
+        n = int((inv.get("routes") or {}).get("count") or 0)
+        return n, f"{n} routes"
+    if cid == "data":
+        n = int((inv.get("schema") or {}).get("table_count") or len((inv.get("schema") or {}).get("tables") or []))
+        return n, f"{n} tables"
+    if cid in ("deploy", "architecture"):
+        names = {s.get("name") for s in inv.get("services") or [] if s.get("name")}
+        return len(names), f"{len(names)} deployable units"
+    return 0, ""
+
+
 def pick_docs_root(repo: Path, roots: list[Path]) -> str:
     """Where new skeletons and the index go: the docs folder at the repo root if there is one, else
     the first root folder that is a direct child of the repo, else a new `docs/`. A nested folder
@@ -717,6 +734,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             continue  # a part of a split doc; its index is the doc
         candidates.append(d)
     docs_only = "docs-only" in (inv.get("kinds") or [])
+    heavy_cfg = manifest.get("heavyEvidence") if isinstance(manifest.get("heavyEvidence"), dict) else {}
     rows = []
     for cid, applies, default_file, keywords, template, companions in CONCERNS:
         pin = pin_map.get(cid)
@@ -735,19 +753,34 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             continue
         dfile = default_file(inv)
         default_path = dfile if root_docs else f"{docs_root}/{dfile}"
-        covered_by, how, runner_up = None, "", None
+        covered_by, how, runner_up, seed = None, "", None, None
         if isinstance(pin, str):
             covered_by = pin if exists_exact(repo / pin) else None
             how = "manifest"
         else:
             scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel or d.path.name.lower() == "readme.md")), d) for d in candidates), key=lambda x: -x[0][0])
-            if scored and scored[0][0][0] >= 3:
+            # Heavy evidence: a README section is a seed, not a home. The dedicated doc is still missing.
+            weight, label = evidence_weight(cid, inv)
+            threshold = int(heavy_cfg.get(cid) or 0)
+            if threshold and weight >= threshold:
+                scored = [(s, d) for s, d in scored if not s[1].startswith("README sections")] + [(s, d) for s, d in scored if s[1].startswith("README sections")]
+                dedicated = [(s, d) for s, d in scored if s[0] >= 3 and not s[1].startswith("README sections")]
+                readme_hits = [(s, d) for s, d in scored if s[0] >= 3 and s[1].startswith("README sections")]
+                if dedicated:
+                    (sc, how), d = dedicated[0]
+                    covered_by = d.rel
+                elif readme_hits:
+                    seed = readme_hits[0][1].rel
+                    how = f"heavy evidence ({label}); {seed} has a section to seed from"
+                else:
+                    how = f"heavy evidence ({label})"
+            elif scored and scored[0][0][0] >= 3:
                 (sc, how), d = scored[0]
                 covered_by = d.rel
                 if len(scored) > 1 and scored[1][0][0] >= 3 and scored[1][0][0] >= sc - 1:
                     runner_up = scored[1][1].rel
         rows.append({"concern": cid, "applies": reason, "default_path": default_path, "template": template(inv) if callable(template) else template,
-                     "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up,
+                     "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up, "seed": seed,
                      "universal": cid in UNIVERSAL})
     return rows
 
@@ -1303,7 +1336,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             manifest_inside = manifest_path is not None and not posix(manifest_path, repo).startswith(("/", "C:", "c:")) and ":" not in posix(manifest_path, repo)
             anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_inside else front_rel)
             why = "always" if c["applies"] == "always" else ("named in the manifest" if c["applies"] == "manifest" else f"the repo has {c['applies']}")
-            add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}) - apply creates {c['default_path']} from the template", "fail")
+            seed = f"; {c['seed']} has a section to seed from" if c.get("seed") else ""
+            add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}{seed}) - apply creates {c['default_path']} from the template", "fail")
     states: dict[str, dict] = {}
     for c in coverage:
         if c["covered_by"] and c["covered_by"] in by_rel:
@@ -1432,7 +1466,7 @@ def render(d: dict, top: int) -> str:
         L.append("| concern | applies because | covered by | matched by | state |")
         L.append("|---|---|---|---|---|")
         for c in d["concerns"]:
-            cov = c["covered_by"] or f"none - apply creates {c['default_path']}"
+            cov = c["covered_by"] or f"none - apply creates {c['default_path']}" + (f" (seed: {c['seed']})" if c.get("seed") else "")
             extra = f" (also {c['runner_up']})" if c.get("runner_up") else ""
             L.append(f"| {c['concern']} | {c['applies']} | {cov}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
     L.append("")

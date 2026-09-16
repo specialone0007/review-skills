@@ -68,6 +68,7 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "counts": [{ "index": "docs/TASKLIST.md", "folder": "docs/tasklist" }],
   "registries": [{ "folder": "docs/experiments", "table": "docs/REGISTRY.md", "except": ["LOG.md"] }],
   "requiredDocs": { "deploy": "docs/ops/shipping.md", "research": true, "operate": false },
+  "heavyEvidence": { "http": 20, "data": 10, "deploy": 3, "architecture": 3 },
   "templatesDir": null,
   "verifiedStaleDays": 90,
   "existingChecker": null,
@@ -80,7 +81,9 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
 `"inside"` means `docs/x/README.md`. Nesting: `docs/a/b/` looks for `docs/a/B.md`, then falls to
 `docs/a/`'s index, then to the central index. `requiredDocs` pins a concern on (`true`), off
 (`false`) or to a specific file. `templatesDir` replaces this skill's templates with a team's own,
-by concern file name. `existingChecker` names a verifier the repo already runs.
+by concern file name. `heavyEvidence` is the point past which a README section stops counting
+as coverage for a concern and becomes the seed of a dedicated doc: a README heading "API
+Endpoints" over a handful of examples does not document 130 routes. `0` turns a threshold off. `existingChecker` names a verifier the repo already runs.
 
 ## The evidence inventory
 
@@ -149,14 +152,17 @@ target names verbatim; "how to know it works" is a health route or test command;
 | Rollback | the one mechanical fact: whether migrations have down files | question | inventing a procedure |
 | Known traps | `fix(deploy|docker|build|env|ci)` and `revert` commits verbatim, dated | partial | storytelling |
 
-**data**: tables grouped by name prefix as `inferred:`; meaning only from `COMMENT ON` or doc
-comments, else "meaning: not documented"; relationships in words from FK syntax; conventions as
+**data**: one H3 per name-prefix group (`inferred:`), each a table with one row per model or
+table: name, the relations its FK syntax names, the defining file; meaning only from `COMMENT ON`
+or doc comments, else "meaning: not documented"; relationships in words from FK syntax; conventions as
 "observed in N of M tables"; inventory counts with first and last migration filenames. High on
 names, question on meaning. This doc owns table and migration counts.
 
 **http**: OpenAPI first; else framework patterns. Authentication as "route X imports guard Y; Y reads
-header Z", never "protected". Endpoints table capped at 40 rows, remainder grouped by first segment
-with counts; shapes only from types in the handler, else "shape: see file". Errors from a shared
+header Z", never "protected". Endpoints as tables, one H3 per first path segment, one row per route
+(method, path, handler file, the guard it imports or `none found`), 40 rows per table; every route
+in the inventory lands until the whole-doc cap, then "N more under <folder>"; shapes only from
+types in the handler, else "shape: see file". Errors from a shared
 helper. Notes carry scoped negatives. High on paths, partial on shapes. Owns route counts.
 
 **commands**: from parser definitions (`add_parser`, `@command`, `Use:`, clap derives), never from

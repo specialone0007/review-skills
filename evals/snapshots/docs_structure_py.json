@@ -9,6 +9,7 @@
       "default_path": "docs/PRODUCT.md",
       "matched_by": "",
       "runner_up": null,
+      "seed": null,
       "template": "PRODUCT.md",
       "universal": true
     },
@@ -20,6 +21,7 @@
       "default_path": "docs/ARCHITECTURE.md",
       "matched_by": "",
       "runner_up": null,
+      "seed": null,
       "template": "ARCHITECTURE.md",
       "universal": true
     },
@@ -38,6 +40,7 @@
         "Common problems"
       ],
       "runner_up": null,
+      "seed": null,
       "state": "reviewed",
       "template": "DEVELOPMENT.md",
       "universal": true
@@ -52,6 +55,7 @@
       "default_path": "docs/TASKLIST.md",
       "matched_by": "",
       "runner_up": null,
+      "seed": null,
       "template": "TASKLIST.md",
       "universal": true
     },
@@ -63,6 +67,7 @@
       "default_path": "docs/DATA_MODEL.md",
       "matched_by": "",
       "runner_up": null,
+      "seed": null,
       "template": "DATA_MODEL.md",
       "universal": false
     },
@@ -74,6 +79,7 @@
       "default_path": "docs/API_REFERENCE.md",
       "matched_by": "",
       "runner_up": null,
+      "seed": null,
       "template": "API_REFERENCE.md",
       "universal": false
     },
@@ -85,6 +91,7 @@
       "default_path": "docs/CLI_REFERENCE.md",
       "matched_by": "",
       "runner_up": null,
+      "seed": null,
       "template": "CLI_REFERENCE.md",
       "universal": false
     }

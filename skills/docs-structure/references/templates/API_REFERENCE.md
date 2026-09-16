@@ -10,7 +10,7 @@
 
 ## Endpoints
 
-*One subsection per endpoint: method and path, what it does, request shape, response shape, error codes. Copy real payloads, not invented ones.*
+*One H3 per path prefix, each a table with one row per endpoint: method, path, handler file, the auth guard it uses. Request and response shapes from the handler types; copy real payloads, not invented ones.*
 
 ## Errors
 

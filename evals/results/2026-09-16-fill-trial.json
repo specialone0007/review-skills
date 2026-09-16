@@ -138,7 +138,8 @@
   "not_yet": [
     "a real split with the preservation gate",
     "docs-sync-audit over a filled repo as the honesty check on drafts",
-    "a Railway check on the second trial repo (drafts say so in their header)"
+    "a Railway check on the second trial repo (drafts say so in their header)",
+    "dedupe schema tables across Prisma models and SQL migrations in docs_evidence"
   ],
   "fill_trial_2": {
     "shape": "the three-package repo above, cloned to a throwaway copy",
@@ -146,12 +147,15 @@
       "plan: 4 concerns uncovered; init proposed docs/ at the root with INDEX, manifest, TASKLIST + phase file, DESIGN_GUIDELINES, TESTING, RUNBOOK and one README line",
       "fill: drafted TESTING (4 sections), RUNBOOK (4 sections) and DESIGN_GUIDELINES (5 sections, two of them a single open question) from 30 files; plan left as a skeleton",
       "gate: two citations pointed at agent instruction files that are gitignored in that repo and so absent from the clone - re-cited to tsconfig files; one 'because' and one 'must' reworded; then OK on all three",
-      "check: Failures 0 on R12, Concerns 10 covered / 0 missing, Sections 13 draft / 20 reviewed; R6 (opt-in) found 3 stale backticked paths in a hand-written README"
+      "check: Failures 0 on R12, Concerns 10 covered / 0 missing, Sections 13 draft / 20 reviewed; R6 (opt-in) found 3 stale backticked paths in a hand-written README",
+      "heavy evidence: with the new heavyEvidence rule the same repo asked for four more docs (architecture, deploy, data, http) that README headings had been covering; filled as tables - 130 routes in 12 path groups with the guards each file imports, 22 models with relations in 4 inferred groups, 10 service rows, 5 env-file rows; gate clean on all seven drafts; Concerns 10/10, Sections 32 draft / 9 reviewed"
     ],
     "found_along_the_way": [
       "the generated manifest's roots omitted the per-package READMEs discovery had just used, so the first check after apply lost three covered concerns - fixed: init writes them into roots",
       "the API's health probe leaves HEALTH_TOKEN-gated internals public while the token is unset; the repo's own ops README says so and the draft cites it",
-      "no CI: the only automated check is a pre-commit hook; 122 Express routes and two workers have no tests"
+      "no CI: the only automated check is a pre-commit hook; 122 Express routes and two workers have no tests",
+      "the schema inventory counts the same tables twice when a Prisma schema and a SQL baseline migration both exist (72 reported, 22 models + 50 CREATE TABLE); the draft says so and the http/data thresholds still hold either way",
+      "the API reference had to summarise its 41 admin routes to one line to stay under the splitAt/2 draft cap; the table columns put the handler file last so the gate reads it as the row's evidence"
     ],
     "verified_against_platform": false
   }
