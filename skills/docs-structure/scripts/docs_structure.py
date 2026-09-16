@@ -776,14 +776,14 @@ def section_states(doc: "Doc", template: Path) -> dict:
 
 
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
-               front_links_index: bool, root_docs: bool, docs_root: str = "docs") -> dict | None:
+               front_links_index: bool, root_docs: bool, docs_root: str = "docs", package_docs: list[str] | None = None) -> dict | None:
     """What apply would create. Names templates, never carries content; the agent copies them."""
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"]]
     if not have_index and not root_docs:
         files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
     manifest = {
-        "roots": ([docs_root] + [f for f in ROOT_FILES if (repo / f).is_file()]) if not root_docs else ["*.md"],
+        "roots": ([docs_root] + [f for f in ROOT_FILES if (repo / f).is_file()] + list(package_docs or [])) if not root_docs else ["*.md"] + list(package_docs or []),
         "centralIndex": "README.md" if root_docs else f"{docs_root}/INDEX.md",
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
@@ -1323,7 +1323,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         fl = links_out(by_rel.get(front_rel) or Doc(front, repo))
         target = central_rel or "docs/INDEX.md"
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
-    init = None if generator is not None else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root)
+    init = None if generator is not None else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
+                                                          discovery.get("package_docs", []) if discovery else [])
 
     # ---- placeholders
     placeholders = 0
