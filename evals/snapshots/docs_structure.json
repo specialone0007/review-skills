@@ -182,6 +182,14 @@
     },
     {
       "level": "warn",
+      "line": 7,
+      "message": "verified against the billing dashboard on 2024-01-15, older than 90 days - look again or strike the line",
+      "path": "docs/limits.md",
+      "rule": "R13",
+      "severity": "P3"
+    },
+    {
+      "level": "warn",
       "line": null,
       "message": "\"42.5%\" appears in 4 docs - one should own it, the rest link: docs/crlf-sample.md, docs/history.md, docs/limits.md, docs/setup.md",
       "path": "docs/crlf-sample.md",
@@ -297,6 +305,15 @@
       "severity": "P2",
       "title": "concern covered",
       "warnings": 0
+    },
+    "R13": {
+      "failures": 0,
+      "first": [
+        "docs/limits.md:7"
+      ],
+      "severity": "P3",
+      "title": "verified-on date fresh",
+      "warnings": 1
     },
     "R2": {
       "failures": 0,
@@ -416,7 +433,7 @@
       "reviewed": 2,
       "skeleton": 0
     },
-    "warnings": 5
+    "warnings": 6
   },
   "unreachable": [
     "docs/crlf-sample.md",

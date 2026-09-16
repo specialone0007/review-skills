@@ -41,7 +41,7 @@
     {
       "dir": "docs",
       "files": 6,
-      "lines": 84
+      "lines": 86
     },
     {
       "dir": "src",
@@ -107,6 +107,11 @@
       "path": "package.json"
     },
     {
+      "bytes": 399,
+      "lines": 11,
+      "path": "docs/limits.md"
+    },
+    {
       "bytes": 373,
       "lines": 9,
       "path": "src/routes/exports.js"
@@ -115,11 +120,6 @@
       "bytes": 310,
       "lines": 12,
       "path": "docs/setup.md"
-    },
-    {
-      "bytes": 298,
-      "lines": 9,
-      "path": "docs/limits.md"
     },
     {
       "bytes": 282,
@@ -220,7 +220,7 @@
   "totals": {
     "doc_files": 7,
     "files": 23,
-    "lines": 206,
+    "lines": 208,
     "test_files": 3
   },
   "warnings": []
