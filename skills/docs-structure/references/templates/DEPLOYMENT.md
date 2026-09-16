@@ -2,6 +2,8 @@
 
 > **This document owns:** how the system is deployed — every service, its environment, the steps, and how to roll back. *(skeleton, write me)*
 
+<!-- concern: deploy; fill: services, env, ci, ops, decisions -->
+
 ## Services
 
 *A table: service, root directory, build and start command, public or private, health check. One row per deployable unit, including data stores.*

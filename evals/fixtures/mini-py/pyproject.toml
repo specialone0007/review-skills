@@ -1,0 +1,11 @@
+[project]
+name = "mini-py"
+version = "0.1.0"
+description = "An intentionally small Python fixture for the docs-structure evidence snapshot."
+dependencies = ["fastapi", "sqlalchemy", "alembic"]
+
+[project.scripts]
+mini = "app.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -28,8 +28,24 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | `history.md` has two H1 headings, so a split must refuse it; `guide.md` is over the fixture's `splitAt` and splits cleanly into three parts | `mini-app/docs/history.md`, `mini-app/docs/guide.md` | `docs-structure` |
 | `42.5%` appears in four docs | `mini-app/docs/*.md` | `docs-structure` (warning) |
 | `crlf-sample.md` has Windows line endings; its `## Notes` anchor must still resolve from `limits.md` | `mini-app/docs/crlf-sample.md` | `docs-structure` |
-| `docs/` has none of the required docs: no PRODUCT, ARCHITECTURE or TASKLIST, and `src/routes` makes API_REFERENCE required too; DEPLOYMENT, DESIGN_GUIDELINES and DATA_MODEL stay optional because nothing in the fixture calls for them | `mini-app/docs/` | `docs-structure` (R12, four P2s) |
+| Five concerns apply and have no covering doc: purpose, architecture and plan (always), testing (`package.json` has a test script) and operate (`src/routes/health.js`). `develop` **is** covered, by `docs/setup.md`, through its headings, not its name - that is the content match working | `mini-app/docs/`, `mini-app/package.json`, `mini-app/src/routes/health.js` | `docs-structure` (R12, five P2s) |
 | The root README never mentions `docs/`. R11 stays silent here because no central index exists (R1 owns that case); it fires on a repo whose README skips an existing index | `mini-app/README.md` | `docs-structure` (by omission) |
+
+## About `.env.local`
+
+`mini-app/.env.local` is a **canary**. It holds two fake values that look like secrets. No bundled
+script may ever read a non-example env file, so no snapshot may ever contain them;
+`tools/validate_evals.py` fails the run if one does. Do not delete it and do not add it to an
+allow-list.
+
+## About `mini-py/`
+
+A second, smaller fixture in a second ecosystem: `pyproject.toml` with a console script, a FastAPI
+router, an alembic migration, an example env file, and a README with a "Getting started" section
+but no docs folder. It exists so the evidence inventory and the concern model are snapshot-tested
+on Python as well as Node: the README must cover `develop` through its section, `commands` must
+apply from the console script, `data` from the migration, `http` from the router, and there must
+be no deploy or design concern because nothing in it calls for one.
 
 ## About the docs folder
 

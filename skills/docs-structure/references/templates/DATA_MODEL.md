@@ -2,6 +2,8 @@
 
 > **This document owns:** the tables and their meaning — what each one stores, what is append-only, and the conventions every migration follows. *(skeleton, write me)*
 
+<!-- concern: data; fill: schema, decisions -->
+
 ## Tables by area
 
 *One subsection per area. For each table: what a row means, the columns a reader must know, and what must never be deleted from it.*

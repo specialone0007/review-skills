@@ -2,6 +2,8 @@
 
 > **This document owns:** the index of the plan — one file per phase under `tasklist/`, and the count of todo / doing / done in each. *(skeleton, write me)*
 
+<!-- concern: plan; fill: tree (plan-like docs only; never boxes) -->
+
 Read the phase you are working in, not the whole list. Tick items in the phase file; the
 counts here are checked against the boxes by the docs-structure checker (rule R9) and fail
 the build when they drift.

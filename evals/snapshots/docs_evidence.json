@@ -1,0 +1,128 @@
+{
+  "ci": [],
+  "cli": [],
+  "code_files_scanned": 9,
+  "decisions": null,
+  "ecosystems": [
+    "node",
+    "python"
+  ],
+  "env": [
+    {
+      "kind": "env-example",
+      "names": [
+        "API_TOKEN"
+      ],
+      "package": ".",
+      "secret_like": [
+        "API_TOKEN"
+      ],
+      "source": ".env.example"
+    },
+    {
+      "first_seen": {
+        "API_TOKEN": "src/config.js",
+        "MAX_EXPORT_ROWS": "src/config.js"
+      },
+      "kind": "code-reads",
+      "names": [
+        "API_TOKEN",
+        "MAX_EXPORT_ROWS"
+      ],
+      "source": "code"
+    }
+  ],
+  "exports": [],
+  "files_scanned": 20,
+  "frontend": [],
+  "kinds": [
+    "unclassified"
+  ],
+  "ops": [
+    {
+      "detector": "code",
+      "evidence": "src/routes/health.js",
+      "kind": "health-route"
+    }
+  ],
+  "packages": [
+    {
+      "dependencies": [
+        "left-pad",
+        "local-helper",
+        "vitest"
+      ],
+      "detector": "node",
+      "evidence": "package.json",
+      "language": "javascript",
+      "manifest": "package.json",
+      "name": "mini-app",
+      "path": ".",
+      "private": true,
+      "scripts": [
+        "build",
+        "dev:start",
+        "postinstall",
+        "test"
+      ],
+      "version": "0.0.0",
+      "workspaces": false
+    },
+    {
+      "dependencies": [
+        "httpx",
+        "psycopg",
+        "pydantic"
+      ],
+      "detector": "python",
+      "evidence": "requirements.txt",
+      "language": "python",
+      "manifest": "requirements.txt",
+      "name": "mini-app",
+      "path": ".",
+      "scripts": [],
+      "version": ""
+    }
+  ],
+  "readme": {
+    "evidence": "README.md",
+    "first_paragraph": "An intentionally defective fixture. See ../README.md for why.",
+    "headings": [
+      "mini-app",
+      "Running",
+      "Configuration"
+    ],
+    "lines": 18,
+    "title": "mini-app"
+  },
+  "release": [],
+  "repo": "<fixture>",
+  "routes": null,
+  "schema": null,
+  "services": [],
+  "tests": [
+    {
+      "detector": "node",
+      "evidence": "package.json",
+      "package": ".",
+      "runners": [
+        "vitest"
+      ],
+      "scripts": [
+        "test"
+      ]
+    }
+  ],
+  "tree": {
+    "adr_folders": [],
+    "governance_files": [],
+    "plan_like_docs": [],
+    "pr_template": false,
+    "top_level_dirs": [
+      "docs",
+      "src"
+    ]
+  },
+  "unknown": false,
+  "warnings": []
+}

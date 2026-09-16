@@ -2,6 +2,8 @@
 
 > **This document owns:** the dated trail of findings and decisions — Asked / Measured / Interpreted / Decided, one entry per finding. Never a changelog. *(skeleton, write me)*
 
+<!-- concern: research; fill: none -->
+
 One file per month under `log/`. New entries go in the current month's file **and** in this
 list; the checker fails when a month file is not linked from here.
 

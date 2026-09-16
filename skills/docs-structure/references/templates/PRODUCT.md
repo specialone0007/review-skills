@@ -2,6 +2,8 @@
 
 > **This document owns:** what the product is, who it is for, where it is going, and what it has said no to. *(skeleton, write me)*
 
+<!-- concern: purpose; fill: readme, packages, routes, decisions, tree -->
+
 ## What it is becoming
 
 *One paragraph a new teammate can repeat on a call. Present tense for what exists, future tense for what does not, and say which is which.*

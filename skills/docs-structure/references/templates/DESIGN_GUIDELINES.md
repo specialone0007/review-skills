@@ -2,6 +2,8 @@
 
 > **This document owns:** the visual system — tokens, components, and the rules for adding UI without redesigning. *(skeleton, write me)*
 
+<!-- concern: design; fill: frontend, packages, tree -->
+
 > **Golden rule:** the existing design IS the design system. New UI composes what exists; it does not introduce a font, a palette or a component library.
 
 ## Foundations

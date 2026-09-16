@@ -17,6 +17,22 @@
       "source": "src/config.js:2"
     },
     {
+      "detail": "`SECRET_CANARY` is documented but nothing in the code reads it. Either it is dead configuration or the docs promise a knob that does not exist.",
+      "doc": ".env.local",
+      "kind": "documented-unused-env",
+      "line": 2,
+      "severity": "medium",
+      "source": "no reader found"
+    },
+    {
+      "detail": "`DATABASE_URL` is documented but nothing in the code reads it. Either it is dead configuration or the docs promise a knob that does not exist.",
+      "doc": ".env.local",
+      "kind": "documented-unused-env",
+      "line": 3,
+      "severity": "medium",
+      "source": "no reader found"
+    },
+    {
       "detail": "`MAX_EXPORT_ROWS` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
       "doc": "README.md",
       "kind": "documented-env-in-unreferenced-module",
@@ -28,9 +44,9 @@
   "repo": "<fixture>",
   "totals": {
     "docs_checked": 7,
-    "env_names_documented": 2,
+    "env_names_documented": 4,
     "env_names_in_code": 2,
-    "findings": 3,
+    "findings": 5,
     "make_targets_found": 0,
     "npm_scripts_found": 4
   },

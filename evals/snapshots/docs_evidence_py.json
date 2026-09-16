@@ -1,0 +1,149 @@
+{
+  "ci": [],
+  "cli": [
+    {
+      "commands": [
+        "mini"
+      ],
+      "detector": "python",
+      "evidence": "pyproject.toml",
+      "parser": "console_scripts"
+    }
+  ],
+  "code_files_scanned": 4,
+  "decisions": null,
+  "ecosystems": [
+    "python"
+  ],
+  "env": [
+    {
+      "kind": "env-example",
+      "names": [
+        "API_TOKEN",
+        "DATABASE_URL",
+        "LOG_LEVEL"
+      ],
+      "package": ".",
+      "secret_like": [
+        "API_TOKEN"
+      ],
+      "source": ".env.example"
+    },
+    {
+      "first_seen": {
+        "DATABASE_URL": "app/config.py",
+        "LOG_LEVEL": "app/config.py"
+      },
+      "kind": "code-reads",
+      "names": [
+        "DATABASE_URL",
+        "LOG_LEVEL"
+      ],
+      "source": "code"
+    }
+  ],
+  "exports": [],
+  "files_scanned": 7,
+  "frontend": [],
+  "kinds": [
+    "application"
+  ],
+  "ops": [],
+  "packages": [
+    {
+      "dependencies": [
+        "alembic",
+        "fastapi",
+        "sqlalchemy"
+      ],
+      "detector": "python",
+      "evidence": "pyproject.toml",
+      "language": "python",
+      "manifest": "pyproject.toml",
+      "name": "mini-py",
+      "path": ".",
+      "scripts": [
+        "mini"
+      ],
+      "version": "0.1.0"
+    }
+  ],
+  "readme": {
+    "evidence": "README.md",
+    "first_paragraph": "A small Python service fixture. Deliberately has no docs folder.",
+    "headings": [
+      "mini-py",
+      "Getting started"
+    ],
+    "lines": 7,
+    "title": "mini-py"
+  },
+  "release": [
+    {
+      "detector": "python",
+      "evidence": "pyproject.toml",
+      "scripts": [],
+      "version": "0.1.0"
+    }
+  ],
+  "repo": "<fixture>",
+  "routes": {
+    "auth_hints": [],
+    "by_framework": {
+      "fastapi-flask": 2
+    },
+    "count": 2,
+    "items": [
+      {
+        "evidence": "app/routes.py",
+        "framework": "fastapi-flask",
+        "method": "GET",
+        "path": "/"
+      },
+      {
+        "evidence": "app/routes.py",
+        "framework": "fastapi-flask",
+        "method": "POST",
+        "path": "/"
+      }
+    ]
+  },
+  "schema": {
+    "foreign_key_mentions": 0,
+    "migrations": {
+      "count": 1,
+      "first": "alembic/versions/0001_initial.py",
+      "folders": [
+        "alembic/versions"
+      ],
+      "last": "alembic/versions/0001_initial.py"
+    },
+    "table_count": 2,
+    "tables": [
+      {
+        "evidence": "alembic/versions/0001_initial.py",
+        "name": "items",
+        "tool": "alembic"
+      },
+      {
+        "evidence": "alembic/versions/0001_initial.py",
+        "name": "owners",
+        "tool": "alembic"
+      }
+    ]
+  },
+  "services": [],
+  "tests": [],
+  "tree": {
+    "adr_folders": [],
+    "governance_files": [],
+    "plan_like_docs": [],
+    "pr_template": false,
+    "top_level_dirs": [
+      "alembic",
+      "app"
+    ]
+  },
+  "unknown": false,
+  "warnings": []
+}

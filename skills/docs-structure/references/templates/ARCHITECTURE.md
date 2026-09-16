@@ -2,6 +2,8 @@
 
 > **This document owns:** the services, their boundaries, the data flow between them, and the key decisions with their dates. *(skeleton, write me)*
 
+<!-- concern: architecture; fill: packages, services, env, decisions, routes, schema -->
+
 ## In one diagram
 
 *A text diagram of the pieces and the arrows between them. If it needs more than a screen, the system needs a second doc, not a bigger diagram.*
