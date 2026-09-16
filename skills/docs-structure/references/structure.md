@@ -33,6 +33,11 @@ index plus one doc, not the whole tree.
 - **R12 concern coverage.** A repo needs a doc for each concern it actually has. Which concerns it
   has is read from the repo, not decided in advance; which doc covers each is read from the docs'
   own headings, not from a file name.
+- **R13 verified-on dates.** Some facts live on a platform, in a dashboard or in people's heads: a
+  deployment doc's service list, a runbook's on-call rota. No checker can read them. The honest
+  ceiling is a dated line, "verified against <source> on <date>", and a warning when the date is
+  older than the manifest's `verifiedStaleDays`. Found the day a deployment doc said eight services
+  and the platform ran thirteen.
 
 ## Record folders
 
@@ -64,6 +69,7 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "registries": [{ "folder": "docs/experiments", "table": "docs/REGISTRY.md", "except": ["LOG.md"] }],
   "requiredDocs": { "deploy": "docs/ops/shipping.md", "research": true, "operate": false },
   "templatesDir": null,
+  "verifiedStaleDays": 90,
   "existingChecker": null,
   "frontDoor": "README.md",
   "ignore": ["**/*.csv"]

@@ -10,7 +10,7 @@ Read-only. Standard library only. Writes nothing.
     python docs_structure.py --check-paths          # also check backticked repo paths (noisy)
     python docs_structure.py --fail-on-findings     # exit 1 when any rule fails (CI gate)
 
-Twelve mechanical rules, each with a fixed severity. None of them judges prose.
+Thirteen mechanical rules, each with a fixed severity. None of them judges prose.
 
   R1  every doc is reachable in one hop: linked from the central index, or from the
       index that sits beside its folder. No central index at all is ONE finding.
@@ -34,6 +34,10 @@ Twelve mechanical rules, each with a fixed severity. None of them judges prose.
       A concern is covered by any doc whose headings match it, whatever its file name. An
       uncovered concern is one P2 and a skeleton the apply workflow can create from
       references/templates/ - never content
+  R13 a fact that lives outside the repo carries a dated check. A doc that says
+      "verified against <source> on YYYY-MM-DD" (or "Verified against <source> (YYYY-MM-DD)")
+      warns when that date is older than `verifiedStaleDays` (default 90). No script can tell
+      whether a platform setting or an on-call rota is still true; this says when nobody looked
 
 Configuration is a small JSON manifest, by default `docs/structure.json` under the repo.
 Without one the script discovers a docs root and proposes a manifest; it never writes it.
@@ -86,14 +90,14 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
              ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh", ".sql", ".html", ".astro"}
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
-            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2"}
+            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2", "R13": "P3"}
 FRONT_DOOR_PARALLEL = 8  # a README linking this many docs under the roots is a second index
 RULE_TITLE = {
     "R1": "reachable from an index", "R2": "owner line", "R3": "oversize doc",
     "R4": "index and folder agree", "R5": "links and anchors resolve",
     "R6": "backticked paths exist", "R7": "line-number citations",
     "R8": "duplicated measurement", "R9": "checklist counts", "R10": "registry",
-    "R11": "front door links the index", "R12": "concern covered",
+    "R11": "front door links the index", "R12": "concern covered", "R13": "verified-on date fresh",
 }
 
 DEFAULT_MANIFEST = {
@@ -114,8 +118,10 @@ DEFAULT_MANIFEST = {
     "frontDoor": "README.md",
     "requiredDocs": None,
     "templatesDir": None,
+    "verifiedStaleDays": 90,
     "ignore": [],
 }
+VERIFIED_RE = re.compile(r"[Vv]erified against ([^\n(]+?)\s*(?:on\s+|\()(\d{4}-\d{2}-\d{2})")
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "references" / "templates"
 
@@ -1099,6 +1105,23 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     for m in cite.findall(tok):
                         add("R7", d.rel, i, f'line-number citation "{m}" - cite a symbol or a log tag',
                             "warn" if rec else "fail")
+
+    # ---- R13 a fact checked outside the repo carries a date; stale dates warn
+    stale_days = int(manifest.get("verifiedStaleDays") or 90)
+    import datetime as _dt
+    today = _dt.date.today()
+    for d in docs:
+        if d.skipped or exempt("R13", d.rel):
+            continue
+        for i, line in enumerate(d.clean, start=1):
+            for src, ymd in VERIFIED_RE.findall(line):
+                try:
+                    when = _dt.date.fromisoformat(ymd)
+                except ValueError:
+                    continue
+                age = (today - when).days
+                if age > stale_days:
+                    add("R13", d.rel, i, f"verified against {src.strip()} on {ymd}, older than {stale_days} days - look again or strike the line", "warn")  # no day count: the snapshot must not change with the calendar
 
     # ---- R1 aggregate when no central index
     if not r1_off and not central_exists and unreachable:

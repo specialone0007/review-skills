@@ -112,7 +112,7 @@ stack-agnostic inventory, not from a fixed list - and which existing doc already
 by its headings rather than its file name; skeletons for the rest. **Fill**: on request, a first
 draft of each skeleton from repo evidence, every sentence carrying its source in brackets and
 the whole thing marked for review. Bundles the checker and the inventory; proposes a per-repo
-manifest.
+manifest. For facts no repo check can see, a dated "verified against" line warns when it goes stale.
 
 Shape and coverage, not truth. Whether the docs are *true* is `docs-sync-audit`'s job.
 `docs-structure`'s apply workflow, when you ask for it by name, edits Markdown in your working

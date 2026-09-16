@@ -20,7 +20,7 @@ Check the shape of a repository's documentation, build the docs it is missing, a
 - No finding without severity and `path:line` where a line exists. Three anchors are defined: a missing central index anchors to the manifest line or the first unreachable doc; a duplicated measurement anchors to the first doc carrying it, without a line; an uncovered concern anchors to the central index, else to the manifest when it lives in the repo, else to the front door, always line 1.
 - Never create a branch, stage, commit, push, or open a PR. The only non-Markdown file apply may write is the JSON manifest the user accepted. Never edit `package.json`, a Makefile or CI configuration. Never copy a script into the target repo.
 
-## The twelve rules
+## The thirteen rules
 
 | # | rule | default | severity |
 | --- | --- | --- | --- |
@@ -36,10 +36,13 @@ Check the shape of a repository's documentation, build the docs it is missing, a
 | R10 | every doc under folder X is linked from table Y | opt-in via manifest `registries` | P2 |
 | R11 | the front door hands off to the index: the root README (manifest `frontDoor`) links the central index; a README that links eight or more docs directly is a second index and gets a warning | on when a central index exists and no site generator is detected | P1 |
 | R12 | every concern the repo has is covered by a doc (the concern model below); an uncovered concern is one P2 and a skeleton apply can create | on for repos with code and no site generator | P2 |
+| R13 | a fact that lives outside the repo (a platform setting, a dashboard, who is on call) carries a dated line, `verified against <source> on YYYY-MM-DD`; the line warns when the date is older than `verifiedStaleDays` (default 90). No script can check the fact; this says when nobody has looked | warning only | P3 |
 
 Record folders are `plans`, `specs`, `archive`, `log`, `logs`, `builds`, `adr`, `decisions`, `rfcs`, `changelogs`, `audit-*`, any folder with a date in its name, or one where more than half the files carry a ticket or date prefix. They describe a moment: R6 and R7 downgrade to warnings there, R8 skips them, and they never cover a concern. A manifest that sets `recordFolders` replaces the heuristic.
 
 ## The concern model (R12)
+
+What no repo check can see: a doc that describes something outside the repo should say when a person last looked, with `verified against <source> on <date>`. Fill writes such a line only when the user states the check was done; the skill never claims to have looked at a platform it did not read.
 
 The inventory says what the repo **is** (kinds: application, library, cli, infrastructure, docs-only, monorepo; a repo can be several) and what it **contains**. A concern applies when the inventory finds the thing it describes. Four apply to every repo with code.
 
@@ -105,7 +108,7 @@ Manual fallback when the scripts cannot run: list every `.md` under the docs roo
 - `P0`: not used. Nothing structural is an outage.
 - `P1`: a reader cannot get there. A doc unreachable from any index, a dead link or anchor, an index that omits a file in its folder, a README that never points at the index.
 - `P2`: a reader gets there and is misled or overloaded, or a concern the repo has no doc for. A doc with no owner statement, a doc past one context load, a line-number citation, a checklist count that disagrees with its file, a registry gap, an uncovered concern.
-- `P3`: hygiene. A number copied into three or more docs, a backticked path that no longer exists.
+- `P3`: hygiene. A number copied into three or more docs, a backticked path that no longer exists, a "verified against" date older than the limit.
 
 ## Report Format
 

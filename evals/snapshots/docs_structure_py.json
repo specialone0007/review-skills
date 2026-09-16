@@ -295,6 +295,13 @@
       "title": "concern covered",
       "warnings": 0
     },
+    "R13": {
+      "failures": 0,
+      "first": [],
+      "severity": "P3",
+      "title": "verified-on date fresh",
+      "warnings": 0
+    },
     "R2": {
       "failures": 0,
       "first": [],
