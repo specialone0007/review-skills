@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -74,7 +75,10 @@ CODESPAN = re.compile(r"`[^`]*`")
 TABLE_RULE = re.compile(r"^\|[\s:|-]+\|?$")
 HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 DOC_EXTS = {".md", ".mdx"}
-SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__"}
+# Pruned before descending, never after: rglob over a repo with node_modules costs half a minute.
+SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", ".next",
+             "vendor", "target", "coverage", ".tox", ".mypy_cache", ".pytest_cache", "tmp"}
+MAX_WALK_DEPTH = 12
 
 warnings: list[str] = []
 
@@ -297,14 +301,22 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int) -> list[dic
 
 
 def drafted_docs(repo: Path) -> list[str]:
+    """Every doc carrying the draft marker. Prunes on the way down: a repository with a
+    node_modules tree costs half a minute to walk and holds nothing this gate judges."""
     out = []
-    for path in sorted(repo.rglob("*")):
-        if not path.is_file() or path.suffix.lower() not in DOC_EXTS:
+    base = len(repo.parts)
+    for dirpath, dirnames, filenames in os.walk(repo):
+        here = Path(dirpath)
+        if len(here.parts) - base >= MAX_WALK_DEPTH:
+            dirnames[:] = []
             continue
-        if any(part in SKIP_DIRS or part.startswith(".") for part in path.relative_to(repo).parts[:-1]):
-            continue
-        if DRAFT_MARK in read(path):
-            out.append(path.relative_to(repo).as_posix())
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS and not d.startswith("."))
+        for name in sorted(filenames):
+            path = here / name
+            if path.suffix.lower() not in DOC_EXTS:
+                continue
+            if DRAFT_MARK in read(path):
+                out.append(path.relative_to(repo).as_posix())
     return out
 
 
