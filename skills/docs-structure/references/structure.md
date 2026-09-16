@@ -191,14 +191,27 @@ if a config declares it. Review process is a question.
 When concerns are uncovered, the checker's JSON carries an `init` block naming, for each, the
 template under `references/templates/` (and its companion: the first phase file for `plan`, the
 first month for `research`), the index row it gets with state `skeleton`, and, when no docs folder
-exists, the index, the manifest built from the repo's real layout and one README line pointing at
-the index. Apply copies templates verbatim and authors nothing. A template is a title, an owner
+exists, the index, the manifest built from the repo's real layout and a `Start here` block for the
+README (below). Apply copies templates verbatim and authors nothing. A template is a title, an owner
 line ending `*(skeleton, write me)*` whose sentence doubles as the index "owns" text, a comment
 naming its concern and the inventory keys fill may use, and H2 sections with one italic line each.
 Three templates break that grammar on purpose: `TASKLIST.md` is a working index (a table and the
 legend, no sections; its counts are checked only when the manifest's `counts` names it),
 `research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
 carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
+
+## The front door
+
+Every README the skill touches gets the same hand-off, so a reader coming from another repo knows
+where to look. Apply inserts it after the intro paragraph, before the first H2, between
+`<!-- docs-structure: start here -->` markers; refill replaces only what is between them and the
+rest of the README is never edited. The block is: an H2 `Start here`; the reader's files in order,
+this README, the central index, and the agent file when `CLAUDE.md` or `AGENTS.md` is tracked (a
+gitignored one is a person's file, not the repo's); one line of first stops from the coverage table,
+how to run it, the architecture and the plan, each marked `(skeleton)` or `(draft)` until reviewed;
+and one line naming the checker and the manifest. It carries no list of docs: the index owns that,
+so the two cannot drift. A README that already has a `Start here`, `Where to start`, `Read this
+first` or `Documentation` section is left alone.
 
 ## The split, exactly
 

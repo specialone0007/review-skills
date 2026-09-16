@@ -94,6 +94,11 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
             "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2", "R13": "P3"}
 FRONT_DOOR_PARALLEL = 8  # a README linking this many docs under the roots is a second index
+# The front door's hand-off section: a reader's first three files, then the index. Apply inserts it
+# between these markers after the README's intro; refill regenerates only what is between them.
+START_HERE_WORDS = ("start here", "where to start", "read this first", "getting around", "documentation", "docs")
+START_HERE_OPEN = "<!-- docs-structure: start here -->"
+START_HERE_CLOSE = "<!-- /docs-structure: start here -->"
 RULE_TITLE = {
     "R1": "reachable from an index", "R2": "owner line", "R3": "oversize doc",
     "R4": "index and folder agree", "R5": "links and anchors resolve",
@@ -808,8 +813,55 @@ def section_states(doc: "Doc", template: Path) -> dict:
     return {"owner": owner, "sections": states, "missing": missing}
 
 
+def tracked_file(repo: Path, name: str) -> bool:
+    """Present and, when git can answer, tracked: a gitignored CLAUDE.md is one person's file, not the repo's."""
+    p = repo / name
+    if not p.is_file():
+        return False
+    git = shutil.which("git")
+    if git is None:
+        return True
+    try:
+        r = subprocess.run([git, "ls-files", "--error-unmatch", name], cwd=str(repo), text=True, timeout=GIT_TIMEOUT,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return True
+
+
+def has_start_here(doc: "Doc") -> bool:
+    h2 = tokens(" ".join(t for _, lvl, t in doc.headings if lvl == 2))
+    return any(f" {tokens(w).strip()} " in h2 for w in START_HERE_WORDS) or START_HERE_OPEN in doc.raw
+
+
+def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: str, coverage: list[dict]) -> str:
+    """The README's hand-off section. Names files that exist or that apply creates; authors nothing else."""
+    name = repo.name
+    agent = next((f for f in ("CLAUDE.md", "AGENTS.md") if tracked_file(repo, f)), None)
+    steps = [f"1. **This file** - what {name} is and how the repository is laid out.",
+             f"2. **[{central_rel}]({central_rel})** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder."]
+    if agent:
+        steps.append(f"3. **[{agent}]({agent})** - how to behave while building: conventions and where a change gets written down.")
+    stops = []
+    for cid, label in (("develop", "how to run it"), ("architecture", "the architecture"), ("plan", "the plan")):
+        row = next((r for r in coverage if r["concern"] == cid), None)
+        if row is None:
+            continue
+        path = row["covered_by"] or row["default_path"]
+        state = row.get("state") or ("reviewed" if row["covered_by"] else "skeleton")
+        stops.append(f"[{label}]({path})" + ("" if state == "reviewed" else f" ({state})"))
+    lines = [START_HERE_OPEN, "## Start here", "",
+             f"{'Three' if agent else 'Two'} files, in this order. Everything else is one hop from the {'second' if agent else 'last'} one.", ""]
+    lines += steps
+    lines += ["", "From the index, the usual first stops: " + ", ".join(stops) + ". The index says which file is which; this README keeps no list of its own, so the two cannot drift.", "",
+              f"The docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `{docs_root}/structure.json` is its manifest.",
+              START_HERE_CLOSE]
+    return "\n".join(lines) + "\n"
+
+
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
-               front_links_index: bool, root_docs: bool, docs_root: str = "docs", package_docs: list[str] | None = None) -> dict | None:
+               front_links_index: bool, root_docs: bool, docs_root: str = "docs", package_docs: list[str] | None = None,
+               front_has_start_here: bool = True) -> dict | None:
     """What apply would create. Names templates, never carries content; the agent copies them."""
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"]]
@@ -846,15 +898,16 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         title = c["default_path"].rsplit("/", 1)[-1][:-3]
         link = c["default_path"].split("/", 1)[1] if (not root_docs and "/" in c["default_path"]) else c["default_path"]
         rows.append(f"| [{title}]({link}) | {owner_text(t)} | skeleton |")
-    if not files and front_links_index:
+    if not files and front_links_index and (front_has_start_here or root_docs):
         return None
     out: dict = {"files": files, "index_rows": rows,
                  "print_only": {"CLAUDE.md or AGENTS.md": ROUTING_STARTER},
                  "then": "run the checker again; skeletons show up in the section states until written or filled"}
-    if not front_links_index and not root_docs:
-        out["readme_line"] = {"path": front_rel,
-                              "append": f"Every doc is listed in [{docs_root}/INDEX.md]({docs_root}/INDEX.md) - what each one owns and its state. Start there.",
-                              "why": "so the front door links the index (R11) from day one"}
+    if not root_docs and (not front_links_index or not front_has_start_here):
+        out["front_door"] = {"path": front_rel,
+                             "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
+                             "content": start_here_block(repo, front_rel, docs_root, manifest["centralIndex"], coverage),
+                             "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"}
     return out
 
 
@@ -1314,6 +1367,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         folder_hit = central.name.lower() == "readme.md" and posix(central.parent, repo) in outgoing
         if central_rel not in outgoing and not folder_hit:
             add("R11", front_rel, 1, f"front door does not link the central index {central_rel}")
+        if not has_start_here(fdoc):
+            add("R11", front_rel, 1, "front door has no 'Start here' section - apply inserts one after the intro, pointing at the index", "warn")
         root_dirs = [posix(r, repo) for r in roots if r.is_dir()]
         parallel = sorted(t for t in outgoing if t != central_rel and any(t.startswith(rd + "/") for rd in root_dirs) and t in by_rel)
         if len(parallel) >= FRONT_DOOR_PARALLEL:
@@ -1357,8 +1412,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         fl = links_out(by_rel.get(front_rel) or Doc(front, repo))
         target = central_rel or "docs/INDEX.md"
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
+    front_has = has_start_here(by_rel.get(front_rel) or Doc(front, repo)) if front.is_file() else False
     init = None if generator is not None else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
-                                                          discovery.get("package_docs", []) if discovery else [])
+                                                          discovery.get("package_docs", []) if discovery else [], front_has)
 
     # ---- placeholders
     placeholders = 0
@@ -1504,9 +1560,9 @@ def render(d: dict, top: int) -> str:
             L.append(f"  {path}  ({info['lines']} lines, {info['template']}){why}")
         for row in d["init"].get("index_rows", []):
             L.append(f"  index row: {row}")
-        rl = d["init"].get("readme_line")
-        if rl:
-            L.append(f"  {rl['path']}  + one line: {rl['append']}")
+        fd = d["init"].get("front_door")
+        if fd:
+            L.append(f"  {fd['path']}  + a 'Start here' section ({len(fd['content'].splitlines())} lines) {fd['where'].split(';')[0]}")
         L.append("  and print a starter 'Docs routing' section for CLAUDE.md or AGENTS.md (not written).")
     if d["warnings"]:
         L.append("")

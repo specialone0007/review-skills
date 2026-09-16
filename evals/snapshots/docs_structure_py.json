@@ -239,6 +239,12 @@
         "why": "companion of plan"
       }
     },
+    "front_door": {
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](README.md), [the architecture](docs/ARCHITECTURE.md) (skeleton), [the plan](docs/TASKLIST.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "path": "README.md",
+      "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
+      "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
+    },
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
       "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
@@ -249,11 +255,6 @@
     ],
     "print_only": {
       "CLAUDE.md or AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| <a kind of change> | `docs/<OWNER>.md` |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
-    },
-    "readme_line": {
-      "append": "Every doc is listed in [docs/INDEX.md](docs/INDEX.md) - what each one owns and its state. Start there.",
-      "path": "README.md",
-      "why": "so the front door links the index (R11) from day one"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
