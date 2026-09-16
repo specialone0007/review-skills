@@ -93,7 +93,7 @@
     {
       "level": "fail",
       "line": 3,
-      "message": "no central index - 5 doc(s) unreachable in one hop",
+      "message": "no central index - 6 doc(s) unreachable in one hop",
       "path": "docs/structure.json",
       "rule": "R1",
       "severity": "P1"
@@ -148,6 +148,14 @@
     },
     {
       "level": "fail",
+      "line": 32,
+      "message": "line-number citation \"[src/config.js:12\" - cite a symbol or a log tag",
+      "path": "docs/drafted.md",
+      "rule": "R7",
+      "severity": "P2"
+    },
+    {
+      "level": "fail",
       "line": 12,
       "message": "line-number citation \"src/config.js:12\" - cite a symbol or a log tag",
       "path": "docs/setup.md",
@@ -168,6 +176,14 @@
       "message": "no owner line near the top and no frontmatter description",
       "path": "docs/setup.md",
       "rule": "R2",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "46 lines - could become an index plus 7 parts at H2 (largest 7)",
+      "path": "docs/drafted.md",
+      "rule": "R3",
       "severity": "P2"
     },
     {
@@ -336,12 +352,13 @@
     "R3": {
       "failures": 0,
       "first": [
+        "docs/drafted.md:1",
         "docs/guide.md:1",
         "docs/history.md:1"
       ],
       "severity": "P2",
       "title": "oversize doc",
-      "warnings": 2
+      "warnings": 3
     },
     "R4": {
       "failures": 0,
@@ -367,8 +384,9 @@
       "warnings": 0
     },
     "R7": {
-      "failures": 1,
+      "failures": 2,
       "first": [
+        "docs/drafted.md:32",
         "docs/setup.md:12"
       ],
       "severity": "P2",
@@ -411,6 +429,14 @@
   },
   "split_candidates": [
     {
+      "largest": 7,
+      "level": "H2",
+      "lines": 46,
+      "parts": 7,
+      "path": "docs/drafted.md",
+      "refuse": null
+    },
+    {
       "largest": 6,
       "level": "H2",
       "lines": 23,
@@ -430,21 +456,22 @@
   "totals": {
     "concerns_covered": 1,
     "concerns_missing": 5,
-    "docs_checked": 5,
-    "failures": 8,
+    "docs_checked": 6,
+    "failures": 9,
     "non_doc_files": 0,
-    "placeholders": 0,
-    "split_candidates": 2,
+    "placeholders": 7,
+    "split_candidates": 3,
     "states": {
       "draft": 0,
       "missing": 5,
       "reviewed": 2,
       "skeleton": 0
     },
-    "warnings": 6
+    "warnings": 7
   },
   "unreachable": [
     "docs/crlf-sample.md",
+    "docs/drafted.md",
     "docs/guide.md",
     "docs/history.md",
     "docs/limits.md",

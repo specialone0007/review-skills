@@ -1,0 +1,64 @@
+{
+  "docs": [
+    "docs/drafted.md"
+  ],
+  "findings": [
+    {
+      "doc": "docs/drafted.md",
+      "line": 20,
+      "message": "paragraph does not end with an evidence bracket: This sentence states something about the repository and name",
+      "rule": "G1"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 26,
+      "message": "cited path does not exist: src/workers/does-not-exist.js",
+      "rule": "G2"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 32,
+      "message": "cited path does not exist: src/config.js:12",
+      "rule": "G2"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 32,
+      "message": "line-number citation: .js:12",
+      "rule": "G3"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 38,
+      "message": "evaluative word: robust",
+      "rule": "G4"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 38,
+      "message": "modal verb: should",
+      "rule": "G5"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 38,
+      "message": "intent word outside a quotation or `inferred:`: because",
+      "rule": "G6"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 44,
+      "message": "modal verb: must",
+      "rule": "G5"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 44,
+      "message": "a value is written beside API_TOKEN; drafts carry names, never values",
+      "rule": "G7"
+    }
+  ],
+  "repo": "<fixture>",
+  "total": 9,
+  "warnings": []
+}

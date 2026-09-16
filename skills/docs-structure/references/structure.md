@@ -202,6 +202,20 @@ legend, no sections; its counts are checked only when the manifest's `counts` na
 `research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
 carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
 
+## The fill gate
+
+`scripts/docs_fill_gate.py` is where the fill promises are enforced rather than merely stated.
+It reads the drafted docs and the files they cite, and reports one finding per broken promise:
+G1 a paragraph or table row with no evidence bracket, G2 a bracket that does not resolve, G3 a
+line-number citation, G4 an evaluative word, G5 a modal verb, G6 an intent word outside a
+quotation, G7 a value written beside a variable the inventory found, G8 a drafted doc over the
+line cap. A paragraph is the unit, so a hard-wrapped draft is judged whole. Sections still
+holding their template line are skeletons and are skipped, and a doc with no draft marker is
+never judged at all: the gate exists to hold drafts to their word, not to grade people's prose.
+
+Two promises stay with the agent because no script can see them: that the file on disk is
+byte-identical to the one that was read, and that the in-memory tree adds no R5 or R8 findings.
+
 ## What cannot cover a concern
 
 Four kinds of doc are checked like any other but never become the home of a concern: a record
