@@ -57,6 +57,7 @@ SNAPSHOT_SCRIPTS = {
     "docs_drift": {"path": "skills/docs-sync-audit/scripts/docs_drift.py", "drop": []},
     "docs_structure": {"path": "skills/docs-structure/scripts/docs_structure.py", "drop": []},
     "docs_evidence": {"path": "skills/docs-structure/scripts/docs_evidence.py", "drop": []},
+    "docs_fill_gate": {"path": "skills/docs-structure/scripts/docs_fill_gate.py", "drop": []},
     "docs_evidence_py": {"path": "skills/docs-structure/scripts/docs_evidence.py", "drop": [], "fixture": "mini-py"},
     "docs_structure_py": {"path": "skills/docs-structure/scripts/docs_structure.py", "drop": [], "fixture": "mini-py"},
 }

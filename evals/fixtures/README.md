@@ -32,6 +32,7 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | `limits.md` carries two "verified against" dates: one from 2024 (stale, must warn) and one in 2099 (fresh, must not) | `mini-app/docs/limits.md` | `docs-structure` (R13) |
 | `crlf-sample.md` has Windows line endings; its `## Notes` anchor must still resolve from `limits.md` | `mini-app/docs/crlf-sample.md` | `docs-structure` |
 | Five concerns apply and have no covering doc: purpose, architecture and plan (always), testing (`package.json` has a test script) and operate (`src/routes/health.js`). `develop` **is** covered, by `docs/setup.md`, through its headings, not its name - that is the content match working | `mini-app/docs/`, `mini-app/package.json`, `mini-app/src/routes/health.js` | `docs-structure` (R12, five P2s) |
+| `drafted.md` carries one fill-gate defect per section: a paragraph with no evidence bracket, a bracket citing a file that does not exist, a line-number citation, an evaluative word, a modal verb, an unquoted intent word, and a value written beside `API_TOKEN`. Its first section is correct and hard-wrapped, so a false positive there is a bug; its second is still a skeleton and must be skipped | `mini-app/docs/drafted.md` | `docs-structure` (the fill gate, nine findings) |
 | The root README never mentions `docs/`. R11 stays silent here because no central index exists (R1 owns that case); it fires on a repo whose README skips an existing index | `mini-app/README.md` | `docs-structure` (by omission) |
 
 ## About `.env.local`

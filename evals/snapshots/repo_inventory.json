@@ -20,6 +20,7 @@
     "src/utils/format-date.js",
     "src/utils/misc.js",
     "docs/crlf-sample.md",
+    "docs/drafted.md",
     "docs/guide.md",
     "docs/history.md",
     "docs/limits.md",
@@ -40,8 +41,8 @@
   "directories": [
     {
       "dir": "docs",
-      "files": 6,
-      "lines": 86
+      "files": 7,
+      "lines": 132
     },
     {
       "dir": "src",
@@ -70,7 +71,7 @@
     },
     {
       "ext": ".md",
-      "files": 6
+      "files": 7
     },
     {
       "ext": ".json",
@@ -91,6 +92,11 @@
   ],
   "flat_directories": [],
   "largest_files": [
+    {
+      "bytes": 1118,
+      "lines": 46,
+      "path": "docs/drafted.md"
+    },
     {
       "bytes": 754,
       "lines": 23,
@@ -218,9 +224,9 @@
     ]
   },
   "totals": {
-    "doc_files": 7,
-    "files": 23,
-    "lines": 208,
+    "doc_files": 8,
+    "files": 24,
+    "lines": 254,
     "test_files": 3
   },
   "warnings": []
