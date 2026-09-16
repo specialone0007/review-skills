@@ -202,6 +202,16 @@ legend, no sections; its counts are checked only when the manifest's `counts` na
 `research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
 carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
 
+## Counts
+
+A count is the weakest sentence a draft can carry. A path either exists or does not, and the gate
+settles it; a number is only as good as the scan behind it, and the bracket proves where it came
+from, not that it is right. So a count names what was counted and where - "12 test files under
+`src/`", "22 models in `schema.prisma`" - and an aggregate nobody can reproduce is not written at
+all. The first audit of a filled repository found exactly two errors, and both were counts: one
+off by one with a breakdown that did not match the files on disk, and one where three scanners
+gave three answers because they walked different trees.
+
 ## The fill gate
 
 `scripts/docs_fill_gate.py` is where the fill promises are enforced rather than merely stated.

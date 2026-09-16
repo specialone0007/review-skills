@@ -137,7 +137,6 @@
   },
   "not_yet": [
     "a real split with the preservation gate",
-    "docs-sync-audit over a filled repo as the honesty check on drafts",
     "a Railway check on the second trial repo (drafts say so in their header)",
     "dedupe schema tables across Prisma models and SQL migrations in docs_evidence"
   ],
@@ -158,5 +157,20 @@
       "the API reference had to summarise its 41 admin routes to one line to stay under the splitAt/2 draft cap; the table columns put the handler file last so the gate reads it as the row's evidence"
     ],
     "verified_against_platform": false
+  },
+  "honesty_check": {
+    "what": "docs-sync-audit over a filled repository, the check the trial had listed as not yet done.",
+    "repo": "the three-package repo of fill_trial_2, after apply and fill",
+    "mechanical": "docs_drift.py reported 403 findings across 328 docs in the repo and 0 in the 9 docs the fill step wrote, plus its README and agent file: no broken link, no missing script, no undocumented env name.",
+    "read_against_the_code": [
+      "a count one too high, with a breakdown that did not match the files on disk: 'thirteen test files under src/, six component tests' for twelve and five. The thirteenth was a test in another language in another tree, counted in the total and attributed to the wrong one.",
+      "a number that was one tool's opinion rather than a fact: 'code reads 97 distinct environment names'. The evidence inventory said 97, the drift scanner 115, a hand count over the three source trees 57. They scan different trees, and the server gathers most reads into one exported object, so a scan of call sites answers a different question depending on where it looks."
+    ],
+    "verdict": "Both errors are counts, and both were faithful to the source the bracket named. The bracket grammar proves provenance, not truth. Aggregates are the weak spot: a path or a script name is checkable, a count is only as good as the scan behind it.",
+    "changes_taken": [
+      "the two drafts corrected in the trial repo",
+      "the fill gate now ships with the skill, so bracket resolution is enforced rather than promised - it caught a citation to a file that does not exist while writing the correction itself"
+    ],
+    "still_open": "fill guidance says one owning doc per count; it does not say a count must name the scan that produced it. Aggregates should carry their scope or not be written."
   }
 }
