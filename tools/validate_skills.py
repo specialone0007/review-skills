@@ -250,6 +250,22 @@ def check_skill(folder: Path, all_names: set[str]) -> str | None:
     return description
 
 
+def check_subprocess_encoding() -> None:
+    """12. A bundled script decodes subprocess output as UTF-8, never the machine's locale codec.
+
+    `text=True` alone makes Python use the locale encoding, so one non-ASCII byte in git output
+    raises UnicodeDecodeError on a Windows runner and the stream comes back as None."""
+    for script in sorted(SKILLS_DIR.rglob("scripts/*.py")):
+        lines = script.read_text(encoding="utf-8").splitlines()
+        for i, line in enumerate(lines):
+            if "subprocess.run(" not in line:
+                continue
+            window = "\n".join(lines[i:i + 12])
+            if "text=True" in window and 'encoding="utf-8"' not in window:
+                error(script, i + 1, 'subprocess.run(..., text=True) without encoding="utf-8": '
+                                     "output is decoded with the locale codec and breaks on non-ASCII")
+
+
 def check_paths_and_links() -> None:
     """11. No machine-specific paths anywhere, and relative Markdown links must resolve."""
     bad_path = re.compile(r"[A-Za-z]:\\|/Users/[a-z]|/home/[a-z]|\\Users\\")
@@ -320,6 +336,8 @@ def main() -> int:
         description = check_skill(folder, all_names)
         if description:
             descriptions[folder.name] = description
+
+    check_subprocess_encoding()
 
     # 3b. shared always-resident budget
     total = sum(len(d) for d in descriptions.values())

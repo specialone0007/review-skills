@@ -863,7 +863,7 @@ def tracked_file(repo: Path, name: str) -> bool:
         return True
     try:
         r = subprocess.run([git, "ls-files", "--error-unmatch", name], cwd=str(repo), text=True, timeout=GIT_TIMEOUT,
-                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="replace")
         return r.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return True
