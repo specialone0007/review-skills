@@ -1,5 +1,7 @@
 # Eval fixtures
 
+> **This document owns:** the deliberately defective fixtures, the defects each one plants, and why they are not real repositories.
+
 `mini-app/` is **intentionally defective**. Do not fix it, and do not copy anything from it.
 
 It exists so the eval cases in `evals/*.json` have a target with known problems, and so the bundled scripts have a deterministic input for snapshot tests. If you "clean it up", the evals stop testing anything.

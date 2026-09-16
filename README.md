@@ -213,6 +213,18 @@ python tools/validate_evals.py    # eval cases and script snapshots
 
 CI runs both, on Ubuntu and Windows. Each skill has trigger, anti-trigger, and behavior cases in [evals/](evals/), exercised against a deliberately defective fixture.
 
+## Documents
+
+Every doc in this repository, what it owns, and its state. One doc owns each fact; the others link.
+
+| doc | owns | state |
+| --- | --- | --- |
+| this README | what the collection is, the skills it holds, how to install it | reviewed |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | the parts of this collection, how a skill is put together, and what checks each part | draft |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | how to add or change a skill, and what must pass before a PR | reviewed |
+| [examples/README.md](examples/README.md) | what the example reports are and how they were produced | reviewed |
+| [evals/fixtures/README.md](evals/fixtures/README.md) | the deliberately defective fixtures and the defects each one plants | reviewed |
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

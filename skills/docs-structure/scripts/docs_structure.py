@@ -88,6 +88,9 @@ GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress", "h
 GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*", "astro.config.*", "conf.py")
 # Folders whose contents describe something other than this repo; ignored when deciding what the repo is.
 EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests", "__tests__", "spec", "specs"}
+# Folders whose Markdown describes test material. Such a doc is still checked for links and
+# citations; it just never becomes the doc that covers one of the repo's own concerns.
+FIXTURE_DIRS = {"fixtures", "fixture", "__fixtures__", "testdata", "test-data", "mocks", "__mocks__", "golden", "snapshots"}
 CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".go", ".rs", ".rb", ".php",
              ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh", ".sql", ".html", ".astro"}
 
@@ -764,8 +767,12 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
     records = record_folders or []
     candidates = []
     for d in docs:
-        if d.rel == central_rel and not root_docs:
+        # A dedicated index (docs/INDEX.md) is a list, so it covers nothing. A README that is both
+        # the front door and the index is a document with sections, so it covers through them.
+        if d.rel == central_rel and not root_docs and d.rel != front_rel:
             continue
+        if any(part in FIXTURE_DIRS for part in Path(d.rel).parts[:-1]):
+            continue  # a README describing test material is not the project's own documentation
         if matches_any(d.rel, records):
             continue  # a dated plan or audit is a record, not the living doc for a concern
         if d.path.parent != repo and index_for(d, repo, roots, convention) is not None:
@@ -1172,6 +1179,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         root_docs = True  # every root is a top-level file: the docs live at the repo root and the README is their index
     if not central_rel and root_docs:
         central_rel = "README.md"
+    if not root_docs and central_rel and central_rel == (manifest.get("frontDoor") or "README.md") and not any(r.is_dir() for r in roots):
+        # The front door is the index and no folder is a root: the docs live at the repo root.
+        # Without this a manifest that names its docs one by one exempts every one of them from R1.
+        root_docs = True
     if not central_rel and not root_files_only and not root_docs:
         for r in roots:
             if r.is_dir():
