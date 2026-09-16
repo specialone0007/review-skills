@@ -27,9 +27,9 @@
       "applies": "always",
       "companions": [],
       "concern": "develop",
-      "covered_by": "docs/setup.md",
+      "covered_by": "README.md",
       "default_path": "docs/DEVELOPMENT.md",
-      "matched_by": "H1: setup; H2: install",
+      "matched_by": "README sections: getting started",
       "missing_sections": [
         "Prerequisites",
         "Setup",
@@ -56,55 +56,54 @@
       "universal": true
     },
     {
-      "applies": "tests: package.json",
+      "applies": "schema: alembic/versions/0001_initial.py",
       "companions": [],
-      "concern": "testing",
+      "concern": "data",
       "covered_by": null,
-      "default_path": "docs/TESTING.md",
+      "default_path": "docs/DATA_MODEL.md",
       "matched_by": "",
       "runner_up": null,
-      "template": "TESTING.md",
+      "template": "DATA_MODEL.md",
       "universal": false
     },
     {
-      "applies": "ops: src/routes/health.js",
+      "applies": "routes: app/routes.py",
       "companions": [],
-      "concern": "operate",
+      "concern": "http",
       "covered_by": null,
-      "default_path": "docs/RUNBOOK.md",
+      "default_path": "docs/API_REFERENCE.md",
       "matched_by": "",
       "runner_up": null,
-      "template": "RUNBOOK.md",
+      "template": "API_REFERENCE.md",
+      "universal": false
+    },
+    {
+      "applies": "cli: pyproject.toml",
+      "companions": [],
+      "concern": "commands",
+      "covered_by": null,
+      "default_path": "docs/CLI_REFERENCE.md",
+      "matched_by": "",
+      "runner_up": null,
+      "template": "CLI_REFERENCE.md",
       "universal": false
     }
   ],
-  "discovery": null,
+  "discovery": {
+    "candidates": {},
+    "roots": [],
+    "rule": "c",
+    "status": "root-files-only"
+  },
   "ecosystems": [
-    "node",
     "python"
   ],
   "findings": [
     {
       "level": "fail",
-      "line": 3,
-      "message": "no central index - 5 doc(s) unreachable in one hop",
-      "path": "docs/structure.json",
-      "rule": "R1",
-      "severity": "P1"
-    },
-    {
-      "level": "fail",
-      "line": 3,
-      "message": "dead anchor #configuration (no such heading in this file)",
-      "path": "docs/setup.md",
-      "rule": "R5",
-      "severity": "P1"
-    },
-    {
-      "level": "fail",
       "line": 1,
       "message": "no doc covers 'purpose' (always) - apply creates docs/PRODUCT.md from the template",
-      "path": "docs/structure.json",
+      "path": "README.md",
       "rule": "R12",
       "severity": "P2"
     },
@@ -112,7 +111,7 @@
       "level": "fail",
       "line": 1,
       "message": "no doc covers 'architecture' (always) - apply creates docs/ARCHITECTURE.md from the template",
-      "path": "docs/structure.json",
+      "path": "README.md",
       "rule": "R12",
       "severity": "P2"
     },
@@ -120,83 +119,61 @@
       "level": "fail",
       "line": 1,
       "message": "no doc covers 'plan' (always) - apply creates docs/TASKLIST.md from the template",
-      "path": "docs/structure.json",
+      "path": "README.md",
       "rule": "R12",
       "severity": "P2"
     },
     {
       "level": "fail",
       "line": 1,
-      "message": "no doc covers 'testing' (the repo has tests: package.json) - apply creates docs/TESTING.md from the template",
-      "path": "docs/structure.json",
+      "message": "no doc covers 'data' (the repo has schema: alembic/versions/0001_initial.py) - apply creates docs/DATA_MODEL.md from the template",
+      "path": "README.md",
       "rule": "R12",
       "severity": "P2"
     },
     {
       "level": "fail",
       "line": 1,
-      "message": "no doc covers 'operate' (the repo has ops: src/routes/health.js) - apply creates docs/RUNBOOK.md from the template",
-      "path": "docs/structure.json",
+      "message": "no doc covers 'http' (the repo has routes: app/routes.py) - apply creates docs/API_REFERENCE.md from the template",
+      "path": "README.md",
       "rule": "R12",
       "severity": "P2"
     },
     {
       "level": "fail",
-      "line": 12,
-      "message": "line-number citation \"src/config.js:12\" - cite a symbol or a log tag",
-      "path": "docs/setup.md",
-      "rule": "R7",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
       "line": 1,
-      "message": "no owner line near the top and no frontmatter description",
-      "path": "docs/history.md",
-      "rule": "R2",
+      "message": "no doc covers 'commands' (the repo has cli: pyproject.toml) - apply creates docs/CLI_REFERENCE.md from the template",
+      "path": "README.md",
+      "rule": "R12",
       "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "no owner line near the top and no frontmatter description",
-      "path": "docs/setup.md",
-      "rule": "R2",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "23 lines - could become an index plus 3 parts at H2 (largest 6)",
-      "path": "docs/guide.md",
-      "rule": "R3",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "28 lines, oversize and unsplittable (more than one H1) - needs a human restructure",
-      "path": "docs/history.md",
-      "rule": "R3",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": null,
-      "message": "\"42.5%\" appears in 4 docs - one should own it, the rest link: docs/crlf-sample.md, docs/history.md, docs/limits.md, docs/setup.md",
-      "path": "docs/crlf-sample.md",
-      "rule": "R8",
-      "severity": "P3"
     }
   ],
   "generator": null,
   "init": {
     "files": {
+      "docs/API_REFERENCE.md": {
+        "concern": "http",
+        "lines": 25,
+        "template": "references/templates/API_REFERENCE.md",
+        "why": "http (routes: app/routes.py)"
+      },
       "docs/ARCHITECTURE.md": {
         "concern": "architecture",
         "lines": 25,
         "template": "references/templates/ARCHITECTURE.md",
         "why": "architecture (always)"
+      },
+      "docs/CLI_REFERENCE.md": {
+        "concern": "commands",
+        "lines": 21,
+        "template": "references/templates/CLI_REFERENCE.md",
+        "why": "commands (cli: pyproject.toml)"
+      },
+      "docs/DATA_MODEL.md": {
+        "concern": "data",
+        "lines": 21,
+        "template": "references/templates/DATA_MODEL.md",
+        "why": "data (schema: alembic/versions/0001_initial.py)"
       },
       "docs/INDEX.md": {
         "lines": 8,
@@ -208,23 +185,44 @@
         "template": "references/templates/PRODUCT.md",
         "why": "purpose (always)"
       },
-      "docs/RUNBOOK.md": {
-        "concern": "operate",
-        "lines": 21,
-        "template": "references/templates/RUNBOOK.md",
-        "why": "operate (ops: src/routes/health.js)"
-      },
       "docs/TASKLIST.md": {
         "concern": "plan",
         "lines": 19,
         "template": "references/templates/TASKLIST.md",
         "why": "plan (always)"
       },
-      "docs/TESTING.md": {
-        "concern": "testing",
-        "lines": 21,
-        "template": "references/templates/TESTING.md",
-        "why": "testing (tests: package.json)"
+      "docs/structure.json": {
+        "content": {
+          "centralIndex": "docs/INDEX.md",
+          "counts": [
+            {
+              "folder": "docs/tasklist",
+              "index": "docs/TASKLIST.md"
+            }
+          ],
+          "frontDoor": "README.md",
+          "ignore": [],
+          "indexConvention": "sibling",
+          "ownerLine": {
+            "enforce": false,
+            "markers": [
+              "This document owns:",
+              "Part of"
+            ]
+          },
+          "pathPrefixes": [
+            "alembic",
+            "app"
+          ],
+          "recordFolders": [],
+          "roots": [
+            "docs",
+            "README.md"
+          ],
+          "splitAt": 500
+        },
+        "lines": 29,
+        "template": "generated"
       },
       "docs/tasklist/phase-00-foundations.md": {
         "concern": "plan",
@@ -237,8 +235,9 @@
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
       "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
       "| [TASKLIST](TASKLIST.md) | the index of the plan \u2014 one file per phase under `tasklist/`, and the count of todo / doing / done in each. | skeleton |",
-      "| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |",
-      "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |"
+      "| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |",
+      "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
+      "| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |"
     ],
     "print_only": {
       "CLAUDE.md or AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| <a kind of change> | `docs/<OWNER>.md` |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
@@ -251,24 +250,22 @@
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
   "kinds": [
-    "unclassified"
+    "application"
   ],
   "manifest": {
-    "path": "docs/structure.json",
-    "source": "found"
+    "path": null,
+    "source": "none"
   },
   "proposed_manifest": null,
   "record_folders": [],
   "repo": "<fixture>",
   "roots": [
-    "docs"
+    "README.md"
   ],
   "rules": {
     "R1": {
-      "failures": 1,
-      "first": [
-        "docs/structure.json:3"
-      ],
+      "failures": 0,
+      "first": [],
       "severity": "P1",
       "title": "reachable from an index",
       "warnings": 0
@@ -288,11 +285,11 @@
       "warnings": 0
     },
     "R12": {
-      "failures": 5,
+      "failures": 6,
       "first": [
-        "docs/structure.json:1",
-        "docs/structure.json:1",
-        "docs/structure.json:1"
+        "README.md:1",
+        "README.md:1",
+        "README.md:1"
       ],
       "severity": "P2",
       "title": "concern covered",
@@ -300,23 +297,17 @@
     },
     "R2": {
       "failures": 0,
-      "first": [
-        "docs/history.md:1",
-        "docs/setup.md:1"
-      ],
+      "first": [],
       "severity": "P2",
       "title": "owner line",
-      "warnings": 2
+      "warnings": 0
     },
     "R3": {
       "failures": 0,
-      "first": [
-        "docs/guide.md:1",
-        "docs/history.md:1"
-      ],
+      "first": [],
       "severity": "P2",
       "title": "oversize doc",
-      "warnings": 2
+      "warnings": 0
     },
     "R4": {
       "failures": 0,
@@ -326,10 +317,8 @@
       "warnings": 0
     },
     "R5": {
-      "failures": 1,
-      "first": [
-        "docs/setup.md:3"
-      ],
+      "failures": 0,
+      "first": [],
       "severity": "P1",
       "title": "links and anchors resolve",
       "warnings": 0
@@ -342,22 +331,18 @@
       "warnings": 0
     },
     "R7": {
-      "failures": 1,
-      "first": [
-        "docs/setup.md:12"
-      ],
+      "failures": 0,
+      "first": [],
       "severity": "P2",
       "title": "line-number citations",
       "warnings": 0
     },
     "R8": {
       "failures": 0,
-      "first": [
-        "docs/crlf-sample.md"
-      ],
+      "first": [],
       "severity": "P3",
       "title": "duplicated measurement",
-      "warnings": 1
+      "warnings": 0
     },
     "R9": {
       "failures": 0,
@@ -368,7 +353,7 @@
     }
   },
   "sections": {
-    "docs/setup.md": {
+    "README.md": {
       "concern": "develop",
       "missing": [
         "Prerequisites",
@@ -379,51 +364,27 @@
       ],
       "owner": "reviewed",
       "sections": {
-        "Config": "reviewed",
-        "Install": "reviewed"
+        "Getting started": "reviewed"
       }
     }
   },
-  "split_candidates": [
-    {
-      "largest": 6,
-      "level": "H2",
-      "lines": 23,
-      "parts": 3,
-      "path": "docs/guide.md",
-      "refuse": null
-    },
-    {
-      "largest": null,
-      "level": null,
-      "lines": 28,
-      "parts": null,
-      "path": "docs/history.md",
-      "refuse": "more than one H1"
-    }
-  ],
+  "split_candidates": [],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 5,
-    "docs_checked": 5,
-    "failures": 8,
+    "concerns_missing": 6,
+    "docs_checked": 1,
+    "failures": 6,
     "non_doc_files": 0,
     "placeholders": 0,
-    "split_candidates": 2,
+    "split_candidates": 0,
     "states": {
       "draft": 0,
       "missing": 5,
-      "reviewed": 2,
+      "reviewed": 1,
       "skeleton": 0
     },
-    "warnings": 5
+    "warnings": 0
   },
-  "unreachable": [
-    "docs/crlf-sample.md",
-    "docs/guide.md",
-    "docs/history.md",
-    "docs/limits.md",
-    "docs/setup.md"
-  ],
+  "unreachable": [],
   "warnings": []
 }

@@ -15,6 +15,12 @@
       "expect_skill": "repo-health-audit"
     },
     {
+      "id": "which-docs-missing-goes-to-structure",
+      "kind": "anti-trigger",
+      "prompt": "which docs is this repository missing, given what it contains?",
+      "expect_skill": "docs-structure"
+    },
+    {
       "id": "no-scope-full-repo",
       "kind": "trigger",
       "prompt": "check the docs against the code",

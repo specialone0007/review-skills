@@ -56,7 +56,12 @@ SNAPSHOT_SCRIPTS = {
                          "drop": ["auditors"]},
     "docs_drift": {"path": "skills/docs-sync-audit/scripts/docs_drift.py", "drop": []},
     "docs_structure": {"path": "skills/docs-structure/scripts/docs_structure.py", "drop": []},
+    "docs_evidence": {"path": "skills/docs-structure/scripts/docs_evidence.py", "drop": []},
+    "docs_evidence_py": {"path": "skills/docs-structure/scripts/docs_evidence.py", "drop": [], "fixture": "mini-py"},
+    "docs_structure_py": {"path": "skills/docs-structure/scripts/docs_structure.py", "drop": [], "fixture": "mini-py"},
 }
+# The mini-app fixture carries a planted .env.local canary. No script may ever print it.
+CANARY = "canary-7f3a9c1e2b4d5f6a-do-not-print"
 
 errors: list[str] = []
 
@@ -146,16 +151,22 @@ def validate_cases(docs: dict[str, dict], skill_names: set[str]) -> int:
     return total
 
 
-def run_script(rel: str, drop: list[str]) -> dict | None:
-    """Run one bundled script against the fixture and return its normalised JSON."""
+def run_script(rel: str, drop: list[str], fixture_name: str = "mini-app") -> dict | None:
+    """Run one bundled script against a fixture and return its normalised JSON."""
+    fixture = EVALS / "fixtures" / fixture_name
     proc = subprocess.run(
-        [sys.executable, str(REPO / rel), "--repo", str(FIXTURE), "--no-git-root", "--format", "json"],
+        [sys.executable, str(REPO / rel), "--repo", str(fixture), "--no-git-root", "--format", "json"],
         cwd=str(REPO), text=True, timeout=180,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         encoding="utf-8", errors="replace",
     )
     if proc.returncode != 0:
         error(f"{rel}: exited {proc.returncode} against the fixture: {proc.stderr.strip()[:200]}")
+        return None
+    # Values are forbidden for every script. The variable NAME is forbidden only for the docs-structure
+    # scripts, whose allow-list must keep them out of .env.local; docs_drift reads env names by design.
+    if CANARY in proc.stdout or "real:secret" in proc.stdout or ("docs-structure" in rel and "SECRET_CANARY" in proc.stdout):
+        error(f"{rel}: printed the planted .env.local canary - a script read a value it must never read")
         return None
     try:
         data = json.loads(proc.stdout)
@@ -173,7 +184,7 @@ def check_snapshots(update: bool) -> None:
     SNAPSHOTS.mkdir(parents=True, exist_ok=True)
     for key, spec in SNAPSHOT_SCRIPTS.items():
         rel = spec["path"]
-        actual = run_script(rel, spec["drop"])
+        actual = run_script(rel, spec["drop"], spec.get("fixture", "mini-app"))
         if actual is None:
             continue
         snap = SNAPSHOTS / f"{key}.json"

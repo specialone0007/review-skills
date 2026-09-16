@@ -33,6 +33,24 @@
       "expect_skill": "docs-structure"
     },
     {
+      "id": "init-new-repo",
+      "kind": "trigger",
+      "prompt": "this repo has no docs folder yet - set one up the way our other repos are structured",
+      "expect_skill": "docs-structure"
+    },
+    {
+      "id": "draft-from-repo",
+      "kind": "trigger",
+      "prompt": "draft an architecture doc from what is actually in the repo, with the source for every claim",
+      "expect_skill": "docs-structure"
+    },
+    {
+      "id": "which-docs-missing",
+      "kind": "trigger",
+      "prompt": "which docs is this repository missing, given what it contains?",
+      "expect_skill": "docs-structure"
+    },
+    {
       "id": "accuracy-goes-to-sync",
       "kind": "anti-trigger",
       "prompt": "is docs/ARCHITECTURE.md still accurate after the auth refactor?",
@@ -74,6 +92,7 @@
       ],
       "rubric": [
         "reports one P1 that there is no central index, not one finding per doc",
+        "shows a concern table in which `develop` is covered by docs/setup.md through its headings and purpose, architecture, plan, testing and operate are uncovered",
         "reports the dead anchor `#configuration` in docs/setup.md with its line",
         "reports the `src/config.js:12` citation in docs/setup.md as a line-number citation",
         "reports that docs/history.md cannot be split because it has two H1 headings, and that docs/guide.md could become three parts",

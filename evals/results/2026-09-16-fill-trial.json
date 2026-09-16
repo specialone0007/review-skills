@@ -1,0 +1,49 @@
+{
+  "skill": "docs-structure",
+  "date": "2026-09-16",
+  "what": "First run of the concern model, the evidence inventory and the fill step on real repositories. All repositories are described by shape only. Public repositories are named because they are public.",
+  "generality_matrix": {
+    "method": "docs_evidence.py and docs_structure.py run read-only on shallow clones (--depth 100..300); pass = exits 0, ecosystem recognised where a detector exists, kinds a maintainer would name, zero secret-shaped strings in the JSON, under 5 s",
+    "repos": [
+      {"repo": "fastapi/full-stack-fastapi-template", "ecosystems": "node, python", "kinds": "application, monorepo", "docs_shape": "docs at root", "covered": "3/11 (develop by development.md, deploy by deployment.md, contribute by CONTRIBUTING.md - all by heading match)", "pass": true},
+      {"repo": "spring-projects/spring-petclinic", "ecosystems": "java", "kinds": "application", "docs_shape": "README only", "covered": "3/10 (develop, data, testing all from README sections)", "pass": true},
+      {"repo": "gin-gonic/gin", "ecosystems": "go", "kinds": "application", "docs_shape": "docs/ without index", "covered": "2/7", "note": "routes fell from 148 to 6 once test files stopped counting as evidence", "pass": true},
+      {"repo": "GoogleCloudPlatform/microservices-demo", "ecosystems": "dotnet, go, java, node, python", "kinds": "application, monorepo", "docs_shape": "docs/ without index", "covered": "4/11", "note": "Kubernetes, Helm and Terraform detectors exercised; Service and Ingress are not counted as deployable units", "pass": true},
+      {"repo": "BurntSushi/ripgrep", "ecosystems": "rust", "kinds": "library, cli, monorepo", "docs_shape": "GUIDE and FAQ at root", "covered": "1/9", "note": "cli kind from a binary crate without a known parser dependency; HTML <a name> anchors accepted as link targets", "pass": true},
+      {"repo": "squidfunk/mkdocs-material", "ecosystems": "node, python", "kinds": "application", "docs_shape": "mkdocs site", "covered": "generator detected - concern rules off", "note": "shared reference-link definitions are the generator's, not checked", "pass": true},
+      {"repo": "phoenixframework/phoenix", "ecosystems": "elixir, node", "kinds": "application, monorepo", "docs_shape": "docs at root", "covered": "2/9", "note": "Elixir detector added during the trial: mix.exs, Phoenix router, Ecto migrations", "pass": true},
+      {"repo": "tokio-rs/axum", "ecosystems": "rust", "kinds": "library, monorepo", "docs_shape": "no docs folder", "covered": "1/8", "note": "negative control: 0 routes after comment lines, test files and library-crate code stopped counting; was 131", "pass": true},
+      {"repo": "laravel/laravel", "ecosystems": "node, php", "kinds": "application", "docs_shape": "README only", "covered": "2/9 (purpose and develop from README sections)", "pass": true}
+    ],
+    "local_by_shape": [
+      {"shape": "a shaped pnpm monorepo with 110 docs, a central index and a Node verifier of its own", "covered": "8/10", "failures": 2, "note": "the two uncovered concerns, testing and operate, are real gaps; the twelve existing rules still report 0"},
+      {"shape": "a Next.js app with 82 loose docs, five dated record folders and no index", "covered": "4/10", "failures": 9},
+      {"shape": "a polyglot repo (Move contracts, Node indexer, React frontend) with three docs at the repo root", "covered": "4/9", "failures": 6, "note": "README covers architecture and the API through its sections"},
+      {"shape": "a notes-only repo of seven Markdown files", "covered": "n/a", "failures": 0, "note": "docs-only kind: asked for nothing"}
+    ]
+  },
+  "fill_trial": {
+    "shape": "the polyglot repo above, cloned to a throwaway copy",
+    "steps": [
+      "plan: 5 concerns uncovered (purpose, plan, data, design, testing); README is the index; DEPLOYMENT.md and a setup guide hand-written",
+      "init: copied five templates plus the first phase file, wrote docs-structure.json with roots ['*.md'], appended a Documents list to the README (10 lines added, 0 removed)",
+      "fill: drafted DATA_MODEL.md (four sections from schema.prisma, package scripts and three dated commits) and TESTING.md (four sections; two open questions; one negative claim with its search scope)",
+      "gate: every bracket resolved to a file, a model name in that file or a commit; one banned word caught in a draft ('clean install') and reworded; 0 line-number citations; 0 env values",
+      "check: Failures 0, Concerns 9 covered / 0 missing, Sections 13 skeleton / 8 draft / 22 reviewed; hand-written DEPLOYMENT.md untouched, its absent template sections reported as advice"
+    ],
+    "found_along_the_way": [
+      "a test script that runs jest with no jest dependency and no test files - the draft states it with evidence and marks the conclusion inferred",
+      "the draft's Inventory line says 0 committed migrations although the schema exists; prisma migrate dev is run from a script, which the draft cites"
+    ],
+    "bugs_fixed": [
+      "a manifest whose index is the root README did not put the checker into root-docs mode, so new root docs were treated as unreachable",
+      "the front door was asked to link itself when it is the index",
+      "the agent-side gate pass misread mid-paragraph brackets and table header rows (the scripts have no gate; the agent runs it)"
+    ]
+  },
+  "not_yet": [
+    "fill on a repo with docs in a docs/ folder and a hand-written architecture doc missing template sections",
+    "a real split with the preservation gate",
+    "docs-sync-audit over a filled repo as the honesty check on drafts"
+  ]
+}

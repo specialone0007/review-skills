@@ -101,19 +101,22 @@ It catches one thing a name comparison cannot: a documented setting that *is* re
 code, but only inside a module nothing imports — configuration that reads as working and
 cannot take effect.
 
-### `docs-structure` — the shape of the docs, not their truth
+### `docs-structure` — check, build and fill a repo's docs
 
 > *"is our docs folder organised"* · [see a real report](examples/docs-structure.md)
 
-Whether every doc is reachable from one central index, says what it owns, and stays small
-enough to load in one pass; whether indexes still agree with their folders, whether heading
-anchors and relative links still resolve, and whether anything cites a line number into
-source that has since moved, and whether the README hands off to that index or keeps a
-second list that drifts. Bundles a checker for all eleven rules and proposes a small per-repo
-manifest to start from.
+Three jobs. **Check**: is every doc reachable from one index, does it say what it owns, is it
+small enough to load, do links and anchors resolve, does the README hand off to the index.
+**Build**: which docs does *this* repo need - derived from its code, configs and history by a
+stack-agnostic inventory, not from a fixed list - and which existing doc already covers each,
+by its headings rather than its file name; skeletons for the rest. **Fill**: on request, a first
+draft of each skeleton from repo evidence, every sentence carrying its source in brackets and
+the whole thing marked for review. Bundles the checker and the inventory; proposes a per-repo
+manifest.
 
-Shape only. Whether the docs are *true* is `docs-sync-audit`'s job. `docs-structure`'s own apply
-workflow, when you ask for it by name, edits Markdown in your working tree and nothing else.
+Shape and coverage, not truth. Whether the docs are *true* is `docs-sync-audit`'s job.
+`docs-structure`'s apply workflow, when you ask for it by name, edits Markdown in your working
+tree plus the one JSON manifest you accepted, and nothing else.
 
 ### `repo-health-audit` — structure, duplication, dead code
 
@@ -191,7 +194,7 @@ Each folder holds a `SKILL.md`, an `agents/openai.yaml` with Codex interface met
 
 ## Safety
 
-All eight skills are read-only on your files by default. They instruct the agent not to edit, stage, or commit anything unless you explicitly ask for fixes or implementation. `docs-structure` has a named apply workflow for when you do ask: it edits Markdown in your working tree, writes nothing else, and never touches git.
+All eight skills are read-only on your files by default. They instruct the agent not to edit, stage, or commit anything unless you explicitly ask for fixes or implementation. `docs-structure` has a named apply workflow for when you do ask: it edits Markdown in your working tree plus the one JSON manifest you accepted, writes nothing else, and never touches git.
 
 One precise exception: `pr-branch-summary` may run `git fetch origin <base>` when the base branch you asked to compare against is missing locally. That updates a single remote-tracking ref and never touches your working tree, index, or local branches. It is skipped when the ref already exists.
 

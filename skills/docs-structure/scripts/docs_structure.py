@@ -10,7 +10,7 @@ Read-only. Standard library only. Writes nothing.
     python docs_structure.py --check-paths          # also check backticked repo paths (noisy)
     python docs_structure.py --fail-on-findings     # exit 1 when any rule fails (CI gate)
 
-Eleven mechanical rules, each with a fixed severity. None of them judges prose.
+Twelve mechanical rules, each with a fixed severity. None of them judges prose.
 
   R1  every doc is reachable in one hop: linked from the central index, or from the
       index that sits beside its folder. No central index at all is ONE finding.
@@ -27,9 +27,19 @@ Eleven mechanical rules, each with a fixed severity. None of them judges prose.
   R10 every doc under a folder appears in a registry table (opt-in)
   R11 the front door points at the index: the root README links the central index, and
       does not keep a parallel list of docs that would drift from it
+  R12 every concern the repo has is covered by a doc. Concerns come from the evidence
+      inventory (docs_evidence.py beside this script): purpose, architecture, develop and
+      plan always; deploy, release, data, http, commands, exports, design, testing, operate
+      and contribute when the repo contains the thing they describe; research on request.
+      A concern is covered by any doc whose headings match it, whatever its file name. An
+      uncovered concern is one P2 and a skeleton the apply workflow can create from
+      references/templates/ - never content
 
 Configuration is a small JSON manifest, by default `docs/structure.json` under the repo.
 Without one the script discovers a docs root and proposes a manifest; it never writes it.
+When there is no docs folder at all, the JSON carries an `init` block: the skeleton files
+(index, manifest, one README line) and a starter routing section, as text for the agent to
+write in the apply workflow. The script itself still writes nothing.
 
 Exit codes: 0 when the run completed (findings are data, not failure), 1 only with
 --fail-on-findings and at least one failure, 2 for a bad flag or manifest.
@@ -48,6 +58,13 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote
 
+sys.dont_write_bytecode = True  # importing the sibling module must not write a __pycache__
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    import docs_evidence  # sibling script, same folder, stdlib only
+except ImportError:  # pragma: no cover
+    docs_evidence = None
+
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -59,19 +76,24 @@ TOP_LEVEL_SKIP = {"dist", "build"}
 DOC_EXTS = {".md", ".mdx"}
 ROOT_FILES = ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md")
 DOCS_FOLDER_NAMES = ("docs", "doc", "documentation")
-RECORD_NAMES = {"plans", "specs", "archive", "log", "logs"}
-GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress")
-GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*")
+RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
+# A docs site generator owns navigation and URLs; looked for at the repo root and in each docs root.
+GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress", "hugo.toml", "book.toml")
+GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*", "astro.config.*", "conf.py")
+# Folders whose contents describe something other than this repo; ignored when deciding what the repo is.
+EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests", "__tests__", "spec", "specs"}
+CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".go", ".rs", ".rb", ".php",
+             ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh", ".sql", ".html", ".astro"}
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
-            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1"}
+            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2"}
 FRONT_DOOR_PARALLEL = 8  # a README linking this many docs under the roots is a second index
 RULE_TITLE = {
     "R1": "reachable from an index", "R2": "owner line", "R3": "oversize doc",
     "R4": "index and folder agree", "R5": "links and anchors resolve",
     "R6": "backticked paths exist", "R7": "line-number citations",
     "R8": "duplicated measurement", "R9": "checklist counts", "R10": "registry",
-    "R11": "front door links the index",
+    "R11": "front door links the index", "R12": "concern covered",
 }
 
 DEFAULT_MANIFEST = {
@@ -90,8 +112,69 @@ DEFAULT_MANIFEST = {
     "registries": [],
     "existingChecker": None,
     "frontDoor": "README.md",
+    "requiredDocs": None,
+    "templatesDir": None,
     "ignore": [],
 }
+
+TEMPLATES = Path(__file__).resolve().parent.parent / "references" / "templates"
+
+# R12: the concern model. A concern applies when `applies(inv)` returns a reason (a piece of
+# evidence, or "always"). It is covered by any doc whose H1/H2 text matches its keywords, or
+# whose file name is the default. The default file name depends on the repo's kinds.
+def _svc(inv):
+    for s_ in inv.get("services") or []:
+        if s_.get("source") in ("Dockerfile", "compose", "railway", "fly", "render", "vercel", "netlify", "Procfile", "app.yaml", "k8s", "helm", "terraform"):
+            return f"{s_.get('source')}: {s_.get('evidence')}"
+    for c in inv.get("ci") or []:
+        if c.get("deploy"):
+            return f"deploy workflow: {c.get('evidence')}"
+    return None
+
+
+def _first(items, label):
+    return f"{label}: {items[0].get('evidence')}" if items else None
+
+
+def _lib_or_cli(inv):
+    k = set(inv.get("kinds") or [])
+    return bool(k & {"library", "cli"}) and "application" not in k
+
+
+CONCERNS = [
+    # id, applies(inv) -> reason | None, default_file(inv) -> str, keywords, template, companions
+    ("purpose", lambda inv: "always", lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md",
+     {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission"}, lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md", []),
+    ("architecture", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
+     {"architecture", "components", "services", "system", "data flow", "how it works", "design decisions", "modules", "structure"}, "ARCHITECTURE.md", []),
+    ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
+     {"development", "developing", "getting started", "quickstart", "quick start", "local", "locally", "setup", "install", "installation", "prerequisites", "running", "run it", "run locally", "building", "environment setup", "hacking"}, "DEVELOPMENT.md", []),
+    ("plan", lambda inv: "always", lambda inv: "TASKLIST.md",
+     {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "roadmap", "checklist"}, "TASKLIST.md", ["tasklist/phase-00-foundations.md"]),
+    ("deploy", _svc, lambda inv: "DEPLOYMENT.md",
+     {"deploy", "deployment", "deploying", "production", "hosting", "infrastructure", "railway", "kubernetes", "helm", "docker", "release to"}, "DEPLOYMENT.md", []),
+    ("release", lambda inv: (_first(inv.get("release") or [], "release") if _lib_or_cli(inv) else None), lambda inv: "RELEASING.md",
+     {"releasing", "release", "releases", "publish", "publishing", "versioning", "changelog"}, "RELEASING.md", []),
+    ("data", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables") else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"] else None)), lambda inv: "DATA_MODEL.md",
+     {"data model", "schema", "database", "tables", "migrations", "entities", "storage"}, "DATA_MODEL.md", []),
+    ("http", lambda inv: (f"routes: {inv['routes']['items'][0]['evidence']}" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API_REFERENCE.md",
+     {"api", "endpoints", "endpoint", "routes", "openapi", "rest", "http", "reference"}, "API_REFERENCE.md", []),
+    ("commands", lambda inv: _first([c for c in inv.get("cli") or [] if not c.get("hint")], "cli"), lambda inv: "CLI_REFERENCE.md",
+     {"cli", "command", "commands", "command line", "usage", "flags", "options"}, "CLI_REFERENCE.md", []),
+    ("exports", lambda inv: (_first(inv.get("exports") or [], "exports") if "library" in (inv.get("kinds") or []) else None), lambda inv: "PUBLIC_API.md",
+     {"public api", "exports", "api reference", "usage", "import", "sdk"}, "PUBLIC_API.md", []),
+    ("design", lambda inv: _first(inv.get("frontend") or [], "frontend"), lambda inv: "DESIGN_GUIDELINES.md",
+     {"design", "design system", "design guidelines", "styling", "style guide", "theme", "tokens", "components", "ui", "brand"}, "DESIGN_GUIDELINES.md", []),
+    ("testing", lambda inv: _first(inv.get("tests") or [], "tests"), lambda inv: "TESTING.md",
+     {"testing", "tests", "test", "qa", "coverage", "e2e"}, "TESTING.md", []),
+    ("operate", lambda inv: _first([o for o in inv.get("ops") or [] if not o.get("hint")], "ops"), lambda inv: "RUNBOOK.md",
+     {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, "RUNBOOK.md", []),
+    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("public remote" if (inv.get("decisions") or {}).get("public_remote") else None)), lambda inv: "CONTRIBUTING.md",
+     {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, "CONTRIBUTING.md", []),
+    ("research", lambda inv: None, lambda inv: "research/LOG.md",
+     {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
+]
+UNIVERSAL = {"purpose", "architecture", "develop", "plan"}
 
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
@@ -106,7 +189,8 @@ CODESPAN_RE = re.compile(r"`[^`\n]*`")
 BOX_RE = re.compile(r"^\s*[-*] \[( |~|x|X)\]")
 DATE_RE = re.compile(r"\b20\d{2}-\d{2}(-\d{2})?\b")
 PREFIX_RE = re.compile(r"^([A-Z]{2,}-\d+|20\d{2}-\d{2}(-\d{2})?)[-_ .]")
-PLACEHOLDER_MARKERS = ("(auto, review me)", "| unreviewed |")
+PLACEHOLDER_MARKERS = ("(auto, review me)", "| unreviewed |", "(skeleton, write me)", "| skeleton |", "(draft, review me)", "| draft |")
+DRAFT_MARK = "*(draft, review me)*"
 # Link targets that are examples, not promises: `[text](url)`, `[x](javascript:...)`, `[y](path/to/file)`.
 PLACEHOLDER_TARGET = re.compile(r"^(url|link|path|file|href)$|^javascript:|^\.{3}|[<>{}$*]|(^|/)(path/to|your[-_]|my[-_]|example|foo|bar|placeholder)(?=[./-]|$)", re.I)
 MAX_JSON_FINDINGS = 1000
@@ -123,6 +207,19 @@ def read(path: Path) -> str:
         return path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return ""
+
+
+def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 12):
+    """os.walk with pruning: dot-folders, tooling folders and (optionally) more never get entered.
+    Yields (dirpath, dirnames, filenames) with dirnames already pruned."""
+    skip = ALWAYS_SKIP | (skip_names or set())
+    base_depth = len(root.parts)
+    for dirpath, dirnames, filenames in os.walk(root):
+        d = Path(dirpath)
+        if len(d.parts) - base_depth >= max_depth:
+            dirnames[:] = []
+        dirnames[:] = sorted(n for n in dirnames if n not in skip and not n.startswith("."))
+        yield d, dirnames, filenames
 
 
 _listing: dict[Path, set[str]] = {}
@@ -215,6 +312,9 @@ def headings(clean: list[str]) -> list[tuple[int, int, str]]:
     return out
 
 
+HTML_ANCHOR_RE = re.compile(r"""<(?:a|h[1-6]|div|span|p)\b[^>]*\b(?:name|id)\s*=\s*["']([^"']+)["']""", re.I)
+
+
 def anchors(clean: list[str]) -> set[str]:
     seen: dict[str, int] = {}
     out: set[str] = set()
@@ -223,6 +323,9 @@ def anchors(clean: list[str]) -> set[str]:
         n = seen.get(base, 0)
         seen[base] = n + 1
         out.add(f"{base}-{n}" if n else base)
+    for line in clean:
+        for m in HTML_ANCHOR_RE.findall(line):
+            out.add(m.lower())
     return out
 
 
@@ -300,12 +403,12 @@ def load_manifest(repo: Path, explicit: str | None) -> tuple[dict, Path | None, 
 
 def skill_dirs(repo: Path) -> set[Path]:
     out = set()
-    for p in repo.rglob("SKILL.md"):
-        if p.parent == repo:
-            warnings.append("SKILL.md at the repo root is not used for exclusion; a single-skill repo is still audited")
-            continue
-        if not any(part in ALWAYS_SKIP or part.startswith(".") for part in p.relative_to(repo).parts[:-1]):
-            out.add(p.parent)
+    for d, _, files in walk(repo):
+        if "SKILL.md" in files:
+            if d == repo:
+                warnings.append("SKILL.md at the repo root is not used for exclusion; a single-skill repo is still audited")
+                continue
+            out.add(d)
     return out
 
 
@@ -329,10 +432,12 @@ def docs_under(folder: Path, repo: Path, skills: set[Path], ignore: list[str]) -
     out = []
     if folder.is_file():
         return [folder] if folder.suffix.lower() in DOC_EXTS else []
-    for p in sorted(folder.rglob("*")):
-        if p.is_file() and p.suffix.lower() in DOC_EXTS and not excluded(p, repo, skills, ignore):
-            out.append(p)
-    return out
+    for d, _, files in walk(folder):
+        for name in sorted(files):
+            p = d / name
+            if p.suffix.lower() in DOC_EXTS and not excluded(p, repo, skills, ignore):
+                out.append(p)
+    return sorted(out)
 
 
 def linked_folders(repo: Path, skills: set[Path], ignore: list[str]) -> dict[str, int]:
@@ -378,16 +483,24 @@ def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
         return {"rule": "b", "status": "resolved", "roots": list(linked), "candidates": linked}
     if len(linked) > 1:
         return {"rule": "b", "status": "ambiguous", "roots": [], "candidates": linked}
+    top_md = sorted(p.name for p in repo.iterdir() if p.is_file() and p.suffix.lower() in DOC_EXTS)
+    extra = [n for n in top_md if n not in ROOT_FILES]
+    if len(extra) >= 2 and (repo / "README.md").is_file():
+        # The repository's docs live at its root (an ops-notes repo, say). The README is the index.
+        return {"rule": "c", "status": "root-docs", "roots": top_md, "candidates": {}}
     return {"rule": "c", "status": "root-files-only", "roots": [], "candidates": {}}
 
 
-def detect_generator(repo: Path) -> str | None:
-    for m in GENERATOR_MARKERS:
-        if (repo / m).exists() or (repo / "docs" / m).exists():
-            return m
-    for g in GENERATOR_GLOBS:
-        if list(repo.glob(g)):
-            return g
+def detect_generator(repo: Path, roots: list[Path]) -> str | None:
+    places = [repo] + [r for r in roots if r.is_dir()]
+    for base in places:
+        for m in GENERATOR_MARKERS:
+            if (base / m).exists():
+                return posix(base / m, repo)
+        for g in GENERATOR_GLOBS:
+            hit = next(iter(base.glob(g)), None)
+            if hit is not None:
+                return posix(hit, repo)
     return None
 
 
@@ -408,6 +521,253 @@ def top_level_dirs(repo: Path) -> list[str]:
     for p in sorted(repo.iterdir()):
         if p.is_dir() and not p.name.startswith(".") and p.name not in ALWAYS_SKIP | TOP_LEVEL_SKIP:
             out.append(p.name)
+    return out
+
+
+# ---------------------------------------------------------------- init skeleton
+
+INDEX_TEMPLATE = """# Docs index
+
+> **This document owns:** the list of every doc in this repository, what each one owns, and its state.
+
+Pick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.
+
+| doc | owns | state |
+| --- | --- | --- |
+"""
+
+ROUTING_STARTER = """## Docs routing - where a change gets written down
+
+One doc owns each fact; the others link. Every doc's header says what it owns. When you change
+one of these, update the owner in the same change.
+
+| you changed... | update |
+|---|---|
+| <a kind of change> | `docs/<OWNER>.md` |
+
+Rules that keep this true:
+
+- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.
+- Strike superseded figures (`~~old~~ -> new`), do not delete them.
+- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.
+- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.
+"""
+
+
+_TEMPLATES_DIR: Path | None = None  # set from the manifest; the bundled folder is the fallback
+
+
+def template_for(name: str) -> Path | None:
+    if _TEMPLATES_DIR is not None and (_TEMPLATES_DIR / name).is_file():
+        return _TEMPLATES_DIR / name
+    t = TEMPLATES / name
+    return t if t.is_file() else None
+
+
+def owner_text(template: Path) -> str:
+    for line in read(template).splitlines():
+        if "This document owns:" in line:
+            return line.split("This document owns:**", 1)[-1].replace("*(skeleton, write me)*", "").strip(" *")
+    return ""
+
+
+def template_sections(template: Path) -> list[tuple[str, str]]:
+    """(H2 text, italic guidance line) for each section of a template."""
+    lines = read(template).splitlines()
+    out = []
+    i = 0
+    while i < len(lines):
+        m = HEADING_RE.match(lines[i])
+        if m and len(m.group(1)) == 2:
+            j = i + 1
+            while j < len(lines) and not lines[j].strip():
+                j += 1
+            guide = lines[j].strip() if j < len(lines) and lines[j].strip().startswith("*") else ""
+            out.append((m.group(2).strip(), guide))
+        i += 1
+    return out
+
+
+def tokens(text: str) -> str:
+    return " " + re.sub(r"[^a-z0-9 ]+", " ", text.lower()).strip() + " "
+
+
+def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door: bool = False) -> tuple[int, str]:
+    """How strongly a doc covers a concern: file name, H1, then H2s. The front door's H1 is the
+    project name, so only its H2s count there, at double weight (a README section is a real home).
+    One generic word in a title is not coverage: a doc needs the file name, or two distinct hits,
+    or a title hit backed by a section hit."""
+    score = 0
+    how = []
+    name_hit = doc.path.name.lower() == Path(default_file).name.lower()
+    if name_hit:
+        score += 6
+        how.append("file name")
+    h1 = [t for _, lvl, t in doc.headings if lvl == 1]
+    h2 = [t for _, lvl, t in doc.headings if lvl == 2]
+    hits: list[str] = []
+    kw = {k: tokens(k).strip() for k in keywords}
+    if not front_door:
+        h1t = tokens(" ".join(h1))
+        hits = sorted(k for k, t in kw.items() if f" {t} " in h1t)
+        if hits:
+            score += 3 * len(hits)
+            how.append("H1: " + ", ".join(hits[:3]))
+    h2t = tokens(" ".join(h2))
+    hits2 = sorted(k for k, t in kw.items() if f" {t} " in h2t)
+    if hits2:
+        score += (2 if front_door else 1) * len(hits2)
+        how.append(("README sections: " if front_door else "H2: ") + ", ".join(hits2[:3]))
+    distinct = len(set(hits) | set(hits2))
+    if front_door:
+        if not hits2:
+            return 0, ""
+        return max(score, 3), "; ".join(how)
+    if not name_hit and not (distinct >= 2 or (hits and hits2)):
+        return 0, ""
+    return score, "; ".join(how)
+
+
+def repo_inventory(repo: Path, cap_n: int = 100) -> dict:
+    if docs_evidence is None:
+        warnings.append("docs_evidence.py not found beside this script; only the universal concerns apply")
+        return {"kinds": [], "ecosystems": [], "unknown": True, "packages": [], "services": [], "env": [], "schema": None,
+                "routes": None, "cli": [], "exports": [], "frontend": [], "tests": [], "ci": [], "ops": [], "decisions": None,
+                "readme": None, "tree": {}, "release": [], "code_files_scanned": 0}
+    saved = list(docs_evidence.warnings)
+    inv = docs_evidence.inventory(repo, cap_n, use_git=False)
+    for w in inv.get("warnings", []):
+        if w not in saved:
+            warnings.append(f"evidence: {w}")
+    return inv
+
+
+def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, roots: list[Path], root_docs: bool,
+                     central_rel: str | None, front_rel: str, convention: str = "sibling", record_folders: list[str] | None = None) -> list[dict]:
+    """One row per concern: whether it applies, why, and which doc covers it."""
+    pins = manifest.get("requiredDocs")
+    pin_map: dict[str, object] = {}
+    if isinstance(pins, list):
+        pin_map = {c: True for c in pins}
+    elif isinstance(pins, dict):
+        pin_map = dict(pins)
+    docs_root = "docs" if any(r.is_dir() and r.name == "docs" for r in roots) else (posix(next((r for r in roots if r.is_dir()), repo), repo) if any(r.is_dir() for r in roots) else "docs")
+    records = record_folders or []
+    candidates = []
+    for d in docs:
+        if d.rel == central_rel and not root_docs:
+            continue
+        if matches_any(d.rel, records):
+            continue  # a dated plan or audit is a record, not the living doc for a concern
+        if d.path.parent != repo and index_for(d, repo, roots, convention) is not None:
+            continue  # a part of a split doc; its index is the doc
+        candidates.append(d)
+    docs_only = "docs-only" in (inv.get("kinds") or [])
+    rows = []
+    for cid, applies, default_file, keywords, template, companions in CONCERNS:
+        pin = pin_map.get(cid)
+        reason = None
+        if pin is False:
+            reason = None
+        elif isinstance(pin, str):
+            reason = "manifest"
+        elif pin is True:
+            reason = "manifest"
+        elif docs_only:
+            reason = None  # a repo of notes is asked for nothing it did not ask for
+        else:
+            reason = applies(inv)
+        if reason is None:
+            continue
+        dfile = default_file(inv)
+        default_path = dfile if root_docs else f"{docs_root}/{dfile}"
+        covered_by, how, runner_up = None, "", None
+        if isinstance(pin, str):
+            covered_by = pin if exists_exact(repo / pin) else None
+            how = "manifest"
+        else:
+            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel)), d) for d in candidates), key=lambda x: -x[0][0])
+            if scored and scored[0][0][0] >= 3:
+                (sc, how), d = scored[0]
+                covered_by = d.rel
+                if len(scored) > 1 and scored[1][0][0] >= 3 and scored[1][0][0] >= sc - 1:
+                    runner_up = scored[1][1].rel
+        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "template": template(inv) if callable(template) else template,
+                     "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up,
+                     "universal": cid in UNIVERSAL})
+    return rows
+
+
+def section_states(doc: "Doc", template: Path) -> dict:
+    """skeleton / draft / reviewed per template section, and template sections the doc lacks."""
+    tsec = template_sections(template)
+    guides = {slug(h): g for h, g in tsec}
+    states: dict[str, str] = {}
+    # bodies of the doc's H2s
+    h2s = [(i, t) for i, lvl, t in doc.headings if lvl == 2]
+    for n, (line_no, text) in enumerate(h2s):
+        end = h2s[n + 1][0] - 1 if n + 1 < len(h2s) else len(doc.lines)
+        body = [l.strip() for l in doc.lines[line_no:end] if l.strip()]
+        key = slug(text)
+        if not body or (key in guides and guides[key] and body == [guides[key]]) or (len(body) == 1 and body[0].startswith("*") and body[0].endswith("*")):
+            states[text] = "skeleton"
+        elif body[-1] == DRAFT_MARK:
+            states[text] = "draft"
+        else:
+            states[text] = "reviewed"
+    have = {slug(t) for _, t in h2s}
+    missing = [h for h, _ in tsec if slug(h) not in have]
+    owner = "skeleton" if "(skeleton, write me)" in doc.raw else ("draft" if "(draft, review me)" in doc.raw else "reviewed")
+    return {"owner": owner, "sections": states, "missing": missing}
+
+
+def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
+               front_links_index: bool, root_docs: bool, docs_root: str = "docs") -> dict | None:
+    """What apply would create. Names templates, never carries content; the agent copies them."""
+    files: dict[str, dict] = {}
+    uncovered = [c for c in coverage if not c["covered_by"]]
+    if not have_index and not root_docs:
+        files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
+    manifest = {
+        "roots": ([docs_root] + [f for f in ROOT_FILES if (repo / f).is_file()]) if not root_docs else ["*.md"],
+        "centralIndex": "README.md" if root_docs else f"{docs_root}/INDEX.md",
+        "indexConvention": "sibling",
+        "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
+        "splitAt": 500,
+        "pathPrefixes": top_level_dirs(repo),
+        "recordFolders": [c["default_path"].rsplit("/", 1)[0] + "/log" for c in uncovered if c["concern"] == "research"],
+        "counts": [{"index": c["default_path"], "folder": c["default_path"].rsplit(".", 1)[0].lower().replace("tasklist", "tasklist")} for c in uncovered if c["concern"] == "plan"],
+        "frontDoor": front_rel,
+        "ignore": [],
+    }
+    if manifest["counts"]:
+        manifest["counts"] = [{"index": c["default_path"], "folder": (c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else "") + "tasklist"} for c in uncovered if c["concern"] == "plan"]
+    if not have_manifest:
+        files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
+    rows = []
+    for c in uncovered:
+        t = template_for(c["template"])
+        if t is None:
+            continue
+        files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(read(t).splitlines()),
+                                    "why": f"{c['concern']} ({c['applies']})", "concern": c["concern"]}
+        base = c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else ""
+        for comp in c["companions"]:
+            ct = template_for(comp)
+            if ct is not None:
+                files[base + comp] = {"template": f"references/templates/{comp}", "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
+        title = c["default_path"].rsplit("/", 1)[-1][:-3]
+        link = c["default_path"].split("/", 1)[1] if (not root_docs and "/" in c["default_path"]) else c["default_path"]
+        rows.append(f"| [{title}]({link}) | {owner_text(t)} | skeleton |")
+    if not files and front_links_index:
+        return None
+    out: dict = {"files": files, "index_rows": rows,
+                 "print_only": {"CLAUDE.md or AGENTS.md": ROUTING_STARTER},
+                 "then": "run the checker again; skeletons show up in the section states until written or filled"}
+    if not front_links_index and not root_docs:
+        out["readme_line"] = {"path": front_rel,
+                              "append": f"Every doc is listed in [{docs_root}/INDEX.md]({docs_root}/INDEX.md) - what each one owns and its state. Start there.",
+                              "why": "so the front door links the index (R11) from day one"}
     return out
 
 
@@ -545,17 +905,28 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     if not roots_rel:
         discovery = discover(repo, skills, ignore)
         roots_rel = list(discovery["roots"])
-        if discovery["status"] != "resolved":
+        if discovery["status"] == "root-docs":
+            pass  # every top-level doc is a root; the README is the index
+        elif discovery["status"] != "resolved":
             roots_rel = [f for f in ROOT_FILES if (repo / f).is_file()]
         else:
             roots_rel += [f for f in ROOT_FILES if (repo / f).is_file()]
+    expanded: list[str] = []
+    for r in roots_rel:
+        if r.endswith("*.md") or r.endswith("*.mdx"):
+            folder = repo / r.rsplit("/", 1)[0] if "/" in r else repo
+            expanded += sorted(posix(p, repo) for p in folder.glob(r.rsplit("/", 1)[-1]) if p.is_file())
+        else:
+            expanded.append(r)
+    roots_rel = list(dict.fromkeys(expanded))
     roots = [repo / r for r in roots_rel if (repo / r).exists()]
     for r in roots_rel:
         if not (repo / r).exists():
             warnings.append(f"root {r} does not exist")
 
-    root_files_only = discovery is not None and discovery["status"] != "resolved"
-    generator = detect_generator(repo)
+    root_docs = discovery is not None and discovery["status"] == "root-docs"
+    root_files_only = discovery is not None and discovery["status"] not in ("resolved", "root-docs")
+    generator = detect_generator(repo, roots)
 
     # ---- doc set
     paths: list[Path] = []
@@ -564,13 +935,15 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if r.is_file():
             paths.append(r)
             continue
-        for p in sorted(r.rglob("*")):
-            if not p.is_file() or excluded(p, repo, skills, ignore):
-                continue
-            if p.suffix.lower() in DOC_EXTS:
-                paths.append(p)
-            elif p.name != "structure.json":
-                non_doc += 1
+        for d, _, files in walk(r):
+            for name in sorted(files):
+                p = d / name
+                if excluded(p, repo, skills, ignore):
+                    continue
+                if p.suffix.lower() in DOC_EXTS:
+                    paths.append(p)
+                elif p.name != "structure.json":
+                    non_doc += 1
     paths = sorted(set(paths))
     docs = [Doc(p, repo) for p in paths]
     by_rel = {d.rel: d for d in docs}
@@ -590,7 +963,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     convention = manifest.get("indexConvention") or "sibling"
     central_rel = manifest.get("centralIndex")
-    if not central_rel and not root_files_only:
+    if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2 and not any(r.is_dir() for r in roots):
+        root_docs = True  # every root is a top-level file: the docs live at the repo root and the README is their index
+    if not central_rel and root_docs:
+        central_rel = "README.md"
+    if not central_rel and not root_files_only and not root_docs:
         for r in roots:
             if r.is_dir():
                 for name in ("INDEX.md", "index.md", "README.md"):
@@ -633,7 +1010,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             warnings.append(f"{d.rel} is over {MAX_READ} bytes and was not analysed")
 
         # ---- R1 / R4
-        if not r1_off and d.path not in roots and central_rel != d.rel:
+        if not r1_off and (d.path not in roots or root_docs) and central_rel != d.rel:
             idx = index_for(d, repo, roots, convention)
             if idx is not None:
                 irel = posix(idx, repo)
@@ -664,7 +1041,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     break
                 if seen >= 12:
                     break
-        if not has_owner and not exempt("R2", d.rel) and d.path not in roots and not d.skipped:
+        if not has_owner and not exempt("R2", d.rel) and not d.skipped and (root_docs and d.rel not in ROOT_FILES or d.path not in roots):
             add("R2", d.rel, 1, "no owner line near the top and no frontmatter description",
                 "fail" if enforce else "warn")
 
@@ -677,6 +1054,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 continue
             file_part, _, anchor = target.partition("#")
             anchor = unquote(anchor).lower()
+            if generator is not None and (file_part.startswith("/") or (file_part and "." not in Path(file_part).name)):
+                continue  # a site route, resolved by the generator, not a file
             if not file_part:
                 if anchor and anchor not in d.anchors:
                     add("R5", d.rel, i, f"dead anchor #{anchor} (no such heading in this file)")
@@ -696,7 +1075,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     add("R5", d.rel, i, f"dead anchor {file_part}#{anchor}")
         # `[text][id]` is a reference-style link only in a doc that defines at least one
         # reference; elsewhere adjacent brackets are tags like `[R7][R8]`.
-        if defs and not d.skipped:
+        if defs and not d.skipped and generator is None:  # a site generator resolves shared reference definitions
             for i, line in enumerate(d.nocode, start=1):
                 for ref in REF_USE_RE.findall(line):
                     if ref.lower() not in defs:
@@ -836,6 +1215,44 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             add("R11", front_rel, 1,
                 f"front door links {len(parallel)} docs directly - a second index that will drift from {central_rel}; keep a handful and point at the index", "warn")
 
+    # ---- R12 concern coverage, and the init block that would create the skeletons
+    global _TEMPLATES_DIR
+    td = manifest.get("templatesDir")
+    _TEMPLATES_DIR = (repo / td) if td and (repo / td).is_dir() else None
+    if td and _TEMPLATES_DIR is None:
+        warnings.append(f"templatesDir {td} does not exist; bundled templates used")
+    docs_root = next((posix(r, repo) for r in roots if r.is_dir()), "docs")
+    inv = repo_inventory(repo)
+    coverage = concern_coverage(inv, manifest, docs, repo, roots, root_docs, central_rel, front_rel, convention, record_folders) if generator is None else []
+    if generator is None:
+        for c in coverage:
+            if c["covered_by"]:
+                continue
+            manifest_inside = manifest_path is not None and not posix(manifest_path, repo).startswith(("/", "C:", "c:")) and ":" not in posix(manifest_path, repo)
+            anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_inside else front_rel)
+            why = "always" if c["applies"] == "always" else ("named in the manifest" if c["applies"] == "manifest" else f"the repo has {c['applies']}")
+            add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}) - apply creates {c['default_path']} from the template", "fail")
+    states: dict[str, dict] = {}
+    for c in coverage:
+        if c["covered_by"] and c["covered_by"] in by_rel:
+            t = template_for(c["template"])
+            if t is not None:
+                states[c["covered_by"]] = {"concern": c["concern"], **section_states(by_rel[c["covered_by"]], t)}
+                c["state"] = states[c["covered_by"]]["owner"]
+                c["missing_sections"] = states[c["covered_by"]]["missing"]
+    state_totals = {"skeleton": 0, "draft": 0, "reviewed": 0, "missing": 0}
+    for st in states.values():
+        for v in st["sections"].values():
+            state_totals[v] += 1
+        state_totals["missing"] += len(st["missing"])
+    # Against the index that exists, or the one init would create.
+    front_links_index = True
+    if front.is_file() and front_rel != (central_rel or "docs/INDEX.md"):
+        fl = links_out(by_rel.get(front_rel) or Doc(front, repo))
+        target = central_rel or "docs/INDEX.md"
+        front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
+    init = None if generator is not None else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root)
+
     # ---- placeholders
     placeholders = 0
     for d in docs:
@@ -856,7 +1273,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if saw_inside:
             conv = "inside"
         proposed = {
-            "roots": roots_rel,
+            "roots": ["*.md"] if root_docs else roots_rel,
             "centralIndex": central_rel or (f"{roots_rel[0]}/INDEX.md" if roots_rel and not root_files_only else None),
             "indexConvention": conv,
             "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
@@ -892,12 +1309,19 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         "totals": {"docs_checked": len(docs), "non_doc_files": non_doc,
                    "failures": sum(1 for f in findings if f["level"] == "fail"),
                    "warnings": sum(1 for f in findings if f["level"] == "warn"),
-                   "placeholders": placeholders, "split_candidates": len(candidates)},
+                   "placeholders": placeholders, "split_candidates": len(candidates),
+                   "concerns_covered": sum(1 for c in coverage if c["covered_by"]), "concerns_missing": sum(1 for c in coverage if not c["covered_by"]),
+                   "states": state_totals},
         "rules": per_rule,
         "findings": findings,
         "split_candidates": candidates,
         "unreachable": unreachable,
         "proposed_manifest": proposed,
+        "init": init,
+        "kinds": inv.get("kinds", []),
+        "ecosystems": inv.get("ecosystems", []),
+        "concerns": coverage,
+        "sections": states,
         "warnings": warnings,
     }
 
@@ -917,6 +1341,8 @@ def render(d: dict, top: int) -> str:
         L.append("  Checked root files only for now; R1 and R4 are off.")
     elif disc and disc["status"] == "root-files-only":
         L.append("Manifest: none. No project docs folder found - root files only; R1 and R4 are off.")
+    elif disc and disc["status"] == "root-docs":
+        L.append(f"Manifest: none, proposed below. The docs live at the repo root ({len(d['roots'])} files); README.md is the index.")
     else:
         L.append(f"Manifest: none, proposed below. Roots: {', '.join(d['roots'])}")
     L.append(f"Docs checked: {t['docs_checked']}   non-doc files in docs folders: {t['non_doc_files']}")
@@ -924,6 +1350,18 @@ def render(d: dict, top: int) -> str:
     if d["record_folders"]:
         L.append(f"Record folders (R6/R7 warn, R8 skipped): {', '.join(d['record_folders'])}")
     L.append(f"Failures: {t['failures']}   Warnings: {t['warnings']}   Placeholders awaiting review: {t['placeholders']}")
+    if d.get("kinds"):
+        L.append(f"Kinds: {', '.join(d['kinds'])}   Ecosystems: {', '.join(d['ecosystems']) or 'none recognised'}")
+    if d.get("concerns"):
+        st = t["states"]
+        L.append(f"Concerns: {t['concerns_covered']} covered, {t['concerns_missing']} missing   Sections: {st['skeleton']} skeleton, {st['draft']} draft, {st['reviewed']} reviewed, {st['missing']} template sections absent from hand-written docs (advice)")
+        L.append("")
+        L.append("| concern | applies because | covered by | matched by | state |")
+        L.append("|---|---|---|---|---|")
+        for c in d["concerns"]:
+            cov = c["covered_by"] or f"none - apply creates {c['default_path']}"
+            extra = f" (also {c['runner_up']})" if c.get("runner_up") else ""
+            L.append(f"| {c['concern']} | {c['applies']} | {cov}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
     L.append("")
     L.append("| rule | severity | failures | warnings | first |")
     L.append("|---|---|---|---|---|")
@@ -951,6 +1389,18 @@ def render(d: dict, top: int) -> str:
         L.append("")
         L.append("Proposed manifest (docs/structure.json) - review before committing:")
         L.append(json.dumps(d["proposed_manifest"], indent=2))
+    if d.get("init"):
+        L.append("")
+        L.append("Apply would create these skeletons for uncovered concerns (nothing is written now):")
+        for path, info in d["init"]["files"].items():
+            why = f"  - {info['why']}" if info.get("why") else ""
+            L.append(f"  {path}  ({info['lines']} lines, {info['template']}){why}")
+        for row in d["init"].get("index_rows", []):
+            L.append(f"  index row: {row}")
+        rl = d["init"].get("readme_line")
+        if rl:
+            L.append(f"  {rl['path']}  + one line: {rl['append']}")
+        L.append("  and print a starter 'Docs routing' section for CLAUDE.md or AGENTS.md (not written).")
     if d["warnings"]:
         L.append("")
         L.extend(f"note: {w}" for w in d["warnings"])

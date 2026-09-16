@@ -28,14 +28,32 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 | `history.md` has two H1 headings, so a split must refuse it; `guide.md` is over the fixture's `splitAt` and splits cleanly into three parts | `mini-app/docs/history.md`, `mini-app/docs/guide.md` | `docs-structure` |
 | `42.5%` appears in four docs | `mini-app/docs/*.md` | `docs-structure` (warning) |
 | `crlf-sample.md` has Windows line endings; its `## Notes` anchor must still resolve from `limits.md` | `mini-app/docs/crlf-sample.md` | `docs-structure` |
+| Five concerns apply and have no covering doc: purpose, architecture and plan (always), testing (`package.json` has a test script) and operate (`src/routes/health.js`). `develop` **is** covered, by `docs/setup.md`, through its headings, not its name - that is the content match working | `mini-app/docs/`, `mini-app/package.json`, `mini-app/src/routes/health.js` | `docs-structure` (R12, five P2s) |
 | The root README never mentions `docs/`. R11 stays silent here because no central index exists (R1 owns that case); it fires on a repo whose README skips an existing index | `mini-app/README.md` | `docs-structure` (by omission) |
+
+## About `.env.local`
+
+`mini-app/.env.local` is a **canary**. It holds a fake variable name and two fake values that look
+like secrets. No script may ever print a value from it, and the two docs-structure scripts may not print
+even the variable name, because their allow-list must keep them out of a non-example env file;
+`tools/validate_evals.py` fails the run on either. (`docs_drift.py` reads env names from every env
+file by design.) Do not delete it and do not add it to an allow-list.
+
+## About `mini-py/`
+
+A second, smaller fixture in a second ecosystem: `pyproject.toml` with a console script, a FastAPI
+router, an alembic migration, an example env file, and a README with a "Getting started" section
+but no docs folder. It exists so the evidence inventory and the concern model are snapshot-tested
+on Python as well as Node: the README must cover `develop` through its section, `commands` must
+apply from the console script, `data` from the migration, `http` from the router, and there must
+be no deploy or design concern because nothing in it calls for one.
 
 ## About the docs folder
 
 `docs/structure.json` sets `splitAt: 20` so the oversize rule fires on 23-line files. Without
 it the two-H1 refusal and the three-part split would need a 500-line fixture, and the
-snapshot runner passes no `--manifest`, so the script reads this default path. It is the
-only manifest in the fixture and the only thing there that is not a planted defect.
+snapshot runner passes no `--manifest`, so the script reads this default path. It and the
+canary are the only things in the fixture that are not planted defects.
 
 `crlf-sample.md` is pinned `-text` in `.gitattributes` on purpose: the fixture is otherwise
 normalised to LF, which would erase the line-ending defect the file exists to plant.
@@ -54,4 +72,4 @@ That is not a credential. It is deliberately structurally invalid so it cannot b
 
 The `postinstall` hook and the odd dependency specs are inert: nothing here is ever installed, and the hook only prints a line. They exist so `dependency_audit.py` has real supply-chain shapes to detect.
 
-`tools/validate_evals.py --update-snapshots` reruns the bundled scripts against `mini-app/` and rewrites the expected JSON. Do that only when a script's output format changed on purpose, and read the diff before committing it.
+`tools/validate_evals.py --update-snapshots` reruns the bundled scripts against `mini-app/` (and the two docs-structure scripts against `mini-py/` as well) and rewrites the expected JSON. Do that only when a script's output format changed on purpose, and read the diff before committing it.

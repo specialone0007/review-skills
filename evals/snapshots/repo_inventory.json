@@ -32,6 +32,7 @@
     "tests/health.test.js",
     "tests/smoke.test.js",
     ".env.example",
+    ".env.local",
     "README.md",
     "package.json",
     "requirements.txt"
@@ -49,7 +50,7 @@
     },
     {
       "dir": "(root)",
-      "files": 4,
+      "files": 5,
       "lines": 40
     },
     {
@@ -59,7 +60,8 @@
     }
   ],
   "env_files": [
-    ".env.example"
+    ".env.example",
+    ".env.local"
   ],
   "extensions": [
     {
@@ -76,6 +78,10 @@
     },
     {
       "ext": ".example",
+      "files": 1
+    },
+    {
+      "ext": ".local",
       "files": 1
     },
     {
@@ -166,6 +172,11 @@
       "path": "src/lib/format-date.js"
     },
     {
+      "bytes": 176,
+      "lines": 0,
+      "path": ".env.local"
+    },
+    {
       "bytes": 160,
       "lines": 9,
       "path": "src/db.js"
@@ -208,7 +219,7 @@
   },
   "totals": {
     "doc_files": 7,
-    "files": 22,
+    "files": 23,
     "lines": 206,
     "test_files": 3
   },

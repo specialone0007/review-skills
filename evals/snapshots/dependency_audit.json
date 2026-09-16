@@ -39,6 +39,13 @@
       "line": null,
       "path": "requirements.txt",
       "severity": "low"
+    },
+    {
+      "detail": "an environment file appears in the file list; confirm it is not committed with real values. Contents were not read.",
+      "kind": "env-file-tracked",
+      "line": null,
+      "path": ".env.local",
+      "severity": "high"
     }
   ],
   "repo": "<fixture>",
