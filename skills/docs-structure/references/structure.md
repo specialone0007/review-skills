@@ -68,6 +68,7 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "counts": [{ "index": "docs/TASKLIST.md", "folder": "docs/tasklist" }],
   "registries": [{ "folder": "docs/experiments", "table": "docs/REGISTRY.md", "except": ["LOG.md"] }],
   "requiredDocs": { "deploy": "docs/ops/shipping.md", "research": true, "operate": false },
+  "heavyEvidence": { "http": 20, "data": 10, "deploy": 3, "architecture": 3 },
   "templatesDir": null,
   "verifiedStaleDays": 90,
   "existingChecker": null,
@@ -80,7 +81,11 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
 `"inside"` means `docs/x/README.md`. Nesting: `docs/a/b/` looks for `docs/a/B.md`, then falls to
 `docs/a/`'s index, then to the central index. `requiredDocs` pins a concern on (`true`), off
 (`false`) or to a specific file. `templatesDir` replaces this skill's templates with a team's own,
-by concern file name. `existingChecker` names a verifier the repo already runs.
+by concern file name. A generated manifest lists only tracked
+root files: a gitignored `CLAUDE.md` exists on one machine, not in the clone the manifest travels
+to. `heavyEvidence` is the point past which a README section stops counting
+as coverage for a concern and becomes the seed of a dedicated doc: a README heading "API
+Endpoints" over a handful of examples does not document 130 routes. `0` turns a threshold off. `existingChecker` names a verifier the repo already runs.
 
 ## The evidence inventory
 
@@ -149,14 +154,17 @@ target names verbatim; "how to know it works" is a health route or test command;
 | Rollback | the one mechanical fact: whether migrations have down files | question | inventing a procedure |
 | Known traps | `fix(deploy|docker|build|env|ci)` and `revert` commits verbatim, dated | partial | storytelling |
 
-**data**: tables grouped by name prefix as `inferred:`; meaning only from `COMMENT ON` or doc
-comments, else "meaning: not documented"; relationships in words from FK syntax; conventions as
+**data**: one H3 per name-prefix group (`inferred:`), each a table with one row per model or
+table: name, the relations its FK syntax names, the defining file; meaning only from `COMMENT ON`
+or doc comments, else "meaning: not documented"; relationships in words from FK syntax; conventions as
 "observed in N of M tables"; inventory counts with first and last migration filenames. High on
 names, question on meaning. This doc owns table and migration counts.
 
 **http**: OpenAPI first; else framework patterns. Authentication as "route X imports guard Y; Y reads
-header Z", never "protected". Endpoints table capped at 40 rows, remainder grouped by first segment
-with counts; shapes only from types in the handler, else "shape: see file". Errors from a shared
+header Z", never "protected". Endpoints as tables, one H3 per first path segment, one row per route
+(method, path, handler file, the guard it imports or `none found`), 40 rows per table; every route
+in the inventory lands until the whole-doc cap, then "N more under <folder>"; shapes only from
+types in the handler, else "shape: see file". Errors from a shared
 helper. Notes carry scoped negatives. High on paths, partial on shapes. Owns route counts.
 
 **commands**: from parser definitions (`add_parser`, `@command`, `Use:`, clap derives), never from
@@ -185,14 +193,35 @@ if a config declares it. Review process is a question.
 When concerns are uncovered, the checker's JSON carries an `init` block naming, for each, the
 template under `references/templates/` (and its companion: the first phase file for `plan`, the
 first month for `research`), the index row it gets with state `skeleton`, and, when no docs folder
-exists, the index, the manifest built from the repo's real layout and one README line pointing at
-the index. Apply copies templates verbatim and authors nothing. A template is a title, an owner
+exists, the index, the manifest built from the repo's real layout and a `Start here` block for the
+README (below). Apply copies templates verbatim and authors nothing. A template is a title, an owner
 line ending `*(skeleton, write me)*` whose sentence doubles as the index "owns" text, a comment
 naming its concern and the inventory keys fill may use, and H2 sections with one italic line each.
 Three templates break that grammar on purpose: `TASKLIST.md` is a working index (a table and the
 legend, no sections; its counts are checked only when the manifest's `counts` names it),
 `research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
 carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
+
+## Writing into a file somebody else wrote
+
+Apply edits three kinds of existing file: the central index (a row), the front door (the block
+below) and a doc getting an owner line. Each keeps the file's own bytes - newline style, trailing
+newline, encoding - so the diff shows the added lines and nothing else. Reading with text mode and
+writing back with a fixed newline rewrites every line of a CRLF file; check the diff line count
+against the lines you meant to add before the write counts as done.
+
+## The front door
+
+Every README the skill touches gets the same hand-off, so a reader coming from another repo knows
+where to look. Apply inserts it after the intro paragraph, before the first H2, between
+`<!-- docs-structure: start here -->` markers; refill replaces only what is between them and the
+rest of the README is never edited. The block is: an H2 `Start here`; the reader's files in order,
+this README, the central index, and the agent file when `CLAUDE.md` or `AGENTS.md` is tracked (a
+gitignored one is a person's file, not the repo's); one line of first stops from the coverage table,
+how to run it, the architecture and the plan, each marked `(skeleton)` or `(draft)` until reviewed;
+and one line naming the checker and the manifest. It carries no list of docs: the index owns that,
+so the two cannot drift. A README that already has a `Start here`, `Where to start`, `Read this
+first` or `Documentation` section is left alone.
 
 ## The split, exactly
 

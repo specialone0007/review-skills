@@ -6,7 +6,7 @@
 
 ## Tables by area
 
-*One subsection per area. For each table: what a row means, the columns a reader must know, and what must never be deleted from it.*
+*One H3 per area, each a table with one row per table or model: name, what a row means, the relations it points at, the file that defines it. Say what must never be deleted from it.*
 
 ## Relationships
 

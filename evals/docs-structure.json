@@ -99,6 +99,12 @@
         "reports `42.5%` as duplicated across docs as a warning, not a failure",
         "modifies no files in the fixture"
       ]
+    },
+    {
+      "id": "start-here",
+      "kind": "trigger",
+      "prompt": "add a Start here section to our README that points at the docs index",
+      "expect_skill": "docs-structure"
     }
   ]
 }
