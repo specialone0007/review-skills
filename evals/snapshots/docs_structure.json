@@ -204,7 +204,7 @@
       },
       "docs/PRODUCT.md": {
         "concern": "purpose",
-        "lines": 37,
+        "lines": 33,
         "template": "references/templates/PRODUCT.md",
         "why": "purpose (always)"
       },
@@ -295,7 +295,7 @@
         "docs/structure.json:1"
       ],
       "severity": "P2",
-      "title": "required docs exist",
+      "title": "concern covered",
       "warnings": 0
     },
     "R2": {

@@ -116,7 +116,7 @@ manifest.
 
 Shape and coverage, not truth. Whether the docs are *true* is `docs-sync-audit`'s job.
 `docs-structure`'s apply workflow, when you ask for it by name, edits Markdown in your working
-tree and nothing else.
+tree plus the one JSON manifest you accepted, and nothing else.
 
 ### `repo-health-audit` — structure, duplication, dead code
 
@@ -194,7 +194,7 @@ Each folder holds a `SKILL.md`, an `agents/openai.yaml` with Codex interface met
 
 ## Safety
 
-All eight skills are read-only on your files by default. They instruct the agent not to edit, stage, or commit anything unless you explicitly ask for fixes or implementation. `docs-structure` has a named apply workflow for when you do ask: it edits Markdown in your working tree, writes nothing else, and never touches git.
+All eight skills are read-only on your files by default. They instruct the agent not to edit, stage, or commit anything unless you explicitly ask for fixes or implementation. `docs-structure` has a named apply workflow for when you do ask: it edits Markdown in your working tree plus the one JSON manifest you accepted, writes nothing else, and never touches git.
 
 One precise exception: `pr-branch-summary` may run `git fetch origin <base>` when the base branch you asked to compare against is missing locally. That updates a single remote-tracking ref and never touches your working tree, index, or local branches. It is skipped when the ref already exists.
 

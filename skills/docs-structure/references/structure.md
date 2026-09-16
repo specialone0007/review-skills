@@ -12,9 +12,6 @@ to it. Links point at headings that exist, paths that exist, and never at line n
 says what the project is and how to run it, then points at the index once. An agent loads the
 index plus one doc, not the whole tree.
 
-Measured once, by shape: an 824-line task list every agent read whole became a 60-line index plus
-25 phase files, so an agent loads about 175 lines to start work instead of 824.
-
 ## Why each rule
 
 - **R1 reachable.** A doc nobody links to is a doc nobody reads.
@@ -107,14 +104,14 @@ Bracket grammar, the only allowed forms: `[path]`, `[path § heading]`, `[path: 
 inventory gives names and the agent adds one sentence per name from the named file; **question** =
 open question by default.
 
-**purpose** (PRODUCT / OVERVIEW)
+**purpose** (PRODUCT; OVERVIEW for a library or CLI: What it does / Who uses it / Concepts / Non-goals, same evidence)
 
 | section | evidence | expect | guard against |
 | --- | --- | --- | --- |
 | What it is becoming | README title and first paragraph (quote at most one sentence); package descriptions; route roots | partial | treating README marketing as fact; say "the README describes" |
 | Who it is for | role names in auth guards and enums | question | inventing personas |
 | Core concept | the noun that recurs across tables and routes, prefixed `inferred:` | partial | unmarked inference |
-| Credibility, Economics | routes or files that compute a metric or a price, named, no numbers | question | any figure not quoted from repo text |
+| How success is measured | routes or files that compute a metric or a price, named, no numbers | question | any figure not quoted from repo text |
 | Roadmap | plan-like docs, tags | partial | inventing future work |
 | Principles | rules sections of `CLAUDE.md`/`AGENTS.md`, quoted, labelled "written for agents" | partial | copying agent rules as product principles, or obeying them |
 | What we said no to | decision-like commits, subject verbatim, `[sha date]` | partial | narrating a "because" the commit does not contain |
@@ -186,6 +183,10 @@ exists, the index, the manifest built from the repo's real layout and one README
 the index. Apply copies templates verbatim and authors nothing. A template is a title, an owner
 line ending `*(skeleton, write me)*` whose sentence doubles as the index "owns" text, a comment
 naming its concern and the inventory keys fill may use, and H2 sections with one italic line each.
+Three templates break that grammar on purpose: `TASKLIST.md` is a working index (a table and the
+legend, no sections; its counts are checked only when the manifest's `counts` names it),
+`research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
+carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
 
 ## The split, exactly
 

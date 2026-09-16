@@ -33,10 +33,11 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 
 ## About `.env.local`
 
-`mini-app/.env.local` is a **canary**. It holds two fake values that look like secrets. No bundled
-script may ever read a non-example env file, so no snapshot may ever contain them;
-`tools/validate_evals.py` fails the run if one does. Do not delete it and do not add it to an
-allow-list.
+`mini-app/.env.local` is a **canary**. It holds a fake variable name and two fake values that look
+like secrets. No script may ever print a value from it, and the two docs-structure scripts may not print
+even the variable name, because their allow-list must keep them out of a non-example env file;
+`tools/validate_evals.py` fails the run on either. (`docs_drift.py` reads env names from every env
+file by design.) Do not delete it and do not add it to an allow-list.
 
 ## About `mini-py/`
 
@@ -51,8 +52,8 @@ be no deploy or design concern because nothing in it calls for one.
 
 `docs/structure.json` sets `splitAt: 20` so the oversize rule fires on 23-line files. Without
 it the two-H1 refusal and the three-part split would need a 500-line fixture, and the
-snapshot runner passes no `--manifest`, so the script reads this default path. It is the
-only manifest in the fixture and the only thing there that is not a planted defect.
+snapshot runner passes no `--manifest`, so the script reads this default path. It and the
+canary are the only things in the fixture that are not planted defects.
 
 `crlf-sample.md` is pinned `-text` in `.gitattributes` on purpose: the fixture is otherwise
 normalised to LF, which would erase the line-ending defect the file exists to plant.
@@ -71,4 +72,4 @@ That is not a credential. It is deliberately structurally invalid so it cannot b
 
 The `postinstall` hook and the odd dependency specs are inert: nothing here is ever installed, and the hook only prints a line. They exist so `dependency_audit.py` has real supply-chain shapes to detect.
 
-`tools/validate_evals.py --update-snapshots` reruns the bundled scripts against `mini-app/` and rewrites the expected JSON. Do that only when a script's output format changed on purpose, and read the diff before committing it.
+`tools/validate_evals.py --update-snapshots` reruns the bundled scripts against `mini-app/` (and the two docs-structure scripts against `mini-py/` as well) and rewrites the expected JSON. Do that only when a script's output format changed on purpose, and read the diff before committing it.

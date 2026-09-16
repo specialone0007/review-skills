@@ -1,7 +1,7 @@
 # `docs-structure` on this repository
 
 **Prompt:** "is our docs folder organised"  
-**Repository:** `specialone0007/review-skills` at the head of the pull request that added the concern model (the tree already contains `skills/docs-structure/` with both scripts)  
+**Repository:** `specialone0007/review-skills` at the tree of the pull request that added the concern model (both scripts present); the run is reproducible against that PR's head  
 **Files changed by the run:** none — the skill is read-only
 
 Structure audit of the review-skills repo's own Markdown, using the skill's two bundled scripts.
@@ -12,14 +12,14 @@ This repo has no `docs/` folder. Without a manifest, discovery rule (b) finds tw
 { "roots": ["README.md", "CONTRIBUTING.md", "evals/fixtures/README.md", "examples/README.md"] }
 ```
 
-Re-run it yourself and compare. Line numbers refer to the commit above, so a later commit will shift them.
+Re-run it yourself and compare. Line numbers refer to that tree, so a later commit will shift them.
 
 ---
 
 **Docs Structure: whole repository (4 prose Markdown files; skill folders and fixtures excluded)**
 Plan only, no files changed.
 
-apply would touch 4 files: 0 index rows, 0 owner lines, 0 splits, 3 skeletons plus the central index, 0 deletions. apply fill would draft 0 docs (the three uncovered concerns are purpose, architecture and plan, which fill leaves to people). 1 finding needs a human — a line-number citation in the fixture README.
+apply would touch 6 files: the central index, 3 skeletons, the first phase file, and one README line pointing at the index; 0 index rows beyond the new ones, 0 owner lines, 0 splits, 0 deletions. apply fill would draft 1 doc (architecture, partially, from `tools/`, `evals/` and the CI workflow); purpose and plan stay with people. 1 finding needs a human — a line-number citation in the fixture README.
 
 4 docs under `README.md`, `CONTRIBUTING.md`, `evals/fixtures/README.md`, `examples/README.md` (0 non-doc files). Kinds: unclassified (ten Python tools, no manifest that names a package). Ecosystems: none recognised. Manifest: explicit, quoted above. Record folders: none. Generator: none. Checker: 4 failures, 0 warnings.
 Concerns: 2 covered, 3 missing. Sections: 0 skeleton, 0 draft, 14 reviewed; 9 template sections absent from hand-written docs (advice).
@@ -36,7 +36,7 @@ Concerns that do not apply here, and why: no deployable unit, no schema, no HTTP
 
 | rule | severity | failures | warnings | first three |
 | --- | --- | --- | --- | --- |
-| R12 required docs exist | P2 | 3 | 0 | purpose, architecture, plan |
+| R12 concern covered | P2 | 3 | 0 | purpose, architecture, plan |
 | R7 line-number citations | P2 | 1 | 0 | `evals/fixtures/README.md:26` |
 
 1. **P2: No doc covers `purpose`.** Evidence: `README.md:1` (the front door; there is no central index to anchor to). The README says what the collection is in its first paragraph, but no doc's headings match the concern. In apply: yes — a `PRODUCT.md` skeleton, sections empty, marked `(skeleton, write me)`. Fill leaves purpose to people: intent is not in code.
@@ -46,7 +46,7 @@ Concerns that do not apply here, and why: no deployable unit, no schema, no HTTP
 
 **Checks Run**
 - `python skills/docs-structure/scripts/docs_structure.py --repo . --manifest <the manifest above> --check-paths --format json`: 4 docs, 4 failures, 0 warnings, 0 split candidates, 5 concerns applied, 2 covered. R6 was on and found nothing: every backticked repo path in the four files exists.
-- `python skills/docs-structure/scripts/docs_evidence.py --repo .`: 68 files, 10 code files, 0 packages, 9 CLI hints (argparse scripts, not a product command), 1 CI workflow, 0 env names, `unknown: true`.
+- `python skills/docs-structure/scripts/docs_evidence.py --repo .`: 70 files, 10 code files, 0 packages, 9 CLI hints (argparse scripts, not a product command), 1 CI workflow, 0 env names, `unknown: true`.
 - `python skills/docs-structure/scripts/docs_structure.py --repo .` with no manifest: discovery returned `ambiguous` with candidates `examples/` (9) and `evals/` (8), checked the root files only, proposed nothing.
 
 **Not Checked**

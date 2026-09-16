@@ -38,7 +38,7 @@
     "bugs_fixed": [
       "a manifest whose index is the root README did not put the checker into root-docs mode, so new root docs were treated as unreachable",
       "the front door was asked to link itself when it is the index",
-      "the gate misread mid-paragraph brackets and table header rows"
+      "the agent-side gate pass misread mid-paragraph brackets and table header rows (the scripts have no gate; the agent runs it)"
     ]
   },
   "not_yet": [

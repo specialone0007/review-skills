@@ -163,7 +163,9 @@ def run_script(rel: str, drop: list[str], fixture_name: str = "mini-app") -> dic
     if proc.returncode != 0:
         error(f"{rel}: exited {proc.returncode} against the fixture: {proc.stderr.strip()[:200]}")
         return None
-    if CANARY in proc.stdout or "real:secret" in proc.stdout:
+    # Values are forbidden for every script. The variable NAME is forbidden only for the docs-structure
+    # scripts, whose allow-list must keep them out of .env.local; docs_drift reads env names by design.
+    if CANARY in proc.stdout or "real:secret" in proc.stdout or ("docs-structure" in rel and "SECRET_CANARY" in proc.stdout):
         error(f"{rel}: printed the planted .env.local canary - a script read a value it must never read")
         return None
     try:

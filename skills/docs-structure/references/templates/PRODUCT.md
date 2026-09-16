@@ -16,13 +16,9 @@
 
 *The one idea everything else hangs on. If the product has a unit — a market, a post, a job — define it here once.*
 
-## Credibility
+## How success is measured
 
-*How a user can tell it works: the metric, where it is shown, what "good" looks like.*
-
-## Economics
-
-*What it costs to run one unit, what it earns, what has to be true for it to sustain itself.*
+*The metric a user or the team can check, where it is computed and shown, and what "good" looks like. Cost per unit if the product has one.*
 
 ## Roadmap
 

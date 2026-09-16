@@ -111,6 +111,14 @@
       "scripts": [
         "test"
       ]
+    },
+    {
+      "configs": [],
+      "detector": "test-layout",
+      "evidence": "tests",
+      "folders": [
+        "tests"
+      ]
     }
   ],
   "tree": {

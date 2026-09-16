@@ -82,6 +82,7 @@ REDACT = [
     re.compile(r"\b[0-9a-fA-F]{32,}\b"),
     re.compile(r"\b[A-Za-z0-9+/]{40,}={0,2}\b"),
     re.compile(r"://[^/\s:@]+:[^/\s@]+@"),
+    re.compile(r"(?<=/)[A-Za-z0-9_-]{24,}(?=/|$)"),  # a long opaque path segment: a webhook or signed-URL token
 ]
 
 DECISION_RE = re.compile(r"\b(decid|switch|migrat|replace|remov|adopt|revert|drop|deprecat|instead)", re.I)
@@ -115,15 +116,20 @@ def redact(s: str) -> str:
     return out
 
 
-def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 10):
+def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14, pruned: list[str] | None = None):
+    """os.walk with pruning. Sorted dirnames AND filenames, so output is the same on NTFS and ext4."""
     skip = ALWAYS_SKIP | (skip_names or set())
     base = len(root.parts)
     for dirpath, dirnames, filenames in os.walk(root):
         d = Path(dirpath)
         if len(d.parts) - base >= max_depth:
+            if dirnames:
+                warnings.append(f"depth cap {max_depth} reached under {d.relative_to(root).as_posix()}; deeper files not scanned")
             dirnames[:] = []
+        if pruned is not None:
+            pruned.extend((d / n).as_posix() for n in dirnames if n in (skip_names or set()))
         dirnames[:] = sorted(n for n in dirnames if n not in skip and not n.startswith("."))
-        yield d, dirnames, filenames
+        yield d, dirnames, sorted(filenames)
 
 
 def load_json(path: Path):
@@ -150,7 +156,11 @@ def load_toml(path: Path) -> dict:
         if m:
             table = out
             for part in m.group(1).replace('"', "").split("."):
-                table = table.setdefault(part.strip(), {})
+                nxt = table.get(part.strip())
+                if not isinstance(nxt, dict):
+                    nxt = {}
+                    table[part.strip()] = nxt
+                table = nxt
             continue
         m = re.match(r'^([A-Za-z0-9_.-]+)\s*=\s*"?([^"#]*)"?', s)
         if m:
@@ -159,85 +169,93 @@ def load_toml(path: Path) -> dict:
 
 
 def yaml_scan(text: str):
-    """A small indent-based YAML reader: mappings, lists of scalars or mappings, scalars.
-    Enough for compose, k8s manifests, GitHub Actions and platform configs. Ignores anchors,
-    multi-line scalars and flow collections beyond a single line."""
-    lines = [l.rstrip("\n") for l in text.splitlines()]
-    root: dict = {}
-    stack: list[tuple[int, object]] = [(-1, root)]
-    i = 0
+    """A small indent-based YAML reader for compose, k8s manifests, GitHub Actions and platform
+    configs: mappings, lists of scalars or mappings (at the same indent as their key or deeper),
+    block scalars (| > |- >+), one-line flow lists and maps. Anchors and multi-line flow are ignored.
+    Not a YAML parser; enough to read names and shapes, never values that matter."""
+    toks: list[tuple[int, str]] = []
+    for raw in text.splitlines():
+        if not raw.strip() or raw.lstrip().startswith("#") or raw.strip() == "---":
+            continue
+        toks.append((len(raw) - len(raw.lstrip(" ")), raw.strip()))
 
     def scalar(v: str):
         v = v.strip()
-        if v.startswith(("'", '"')) and v.endswith(("'", '"')) and len(v) >= 2:
+        if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
             return v[1:-1]
         if v.startswith("[") and v.endswith("]"):
             return [scalar(x) for x in v[1:-1].split(",") if x.strip()]
         if v.startswith("{") and v.endswith("}"):
             d = {}
             for kv in v[1:-1].split(","):
-                if ":" in kv:
-                    k, _, val = kv.partition(":")
-                    d[k.strip()] = scalar(val)
+                if ": " in kv:
+                    k, _, val = kv.partition(": ")
+                    d[k.strip().strip("'\"")] = scalar(val)
             return d
         return v
 
-    while i < len(lines):
-        raw = lines[i]
-        i += 1
-        if not raw.strip() or raw.lstrip().startswith("#") or raw.strip() == "---":
-            continue
-        indent = len(raw) - len(raw.lstrip(" "))
-        body = raw.strip()
-        while stack and stack[-1][0] >= indent:
-            stack.pop()
-        if not stack:
-            stack = [(-1, root)]
-        parent = stack[-1][1]
-        if body.startswith("- "):
-            item = body[2:].strip()
-            if not isinstance(parent, list):
+    def is_pair(t: str) -> bool:
+        if t.startswith(("'", "\"", "[", "{")):
+            return False
+        return ": " in t or t.endswith(":")
+
+    def parse_block(i: int, indent: int):
+        """Parse the block whose first token is toks[i] at `indent`. Returns (value, next_i)."""
+        if i >= len(toks):
+            return {}, i
+        if toks[i][1].startswith("- ") or toks[i][1] == "-":
+            return parse_list(i, indent)
+        return parse_map(i, indent)
+
+    def parse_list(i: int, indent: int):
+        out: list = []
+        while i < len(toks) and toks[i][0] == indent and (toks[i][1].startswith("- ") or toks[i][1] == "-"):
+            body = toks[i][1][2:].strip()
+            if not body:
+                i += 1
+                if i < len(toks) and toks[i][0] > indent:
+                    v, i = parse_block(i, toks[i][0])
+                    out.append(v)
+                else:
+                    out.append(None)
                 continue
-            if ":" in item and not item.startswith(("'", '"')) and not item.split(":", 1)[0].strip().startswith(("http", "[")):
-                k, _, v = item.partition(":")
-                node: dict = {}
-                parent.append(node)
-                if v.strip():
-                    node[k.strip()] = scalar(v)
-                else:
-                    node[k.strip()] = {}
-                    stack.append((indent + 2, node))
-                    stack.append((indent + 2, node[k.strip()]))
-                    continue
-                stack.append((indent + 1, node))
+            if is_pair(body):
+                # a mapping item: its first pair sits on the dash line, the rest two columns in
+                toks[i] = (indent + 2, body)
+                v, i = parse_map(i, indent + 2)
+                out.append(v)
             else:
-                parent.append(scalar(item))
-            continue
-        if ":" in body and isinstance(parent, dict):
-            k, _, v = body.partition(":")
-            k = k.strip().strip('"').strip("'")
+                out.append(scalar(body))
+                i += 1
+        return out, i
+
+    def parse_map(i: int, indent: int):
+        out: dict = {}
+        while i < len(toks) and toks[i][0] == indent and is_pair(toks[i][1]):
+            k, _, v = toks[i][1].partition(":")
+            k = k.strip().strip("'\"")
             v = v.strip()
-            if v == "" or v == "|" or v == ">":
-                # look ahead: list or mapping
-                j = i
-                while j < len(lines) and not lines[j].strip():
-                    j += 1
-                nxt = lines[j] if j < len(lines) else ""
-                if nxt.strip().startswith("- ") and (len(nxt) - len(nxt.lstrip(" "))) >= indent:
-                    child: object = []
+            i += 1
+            if v[:1] in ("|", ">"):
+                # block scalar: swallow every deeper line, keep nothing of it
+                while i < len(toks) and toks[i][0] > indent:
+                    i += 1
+                out[k] = ""
+            elif v == "":
+                if i < len(toks) and toks[i][0] > indent:
+                    out[k], i = parse_block(i, toks[i][0])
+                elif i < len(toks) and toks[i][0] == indent and toks[i][1].startswith("- "):
+                    out[k], i = parse_list(i, indent)
                 else:
-                    child = {}
-                if v in ("|", ">"):
-                    child = ""
-                    while i < len(lines) and (not lines[i].strip() or (len(lines[i]) - len(lines[i].lstrip(" "))) > indent):
-                        i += 1
-                    parent[k] = child
-                    continue
-                parent[k] = child
-                stack.append((indent, child))
+                    out[k] = None
             else:
-                parent[k] = scalar(v)
-    return root
+                out[k] = scalar(v)
+        return out, i
+
+    if not toks:
+        return {}
+    v, _ = parse_block(0, toks[0][0])
+    return v if isinstance(v, dict) else {"_": v}
 
 
 def run_git(repo: Path, args: list[str]) -> str | None:
@@ -263,8 +281,9 @@ class Ctx:
         self.files: list[Path] = []
         self.code_files: list[Path] = []
         self.dirs: set[str] = set()
+        self.pruned: list[str] = []
         truncated = False
-        for d, dirnames, filenames in walk(repo, EVIDENCE_SKIP):
+        for d, dirnames, filenames in walk(repo, EVIDENCE_SKIP, pruned=self.pruned):
             rel_d = posix(d, repo)
             if rel_d != ".":
                 self.dirs.add(rel_d)
@@ -299,11 +318,40 @@ class Ctx:
         return sorted(d for d in self.dirs if "/" not in d)
 
 
+def _redact_any(v):
+    if isinstance(v, str):
+        return redact(v)
+    if isinstance(v, list):
+        return [_redact_any(x) for x in v]
+    if isinstance(v, dict):
+        return {k: _redact_any(x) for k, x in v.items()}
+    return v
+
+
 def item(ctx: Ctx, detector: str, src: Path, **fields) -> dict:
     d = {"detector": detector, "evidence": ctx.rel(src)}
     for k, v in fields.items():
-        d[k] = redact(v) if isinstance(v, str) else v
+        d[k] = _redact_any(v)
     return d
+
+
+def each(ctx: Ctx, paths, fn, name: str) -> None:
+    """Run fn on every path; one malformed file warns and is skipped, never taking the detector down."""
+    for p in paths:
+        try:
+            fn(p)
+        except Exception as exc:  # noqa: BLE001
+            warnings.append(f"{name}: skipped {ctx.rel(p)}: {type(exc).__name__}")
+
+
+def first_token(cmd: str) -> str:
+    """A start command's binary is all a doc needs; arguments can carry values."""
+    cmd = cmd.strip().strip("[]").split(",")[0].strip().strip("\"'")
+    return cmd.split()[0] if cmd.split() else ""
+
+
+def as_dict(x) -> dict:
+    return x if isinstance(x, dict) else {}
 
 
 def cap(lst: list, n: int, key: str, inv: dict) -> list:
@@ -316,18 +364,17 @@ def cap(lst: list, n: int, key: str, inv: dict) -> list:
 # ------------------------------------------------------------------ package detectors
 
 def det_node(ctx: Ctx, inv: dict) -> None:
-    for p in ctx.named("package.json"):
+    def one(p: Path) -> None:
         data = load_json(p)
         if not isinstance(data, dict):
-            continue
-        deps = {**(data.get("dependencies") or {}), **(data.get("devDependencies") or {})} if isinstance(data.get("dependencies", {}), dict) else {}
-        scripts = data.get("scripts") if isinstance(data.get("scripts"), dict) else {}
+            return
+        deps = {**as_dict(data.get("dependencies")), **as_dict(data.get("devDependencies"))}
+        scripts = as_dict(data.get("scripts"))
         lang = "typescript" if (p.parent / "tsconfig.json").exists() or "typescript" in deps else "javascript"
-        pkg = item(ctx, "node", p, name=str(data.get("name") or p.parent.name), path=ctx.rel(p.parent),
-                   language=lang, manifest="package.json", scripts=sorted(scripts.keys())[:60],
-                   dependencies=sorted(deps.keys())[:80], private=bool(data.get("private")),
-                   version=str(data.get("version") or ""), workspaces=bool(data.get("workspaces")))
-        inv["packages"].append(pkg)
+        inv["packages"].append(item(ctx, "node", p, name=str(data.get("name") or p.parent.name), path=ctx.rel(p.parent),
+                                    language=lang, manifest="package.json", scripts=sorted(scripts.keys())[:60],
+                                    dependencies=sorted(deps.keys())[:80], private=bool(data.get("private")),
+                                    version=str(data.get("version") or ""), workspaces=bool(data.get("workspaces"))))
         inv["_eco"].add("node")
         fe = [d for d in ("react", "next", "vue", "nuxt", "svelte", "@sveltejs/kit", "@angular/core", "solid-js", "astro", "remix", "@remix-run/react") if d in deps]
         if fe:
@@ -337,7 +384,7 @@ def det_node(ctx: Ctx, inv: dict) -> None:
             inv["frontend"].append(item(ctx, "node", p, ui_dependencies=sorted(set(ui))[:20], package=ctx.rel(p.parent)))
         b = data.get("bin")
         if b:
-            names = list(b.keys()) if isinstance(b, dict) else [data.get("name") or "cli"]
+            names = list(b.keys()) if isinstance(b, dict) else [str(data.get("name") or "cli")]
             inv["cli"].append(item(ctx, "node", p, commands=names, entry=str(b if isinstance(b, str) else "")))
         if not data.get("private") and (data.get("main") or data.get("exports") or data.get("module") or data.get("types")):
             inv["exports"].append(item(ctx, "node", p, entry=str(data.get("main") or data.get("module") or ""), has_exports_map=isinstance(data.get("exports"), dict), types=str(data.get("types") or "")))
@@ -349,26 +396,32 @@ def det_node(ctx: Ctx, inv: dict) -> None:
             inv["release"].append(item(ctx, "node", p, version=str(data.get("version") or ""), scripts=[k for k in scripts if k in ("publish", "release", "prepublishOnly", "changeset", "version")]))
         if any(d in deps for d in ("commander", "yargs", "oclif", "@oclif/core", "clipanion", "cac")) and not b:
             inv["cli"].append(item(ctx, "node", p, commands=[], parser=[d for d in deps if d in ("commander", "yargs", "oclif", "@oclif/core", "clipanion", "cac")][0]))
+    each(ctx, ctx.named("package.json"), one, "node")
     for ws in ctx.named("pnpm-workspace.yaml", "lerna.json", "turbo.json", "nx.json"):
         inv["_mono"] = True
         inv["tree"]["workspace_tool"] = ws.name
 
 
+def _dep_name(spec: str) -> str:
+    return re.split(r"[<>=!~\[ ;@]", spec.strip())[0]
+
+
 def det_python(ctx: Ctx, inv: dict) -> None:
     seen: set[str] = set()
-    for p in ctx.named("pyproject.toml"):
+
+    def pyproject(p: Path) -> None:
         data = load_toml(p)
-        proj = data.get("project", {}) if isinstance(data.get("project"), dict) else {}
-        poetry = data.get("tool", {}).get("poetry", {}) if isinstance(data.get("tool"), dict) else {}
+        proj = as_dict(data.get("project"))
+        poetry = as_dict(as_dict(data.get("tool")).get("poetry"))
         name = str(proj.get("name") or poetry.get("name") or p.parent.name)
-        deps = []
+        deps: list[str] = []
         if isinstance(proj.get("dependencies"), list):
-            deps = [re.split(r"[<>=!~\[ ;]", d)[0] for d in proj["dependencies"] if isinstance(d, str)]
+            deps = [_dep_name(d) for d in proj["dependencies"] if isinstance(d, str) and "://" not in d]
         elif isinstance(poetry.get("dependencies"), dict):
             deps = list(poetry["dependencies"].keys())
-        scripts = proj.get("scripts") if isinstance(proj.get("scripts"), dict) else (poetry.get("scripts") if isinstance(poetry.get("scripts"), dict) else {})
+        scripts = as_dict(proj.get("scripts")) or as_dict(poetry.get("scripts"))
         inv["packages"].append(item(ctx, "python", p, name=name, path=ctx.rel(p.parent), language="python", manifest="pyproject.toml",
-                                    scripts=sorted(scripts.keys())[:40], dependencies=sorted(set(deps))[:80], version=str(proj.get("version") or poetry.get("version") or "")))
+                                    scripts=sorted(scripts.keys())[:40], dependencies=sorted(set(d for d in deps if d))[:80], version=str(proj.get("version") or poetry.get("version") or "")))
         inv["_eco"].add("python")
         seen.add(ctx.rel(p.parent))
         if scripts:
@@ -378,15 +431,23 @@ def det_python(ctx: Ctx, inv: dict) -> None:
             inv["tests"].append(item(ctx, "python", p, runners=sorted(low & {"pytest", "nose2", "tox"}), package=ctx.rel(p.parent)))
         if proj.get("version") or poetry.get("version"):
             inv["release"].append(item(ctx, "python", p, version=str(proj.get("version") or poetry.get("version") or ""), scripts=[]))
-    for p in ctx.glob_name("requirements*.txt") + ctx.named("Pipfile", "setup.cfg", "setup.py"):
+
+    def other(p: Path) -> None:
         if ctx.rel(p.parent) in seen:
-            continue
+            return
         seen.add(ctx.rel(p.parent))
-        deps = []
+        deps: list[str] = []
         if p.suffix == ".txt":
-            deps = [re.split(r"[<>=!~\[ ;#]", l.strip())[0] for l in read(p).splitlines() if l.strip() and not l.startswith(("#", "-"))]
+            for l in read(p).splitlines():
+                l = l.strip()
+                if not l or l.startswith(("#", "-")) or "://" in l:
+                    continue  # a URL requirement can carry credentials; the name is not worth it
+                deps.append(_dep_name(l))
         inv["packages"].append(item(ctx, "python", p, name=p.parent.name, path=ctx.rel(p.parent), language="python", manifest=p.name, scripts=[], dependencies=sorted(set(d for d in deps if d))[:80], version=""))
         inv["_eco"].add("python")
+
+    each(ctx, ctx.named("pyproject.toml"), pyproject, "python")
+    each(ctx, ctx.glob_name("requirements*.txt") + ctx.named("Pipfile", "setup.cfg", "setup.py"), other, "python")
     for p in ctx.named("manage.py"):
         inv["frontend"].append(item(ctx, "python", p, frameworks=["django-templates"], package=ctx.rel(p.parent)))
 
@@ -531,24 +592,25 @@ def det_move(ctx: Ctx, inv: dict) -> None:
 # ------------------------------------------------------------------ agnostic detectors
 
 def det_dockerfiles(ctx: Ctx, inv: dict) -> None:
-    for p in ctx.glob_name("Dockerfile*"):
+    def one(p: Path) -> None:
         text = read(p)
         froms = re.findall(r"^FROM\s+(\S+)", text, re.M | re.I)
         expose = re.findall(r"^EXPOSE\s+([\d\s/tcpud]+)", text, re.M | re.I)
         envs = re.findall(r"^(?:ENV|ARG)\s+([A-Za-z_][A-Za-z0-9_]*)", text, re.M | re.I)
         cmd = re.search(r"^(?:CMD|ENTRYPOINT)\s+(.+)$", text, re.M | re.I)
         inv["services"].append(item(ctx, "dockerfile", p, name=p.parent.name if p.parent != ctx.repo else (p.name if p.name != "Dockerfile" else "root"), root=ctx.rel(p.parent),
-                                    runtime=[redact(f) for f in froms][:4], ports=sorted({x.strip() for e in expose for x in e.split()}), start=redact(cmd.group(1).strip())[:120] if cmd else "", source="Dockerfile"))
+                                    runtime=froms[:4], ports=sorted({x.strip() for e_ in expose for x in e_.split()}), start=first_token(cmd.group(1)) if cmd else "", source="Dockerfile"))
         if envs:
             inv["env"].append({"source": ctx.rel(p), "kind": "dockerfile", "names": sorted(set(envs))[:60]})
+    each(ctx, ctx.glob_name("Dockerfile*"), one, "dockerfiles")
 
 
 def det_compose(ctx: Ctx, inv: dict) -> None:
-    for p in ctx.glob_name("docker-compose*.yml") + ctx.glob_name("docker-compose*.yaml") + ctx.named("compose.yml", "compose.yaml"):
+    def one(p: Path) -> None:
         data = yaml_scan(read(p))
         services = data.get("services") if isinstance(data, dict) else None
         if not isinstance(services, dict):
-            continue
+            return
         for name, svc in services.items():
             if not isinstance(svc, dict):
                 continue
@@ -558,65 +620,84 @@ def det_compose(ctx: Ctx, inv: dict) -> None:
             if isinstance(env, dict):
                 env_names = list(env.keys())
             elif isinstance(env, list):
-                env_names = [str(e).split("=", 1)[0].split(":", 1)[0].strip() for e in env]
+                env_names = [re.split(r"[=:]", str(x), maxsplit=1)[0].strip() for x in env if isinstance(x, str)]
             build = svc.get("build")
             root = build.get("context") if isinstance(build, dict) else (build if isinstance(build, str) else "")
-            inv["services"].append(item(ctx, "compose", p, name=str(name), root=str(root or ""), image=str(svc.get("image") or ""), ports=[str(x).split(":")[0] if ":" in str(x) else str(x) for x in ports][:8],
-                                        depends_on=list(svc.get("depends_on").keys()) if isinstance(svc.get("depends_on"), dict) else (svc.get("depends_on") if isinstance(svc.get("depends_on"), list) else []),
+            dep = svc.get("depends_on")
+            inv["services"].append(item(ctx, "compose", p, name=str(name), root=str(root or ""), image=str(svc.get("image") or ""),
+                                        ports=[str(x).split(":")[0] for x in ports if isinstance(x, (str, int))][:8],
+                                        depends_on=list(dep.keys()) if isinstance(dep, dict) else (dep if isinstance(dep, list) else []),
                                         healthcheck=isinstance(svc.get("healthcheck"), dict), env_file=svc.get("env_file") if isinstance(svc.get("env_file"), (str, list)) else "", source="compose"))
             if env_names:
-                inv["env"].append({"source": ctx.rel(p), "kind": "compose", "service": str(name), "names": sorted(set(n for n in env_names if n))[:80]})
+                inv["env"].append({"source": ctx.rel(p), "kind": "compose", "service": str(name), "names": sorted(set(n for n in env_names if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", n)))[:80]})
             if isinstance(svc.get("healthcheck"), dict):
                 inv["ops"].append(item(ctx, "compose", p, kind="healthcheck", service=str(name)))
+    each(ctx, ctx.glob_name("docker-compose*.yml") + ctx.glob_name("docker-compose*.yaml") + ctx.named("compose.yml", "compose.yaml"), one, "compose")
 
 
 def det_platforms(ctx: Ctx, inv: dict) -> None:
-    for p in ctx.named("railway.json", "railway.toml"):
+    def railway(p: Path) -> None:
         data = load_json(p) if p.suffix == ".json" else load_toml(p)
         if not isinstance(data, dict):
-            continue
+            return
         svcs = data.get("services") if isinstance(data.get("services"), list) else [data]
         for s in svcs:
             if not isinstance(s, dict):
                 continue
-            build = s.get("build") if isinstance(s.get("build"), dict) else {}
-            dep = s.get("deploy") if isinstance(s.get("deploy"), dict) else {}
-            inv["services"].append(item(ctx, "railway", p, name=str(s.get("name") or p.parent.name), root=str(s.get("root") or s.get("rootDirectory") or ctx.rel(p.parent)), builder=str(build.get("builder") or ""),
-                                        start=redact(str(dep.get("startCommand") or ""))[:120], healthcheck=bool(dep.get("healthcheckPath")), cron=str(dep.get("cronSchedule") or ""), source="railway"))
+            build = as_dict(s.get("build"))
+            dep = as_dict(s.get("deploy"))
+            sname = str(s.get("name") or p.parent.name)
+            inv["services"].append(item(ctx, "railway", p, name=sname, root=str(s.get("root") or s.get("rootDirectory") or ctx.rel(p.parent)), builder=str(build.get("builder") or ""),
+                                        start=first_token(str(dep.get("startCommand") or "")), healthcheck=bool(dep.get("healthcheckPath")), cron=str(dep.get("cronSchedule") or ""), source="railway"))
             if dep.get("cronSchedule"):
-                inv["ops"].append(item(ctx, "railway", p, kind="cron", schedule=str(dep.get("cronSchedule")), service=str(s.get("name") or p.parent.name)))
+                inv["ops"].append(item(ctx, "railway", p, kind="cron", schedule=str(dep.get("cronSchedule")), service=sname))
             if dep.get("healthcheckPath"):
-                inv["ops"].append(item(ctx, "railway", p, kind="healthcheck", path=str(dep.get("healthcheckPath")), service=str(s.get("name") or p.parent.name)))
+                inv["ops"].append(item(ctx, "railway", p, kind="healthcheck", path=str(dep.get("healthcheckPath")), service=sname))
             vars_ = s.get("variables")
             if isinstance(vars_, dict):
                 inv["env"].append({"source": ctx.rel(p), "kind": "railway", "names": sorted(vars_.keys())[:80]})
-    for p in ctx.named("fly.toml"):
+
+    def fly(p: Path) -> None:
         data = load_toml(p)
         inv["services"].append(item(ctx, "fly", p, name=str(data.get("app") or p.parent.name), root=ctx.rel(p.parent), source="fly", healthcheck="checks" in data or "http_service" in data))
         env = data.get("env")
         if isinstance(env, dict):
             inv["env"].append({"source": ctx.rel(p), "kind": "fly", "names": sorted(env.keys())[:80]})
-    for p in ctx.named("render.yaml"):
+
+    def render(p: Path) -> None:
         data = yaml_scan(read(p))
         for s in data.get("services", []) if isinstance(data.get("services"), list) else []:
             if isinstance(s, dict):
-                inv["services"].append(item(ctx, "render", p, name=str(s.get("name") or ""), root=str(s.get("rootDir") or ""), type=str(s.get("type") or ""), start=redact(str(s.get("startCommand") or ""))[:120], source="render"))
+                inv["services"].append(item(ctx, "render", p, name=str(s.get("name") or ""), root=str(s.get("rootDir") or ""), type=str(s.get("type") or ""), start=first_token(str(s.get("startCommand") or "")), source="render"))
                 ev = s.get("envVars")
                 if isinstance(ev, list):
-                    inv["env"].append({"source": ctx.rel(p), "kind": "render", "names": sorted(str(e.get("key")) for e in ev if isinstance(e, dict) and e.get("key"))[:80]})
-    for p in ctx.named("vercel.json"):
-        data = load_json(p) or {}
-        inv["services"].append(item(ctx, "vercel", p, name=p.parent.name, root=ctx.rel(p.parent), source="vercel", rewrites=len(data.get("rewrites", [])) if isinstance(data, dict) else 0, note="settings live outside the repo"))
-    for p in ctx.named("netlify.toml"):
+                    inv["env"].append({"source": ctx.rel(p), "kind": "render", "names": sorted(str(e_.get("key")) for e_ in ev if isinstance(e_, dict) and e_.get("key"))[:80]})
+
+    def vercel(p: Path) -> None:
+        data = load_json(p)
+        rewrites = data.get("rewrites") if isinstance(data, dict) else None
+        inv["services"].append(item(ctx, "vercel", p, name=p.parent.name, root=ctx.rel(p.parent), source="vercel", rewrites=len(rewrites) if isinstance(rewrites, list) else 0, note="settings live outside the repo"))
+
+    def netlify(p: Path) -> None:
         inv["services"].append(item(ctx, "netlify", p, name=p.parent.name, root=ctx.rel(p.parent), source="netlify"))
-    for p in ctx.named("Procfile"):
+
+    def procfile(p: Path) -> None:
         procs = [l.split(":", 1)[0].strip() for l in read(p).splitlines() if ":" in l and not l.startswith("#")]
         inv["services"].append(item(ctx, "procfile", p, name=p.parent.name, root=ctx.rel(p.parent), processes=procs, source="Procfile"))
-    for p in ctx.named("app.yaml"):
+
+    def appyaml(p: Path) -> None:
         data = yaml_scan(read(p))
         inv["services"].append(item(ctx, "appengine", p, name=p.parent.name, root=ctx.rel(p.parent), runtime=str(data.get("runtime") or ""), source="app.yaml"))
         if isinstance(data.get("env_variables"), dict):
             inv["env"].append({"source": ctx.rel(p), "kind": "appengine", "names": sorted(data["env_variables"].keys())[:80]})
+
+    each(ctx, ctx.named("railway.json", "railway.toml"), railway, "railway")
+    each(ctx, ctx.named("fly.toml"), fly, "fly")
+    each(ctx, ctx.named("render.yaml"), render, "render")
+    each(ctx, ctx.named("vercel.json"), vercel, "vercel")
+    each(ctx, ctx.named("netlify.toml"), netlify, "netlify")
+    each(ctx, ctx.named("Procfile"), procfile, "procfile")
+    each(ctx, ctx.named("app.yaml"), appyaml, "appengine")
 
 
 def det_k8s(ctx: Ctx, inv: dict) -> None:
@@ -624,12 +705,12 @@ def det_k8s(ctx: Ctx, inv: dict) -> None:
         data = yaml_scan(read(p))
         inv["services"].append(item(ctx, "helm", p, name=str(data.get("name") or p.parent.name), root=ctx.rel(p.parent), source="helm", templates=len(list((p.parent / "templates").glob("*.y*ml"))) if (p.parent / "templates").is_dir() else 0))
         inv["_infra"] = True
-    for p in ctx.files:
+    def manifest(p: Path) -> None:
         if p.suffix.lower() not in (".yml", ".yaml") or p.name in ("Chart.yaml", "values.yaml") or ".github" in p.parts or "docker-compose" in p.name:
-            continue
+            return
         text = read(p)
         if "kind:" not in text or "apiVersion:" not in text:
-            continue
+            return
         for doc in text.split("\n---"):
             data = yaml_scan(doc)
             kind = str(data.get("kind") or "")
@@ -664,6 +745,7 @@ def det_k8s(ctx: Ctx, inv: dict) -> None:
                 inv["env"].append({"source": ctx.rel(p), "kind": "secret-manifest", "names": [], "note": f"Secret {name}: keys not read"})
             elif kind in ("PrometheusRule",):
                 inv["ops"].append(item(ctx, "k8s", p, kind="alert-rules", service=name))
+    each(ctx, ctx.files, manifest, "k8s")
 
 
 def det_terraform(ctx: Ctx, inv: dict) -> None:
@@ -831,7 +913,7 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
         paths = data.get("paths") if isinstance(data, dict) and isinstance(data.get("paths"), dict) else {}
         for path, ops in paths.items():
             verbs = [v.upper() for v in ops.keys() if isinstance(ops, dict) and v.lower() in ("get", "post", "put", "patch", "delete")] if isinstance(ops, dict) else []
-            routes.append({"method": "/".join(verbs) or "?", "path": str(path), "framework": "openapi", "evidence": ctx.rel(p)})
+            routes.append({"method": "/".join(verbs) or "?", "path": redact(str(path)), "framework": "openapi", "evidence": ctx.rel(p)})
         if paths:
             inv["tree"]["openapi"] = ctx.rel(p)
     # Next.js file routers
@@ -875,7 +957,7 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
                     continue
                 rel = ctx.rel(p)
                 in_lib = any(rel.startswith(root + "/") or root == "." for root in lib_roots)
-                routes.append({"method": method, "path": path, "framework": fw, "evidence": rel, **({"hint": True} if in_lib else {})})
+                routes.append({"method": method, "path": redact(path), "framework": fw, "evidence": rel, **({"hint": True} if in_lib else {})})
     # de-duplicate
     seen = set()
     uniq = []
@@ -933,7 +1015,8 @@ def det_frontend_tokens(ctx: Ctx, inv: dict) -> None:
 
 
 def det_tests_folders(ctx: Ctx, inv: dict) -> None:
-    folders = sorted(d for d in ctx.dirs if Path(d).name.lower() in ("tests", "test", "__tests__", "spec", "e2e", "cypress"))
+    folders = sorted(posix(Path(d), ctx.repo) for d in ctx.pruned if Path(d).name.lower() in ("tests", "test", "__tests__", "spec", "e2e", "cypress"))
+    folders += sorted(d for d in ctx.dirs if Path(d).name.lower() in ("e2e", "cypress") and d not in folders)
     configs = [ctx.rel(p) for p in ctx.files if re.match(r"^(jest|vitest|pytest|playwright|cypress|karma|mocha)\.config\.|^pytest\.ini$|^tox\.ini$|^\.mocharc|^phpunit\.xml", p.name)]
     if folders or configs:
         inv["tests"].append({"detector": "test-layout", "evidence": (folders or configs)[0], "folders": folders[:20], "configs": configs[:20]})
@@ -992,7 +1075,7 @@ def det_git(ctx: Ctx, inv: dict) -> None:
     tags = (run_git(ctx.repo, ["tag", "--sort=-creatordate"]) or "").split()
     remote = run_git(ctx.repo, ["remote", "get-url", "origin"]) or ""
     inv["decisions"] = {"commits_scanned": len(commits), "first": commits[-1][1] if commits else "", "last": commits[0][1] if commits else "",
-                        "decision_like": cap(decisions, ctx.cap, "decisions", inv), "tags": tags[:20], "tag_count": len(tags),
+                        "decision_like": cap(decisions, ctx.cap, "decisions", inv), "tags": [redact(t) for t in tags[:20]], "tag_count": len(tags),
                         "public_remote": bool(re.search(r"github\.com|gitlab\.com|bitbucket\.org", remote)), "remote_host": re.sub(r"^.*?([A-Za-z0-9.-]+\.(com|org|io)).*$", r"\1", remote.strip()) if remote.strip() else ""}
 
 

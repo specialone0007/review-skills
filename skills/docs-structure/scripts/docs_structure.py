@@ -58,6 +58,7 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote
 
+sys.dont_write_bytecode = True  # importing the sibling module must not write a __pycache__
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 try:
     import docs_evidence  # sibling script, same folder, stdlib only
@@ -92,7 +93,7 @@ RULE_TITLE = {
     "R4": "index and folder agree", "R5": "links and anchors resolve",
     "R6": "backticked paths exist", "R7": "line-number citations",
     "R8": "duplicated measurement", "R9": "checklist counts", "R10": "registry",
-    "R11": "front door links the index", "R12": "required docs exist",
+    "R11": "front door links the index", "R12": "concern covered",
 }
 
 DEFAULT_MANIFEST = {
@@ -112,6 +113,7 @@ DEFAULT_MANIFEST = {
     "existingChecker": None,
     "frontDoor": "README.md",
     "requiredDocs": None,
+    "templatesDir": None,
     "ignore": [],
 }
 
@@ -142,7 +144,7 @@ def _lib_or_cli(inv):
 CONCERNS = [
     # id, applies(inv) -> reason | None, default_file(inv) -> str, keywords, template, companions
     ("purpose", lambda inv: "always", lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md",
-     {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission"}, "PRODUCT.md", []),
+     {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission"}, lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md", []),
     ("architecture", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
      {"architecture", "components", "services", "system", "data flow", "how it works", "design decisions", "modules", "structure"}, "ARCHITECTURE.md", []),
     ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
@@ -552,7 +554,12 @@ Rules that keep this true:
 """
 
 
+_TEMPLATES_DIR: Path | None = None  # set from the manifest; the bundled folder is the fallback
+
+
 def template_for(name: str) -> Path | None:
+    if _TEMPLATES_DIR is not None and (_TEMPLATES_DIR / name).is_file():
+        return _TEMPLATES_DIR / name
     t = TEMPLATES / name
     return t if t.is_file() else None
 
@@ -599,14 +606,15 @@ def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door:
     h1 = [t for _, lvl, t in doc.headings if lvl == 1]
     h2 = [t for _, lvl, t in doc.headings if lvl == 2]
     hits: list[str] = []
+    kw = {k: tokens(k).strip() for k in keywords}
     if not front_door:
         h1t = tokens(" ".join(h1))
-        hits = sorted(k for k in keywords if f" {k} " in h1t)
+        hits = sorted(k for k, t in kw.items() if f" {t} " in h1t)
         if hits:
             score += 3 * len(hits)
             how.append("H1: " + ", ".join(hits[:3]))
     h2t = tokens(" ".join(h2))
-    hits2 = sorted(k for k in keywords if f" {k} " in h2t)
+    hits2 = sorted(k for k, t in kw.items() if f" {t} " in h2t)
     if hits2:
         score += (2 if front_door else 1) * len(hits2)
         how.append(("README sections: " if front_door else "H2: ") + ", ".join(hits2[:3]))
@@ -684,7 +692,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 covered_by = d.rel
                 if len(scored) > 1 and scored[1][0][0] >= 3 and scored[1][0][0] >= sc - 1:
                     runner_up = scored[1][1].rel
-        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "template": template,
+        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "template": template(inv) if callable(template) else template,
                      "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up,
                      "universal": cid in UNIVERSAL})
     return rows
@@ -714,15 +722,15 @@ def section_states(doc: "Doc", template: Path) -> dict:
 
 
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
-               front_links_index: bool, root_docs: bool) -> dict | None:
+               front_links_index: bool, root_docs: bool, docs_root: str = "docs") -> dict | None:
     """What apply would create. Names templates, never carries content; the agent copies them."""
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"]]
     if not have_index and not root_docs:
-        files["docs/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
+        files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
     manifest = {
-        "roots": (["docs"] + [f for f in ROOT_FILES if (repo / f).is_file()]) if not root_docs else ["*.md"],
-        "centralIndex": "README.md" if root_docs else "docs/INDEX.md",
+        "roots": ([docs_root] + [f for f in ROOT_FILES if (repo / f).is_file()]) if not root_docs else ["*.md"],
+        "centralIndex": "README.md" if root_docs else f"{docs_root}/INDEX.md",
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
         "splitAt": 500,
@@ -735,7 +743,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     if manifest["counts"]:
         manifest["counts"] = [{"index": c["default_path"], "folder": (c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else "") + "tasklist"} for c in uncovered if c["concern"] == "plan"]
     if not have_manifest:
-        files["docs/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
+        files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
     rows = []
     for c in uncovered:
         t = template_for(c["template"])
@@ -758,7 +766,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                  "then": "run the checker again; skeletons show up in the section states until written or filled"}
     if not front_links_index and not root_docs:
         out["readme_line"] = {"path": front_rel,
-                              "append": "Every doc is listed in [docs/INDEX.md](docs/INDEX.md) - what each one owns and its state. Start there.",
+                              "append": f"Every doc is listed in [{docs_root}/INDEX.md]({docs_root}/INDEX.md) - what each one owns and its state. Start there.",
                               "why": "so the front door links the index (R11) from day one"}
     return out
 
@@ -955,8 +963,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     convention = manifest.get("indexConvention") or "sibling"
     central_rel = manifest.get("centralIndex")
-    if central_rel == "README.md" or (roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2):
-        root_docs = True  # the docs live at the repo root and the README is their index
+    if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2 and not any(r.is_dir() for r in roots):
+        root_docs = True  # every root is a top-level file: the docs live at the repo root and the README is their index
     if not central_rel and root_docs:
         central_rel = "README.md"
     if not central_rel and not root_files_only and not root_docs:
@@ -1208,6 +1216,12 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 f"front door links {len(parallel)} docs directly - a second index that will drift from {central_rel}; keep a handful and point at the index", "warn")
 
     # ---- R12 concern coverage, and the init block that would create the skeletons
+    global _TEMPLATES_DIR
+    td = manifest.get("templatesDir")
+    _TEMPLATES_DIR = (repo / td) if td and (repo / td).is_dir() else None
+    if td and _TEMPLATES_DIR is None:
+        warnings.append(f"templatesDir {td} does not exist; bundled templates used")
+    docs_root = next((posix(r, repo) for r in roots if r.is_dir()), "docs")
     inv = repo_inventory(repo)
     coverage = concern_coverage(inv, manifest, docs, repo, roots, root_docs, central_rel, front_rel, convention, record_folders) if generator is None else []
     if generator is None:
@@ -1237,7 +1251,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         fl = links_out(by_rel.get(front_rel) or Doc(front, repo))
         target = central_rel or "docs/INDEX.md"
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
-    init = None if generator is not None else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs)
+    init = None if generator is not None else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root)
 
     # ---- placeholders
     placeholders = 0
