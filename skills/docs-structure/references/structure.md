@@ -81,7 +81,9 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
 `"inside"` means `docs/x/README.md`. Nesting: `docs/a/b/` looks for `docs/a/B.md`, then falls to
 `docs/a/`'s index, then to the central index. `requiredDocs` pins a concern on (`true`), off
 (`false`) or to a specific file. `templatesDir` replaces this skill's templates with a team's own,
-by concern file name. `heavyEvidence` is the point past which a README section stops counting
+by concern file name. A generated manifest lists only tracked
+root files: a gitignored `CLAUDE.md` exists on one machine, not in the clone the manifest travels
+to. `heavyEvidence` is the point past which a README section stops counting
 as coverage for a concern and becomes the seed of a dedicated doc: a README heading "API
 Endpoints" over a handful of examples does not document 130 routes. `0` turns a threshold off. `existingChecker` names a verifier the repo already runs.
 

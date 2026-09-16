@@ -868,7 +868,9 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     if not have_index and not root_docs:
         files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
     manifest = {
-        "roots": ([docs_root] + [f for f in ROOT_FILES if (repo / f).is_file()] + list(package_docs or [])) if not root_docs else ["*.md"] + list(package_docs or []),
+        # Only tracked files: a gitignored CLAUDE.md is on this machine, not in the clone the
+        # manifest travels to, and a root that does not exist there is a warning for everyone.
+        "roots": ([docs_root] + [f for f in ROOT_FILES if tracked_file(repo, f)] + list(package_docs or [])) if not root_docs else ["*.md"] + list(package_docs or []),
         "centralIndex": "README.md" if root_docs else f"{docs_root}/INDEX.md",
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
