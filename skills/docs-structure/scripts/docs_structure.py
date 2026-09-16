@@ -587,6 +587,39 @@ Pick the one file you need here; do not read the folder. One doc owns each fact;
 | --- | --- | --- |
 """
 
+# What kind of change sends a reader to each concern's doc. Used for the routing table an agent
+# file carries: the rows are the repo's own covered concerns, never a fixed list.
+ROUTING_TRIGGER = {
+    "purpose": "what the product is for, who it serves, or something it decided not to do",
+    "architecture": "a service boundary, a link between services, or a decision worth a date",
+    "develop": "a setup step, a prerequisite version, or a daily command",
+    "plan": "a task starting, finishing or being dropped",
+    "deploy": "a service, an environment variable, a build or start command, a deploy step",
+    "release": "a version, a publish step, or what goes in the changelog",
+    "data": "a table, a column, a migration, or what a row means",
+    "http": "a route, its method or path, its auth guard, its request or response shape",
+    "commands": "a command, a subcommand or a flag",
+    "exports": "the public entry point or what it exports",
+    "design": "a token, a shared component, or a rule for adding UI",
+    "testing": "a test runner, where tests live, how to run them, or what gates a merge",
+    "operate": "a health check, a scheduled job, an alert, or what to do when one fires",
+    "contribute": "how a change gets proposed, reviewed or merged",
+    "research": "an experiment designed, run or closed",
+}
+
+
+def routing_section(coverage: list[dict], docs_root: str, central_rel: str) -> str:
+    """The routing table an agent file carries, one row per concern this repo actually has."""
+    rows = []
+    for c_ in coverage:
+        path = c_["covered_by"] or c_["default_path"]
+        trigger = ROUTING_TRIGGER.get(c_["concern"])
+        if trigger:
+            rows.append(f"| {trigger} | [{path}]({path}) |")
+    body = "\n".join(rows) or "| <a kind of change> | `<the doc that owns it>` |"
+    return ROUTING_STARTER.replace("| <a kind of change> | `docs/<OWNER>.md` |", body).replace("docs/INDEX.md", central_rel)
+
+
 ROUTING_STARTER = """## Docs routing - where a change gets written down
 
 One doc owns each fact; the others link. Every doc's header says what it owns. When you change
@@ -829,6 +862,34 @@ def tracked_file(repo: Path, name: str) -> bool:
         return True
 
 
+RUN_WORDS = ("install", "installation", "getting started", "quickstart", "quick start", "setup", "usage", "running", "development")
+LICENCE_FILES = ("LICENSE", "LICENSE.md", "LICENCE", "LICENCE.md", "COPYING")
+
+
+def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> list[str]:
+    """What a reader landing here cannot find anywhere. Each gap is real, not a missing heading:
+    the intro paragraph answers what this is; the Start here block's link answers how to run it
+    when a doc covers `develop`; a licence is only asked of a repo with a public remote."""
+    gaps = []
+    if not [l for l in doc.lines[:12] if l.strip() and not l.lstrip().startswith("#")]:
+        gaps.append("what this is - the first lines under the H1 are a heading, not a sentence")
+    text = tokens(" ".join(t for _, lvl, t in doc.headings if lvl in (1, 2)))
+    develop = next((r for r in coverage if r["concern"] == "develop"), None)
+    if (develop is not None and not develop.get("covered_by")
+            and not any(f" {tokens(w).strip()} " in text for w in RUN_WORDS)):
+        gaps.append("how to run it - no doc covers `develop` and the front door has no setup section")
+    if ((inv.get("decisions") or {}).get("public_remote")
+            and not any((repo / n).is_file() for n in LICENCE_FILES)
+            and " licence " not in text and " license " not in text):
+        gaps.append("its licence - the remote is public and no LICENSE file exists")
+    return gaps
+
+
+def agent_file(repo: Path) -> str | None:
+    """The agent instruction file this repo actually ships. A gitignored one is a person's own."""
+    return next((f for f in ("AGENTS.md", "CLAUDE.md") if tracked_file(repo, f)), None)
+
+
 def has_start_here(doc: "Doc") -> bool:
     h2 = tokens(" ".join(t for _, lvl, t in doc.headings if lvl == 2))
     return any(f" {tokens(w).strip()} " in h2 for w in START_HERE_WORDS) or START_HERE_OPEN in doc.raw
@@ -837,7 +898,7 @@ def has_start_here(doc: "Doc") -> bool:
 def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: str, coverage: list[dict]) -> str:
     """The README's hand-off section. Names files that exist or that apply creates; authors nothing else."""
     name = repo.name
-    agent = next((f for f in ("CLAUDE.md", "AGENTS.md") if tracked_file(repo, f)), None)
+    agent = agent_file(repo)
     steps = [f"1. **This file** - what {name} is and how the repository is laid out.",
              f"2. **[{central_rel}]({central_rel})** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder."]
     if agent:
@@ -903,7 +964,8 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     if not files and front_links_index and (front_has_start_here or root_docs):
         return None
     out: dict = {"files": files, "index_rows": rows,
-                 "print_only": {"CLAUDE.md or AGENTS.md": ROUTING_STARTER},
+                 "print_only": {(agent_file(repo) or "AGENTS.md"): routing_section(coverage, docs_root, manifest["centralIndex"])},
+                 "agent_file": agent_file(repo),
                  "then": "run the checker again; skeletons show up in the section states until written or filled"}
     if not root_docs and (not front_links_index or not front_has_start_here):
         out["front_door"] = {"path": front_rel,
@@ -1356,8 +1418,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     # ---- R11 the front door. A repo's README is where a reader starts; if a central index
     #      exists the README must hand off to it, and should not keep its own list of docs.
+    #      Runs after R12 below, which supplies the coverage the checklist reads.
     front_rel = manifest.get("frontDoor") or "README.md"
     front = repo / front_rel
+    front_doc: "Doc | None" = None  # set when R11 applies; the checklist below needs the coverage table
     if front_rel != "README.md" and not front.is_file():
         warnings.append(f"frontDoor {front_rel} does not exist")
     if (central_exists and front.is_file() and not r1_off and not exempt("R11", front_rel)
@@ -1371,6 +1435,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             add("R11", front_rel, 1, f"front door does not link the central index {central_rel}")
         if not has_start_here(fdoc):
             add("R11", front_rel, 1, "front door has no 'Start here' section - apply inserts one after the intro, pointing at the index", "warn")
+        front_doc = fdoc
         root_dirs = [posix(r, repo) for r in roots if r.is_dir()]
         parallel = sorted(t for t in outgoing if t != central_rel and any(t.startswith(rd + "/") for rd in root_dirs) and t in by_rel)
         if len(parallel) >= FRONT_DOOR_PARALLEL:
@@ -1386,6 +1451,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     docs_root = pick_docs_root(repo, roots)
     inv = repo_inventory(repo)
     coverage = concern_coverage(inv, manifest, docs, repo, roots, root_docs, central_rel, front_rel, convention, record_folders) if generator is None else []
+    if front_doc is not None:
+        for gap in front_door_gaps(front_doc, repo, coverage, inv):
+            add("R11", front_rel, 1, f"front door does not answer {gap} - advice, apply writes none of it", "warn")
     if generator is None:
         for c in coverage:
             if c["covered_by"]:

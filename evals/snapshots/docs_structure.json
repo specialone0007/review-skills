@@ -205,6 +205,7 @@
   ],
   "generator": null,
   "init": {
+    "agent_file": null,
     "files": {
       "docs/ARCHITECTURE.md": {
         "concern": "architecture",
@@ -261,7 +262,7 @@
       "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |"
     ],
     "print_only": {
-      "CLAUDE.md or AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| <a kind of change> | `docs/<OWNER>.md` |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | [docs/PRODUCT.md](docs/PRODUCT.md) |\n| a service boundary, a link between services, or a decision worth a date | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a task starting, finishing or being dropped | [docs/TASKLIST.md](docs/TASKLIST.md) |\n| a test runner, where tests live, how to run them, or what gates a merge | [docs/TESTING.md](docs/TESTING.md) |\n| a health check, a scheduled job, an alert, or what to do when one fires | [docs/RUNBOOK.md](docs/RUNBOOK.md) |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
