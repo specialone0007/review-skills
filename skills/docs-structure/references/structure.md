@@ -218,7 +218,8 @@ gave three answers because they walked different trees.
 It reads the drafted docs and the files they cite, and reports one finding per broken promise:
 G1 a paragraph or table row with no evidence bracket, G2 a bracket that does not resolve, G3 a
 line-number citation, G4 an evaluative word, G5 a modal verb, G6 an intent word outside a
-quotation, G7 a value written beside a variable the inventory found, G8 a drafted doc over the
+quotation, G7 a value written beside a variable the inventory found, G9 a count of repository
+artefacts the inventory does not report, G10 a negative claim that names no scope, G8 a drafted doc over the
 line cap. A paragraph is the unit, so a hard-wrapped draft is judged whole. Sections still
 holding their template line are skeletons and are skipped, and a doc with no draft marker is
 never judged at all: the gate exists to hold drafts to their word, not to grade people's prose.

@@ -49,7 +49,7 @@
     {
       "dir": "docs",
       "files": 8,
-      "lines": 171
+      "lines": 189
     },
     {
       "dir": "src",
@@ -112,8 +112,8 @@
   "flat_directories": [],
   "largest_files": [
     {
-      "bytes": 1739,
-      "lines": 71,
+      "bytes": 2131,
+      "lines": 89,
       "path": "docs/drafted.md"
     },
     {
@@ -283,7 +283,7 @@
   "totals": {
     "doc_files": 9,
     "files": 31,
-    "lines": 341,
+    "lines": 359,
     "test_files": 3
   },
   "warnings": []

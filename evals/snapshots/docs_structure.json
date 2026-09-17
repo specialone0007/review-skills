@@ -229,7 +229,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "71 lines - could become an index plus 11 parts at H2 (largest 7)",
+      "message": "89 lines - could become an index plus 14 parts at H2 (largest 7)",
       "path": "docs/drafted.md",
       "rule": "R3",
       "severity": "P2"
@@ -494,8 +494,8 @@
     {
       "largest": 7,
       "level": "H2",
-      "lines": 71,
-      "parts": 11,
+      "lines": 89,
+      "parts": 14,
       "path": "docs/drafted.md",
       "refuse": null
     },
@@ -522,7 +522,7 @@
     "docs_checked": 7,
     "failures": 12,
     "non_doc_files": 0,
-    "placeholders": 11,
+    "placeholders": 14,
     "split_candidates": 3,
     "states": {
       "draft": 0,

@@ -1103,8 +1103,11 @@ def indexes_folder(cand: Path, folder: Path) -> bool:
         out = True
     else:
         text = read(cand)
-        linked = [n for n in names if f"{folder.name}/{n}" in text]
-        out = len(linked) * 2 >= len(names)
+        inside = cand.parent == folder
+        linked = [n for n in names if n != cand.name and
+                  ((f"({n})" in text or f"]({n}#" in text) if inside else f"{folder.name}/{n}" in text)]
+        want = max(1, (len(names) - (1 if inside else 0)) // 2)
+        out = len(linked) >= want
     _INDEXES[key] = out
     return out
 
@@ -1112,7 +1115,7 @@ def indexes_folder(cand: Path, folder: Path) -> bool:
 def sibling_index(folder: Path, repo: Path, convention: str) -> Path | None:
     if convention == "inside":
         for name in ("README.md", "INDEX.md", "index.md"):
-            if exists_exact(folder / name):
+            if exists_exact(folder / name) and indexes_folder(folder / name, folder):
                 return folder / name
         return None
     parent = folder.parent
@@ -1628,6 +1631,21 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             "frontDoor": "README.md",
             "ignore": ["**/*.csv", "**/*.xlsx"] if non_doc else [],
         }
+
+    # One manifest, printed and written. The init block built its own with the convention
+    # hardcoded and the detected record folders dropped, so the file apply wrote was not the file
+    # the report showed, and committing either one changed the failure count. The proposal is the
+    # base; init keeps only what it alone knows - the index and roots it is about to create.
+    if proposed is not None and init and isinstance(init.get("files"), dict):
+        for name, spec in init["files"].items():
+            if not name.endswith("structure.json") or not isinstance(spec.get("content"), dict):
+                continue
+            merged = dict(proposed)
+            for key in ("roots", "centralIndex", "counts", "frontDoor"):
+                if spec["content"].get(key):
+                    merged[key] = spec["content"][key]
+            spec["content"] = merged
+            spec["lines"] = len(json.dumps(merged, indent=2).splitlines())
 
     order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
     findings.sort(key=lambda f: (0 if f["level"] == "fail" else 1, order[f["severity"]], f["rule"], f["path"], f["line"] or 0))

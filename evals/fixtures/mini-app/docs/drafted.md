@@ -69,3 +69,21 @@ The deploy steps live in [DEPLOY.md](DEPLOY.md), which owns them [DEPLOY.md]. Th
 The helper is `src/utils/fast-path.js` and the export list names it once [package.json: name].
 
 *(draft, review me)*
+
+## A count nothing reports
+
+The exporter writes 4096 files and 77 tables on every run [package.json: name].
+
+*(draft, review me)*
+
+## A negative with no scope
+
+No authorization guard is applied to the export route [src/server.js].
+
+*(draft, review me)*
+
+## A negative that names its scope
+
+No rate-limit code was found under `src/routes` (grep "rate") [src/server.js].
+
+*(draft, review me)*

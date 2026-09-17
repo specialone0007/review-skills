@@ -56,9 +56,21 @@
       "line": 44,
       "message": "a value is written beside API_TOKEN; drafts carry names, never values",
       "rule": "G7"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 75,
+      "message": "the count \"4096 files\" is not one the inventory reports; name the scan behind it, cite an [inventory: key], or drop it",
+      "rule": "G9"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 81,
+      "message": "negative claim (\"No authorization guard is applied\") names no scope; say what was searched, or cite an [inventory: key]",
+      "rule": "G10"
     }
   ],
   "repo": "<fixture>",
-  "total": 9,
+  "total": 11,
   "warnings": []
 }

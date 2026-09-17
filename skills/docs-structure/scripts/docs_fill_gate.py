@@ -24,6 +24,13 @@ What it checks, per section that carries the draft marker:
   G6  no intent word (so that, because, designed to, ...) unless quoted or after `inferred:`
   G7  no `NAME=value` line for a variable the evidence inventory found: names, never values
   G8  every drafted section ends with the marker, and the doc stays under `splitAt/2` lines
+  G9  a count of repository artefacts is one the inventory reports, or names its scan
+  G10 a negative claim names what was searched: a path, a command, or an inventory key
+
+G1 to G8 check the shape of a sentence. G9 and G10 are the two shapes that were actually
+wrong when drafts were read by hand: a number a second scanner disagrees with, and an
+absence nobody looked for. Neither can tell whether a sentence is true - no script can -
+but both refuse the sentence that cannot be checked at all.
       so that a draft can never become a split candidate
 
 A section still holding its template line is a skeleton, not a draft, and is skipped. A doc
@@ -74,6 +81,32 @@ BANNED = re.compile(r"\b(robust|secure|simple|clean|fast|modern|scalable|easy|po
                     r"seamless|best|properly|elegant|efficient|reliable)\b", re.I)
 INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to)\b", re.I)
 MODAL = re.compile(r"\b(should|must|will|guarantees|handles)\b")
+# A count is the weakest sentence a draft can carry: two scanners give two answers and the
+# reader cannot tell which one wrote the doc. A number has to be one the inventory reports.
+# Things a repository scan counts. A number in front of one of these is an aggregate someone
+# has to be able to re-derive; a number in front of anything else is prose (an HTTP 200, a
+# 30 s timer, 2 vCPU) and not this rule's business.
+COUNT_NOUNS = ("files", "routes", "endpoints", "tables", "columns", "models", "migrations",
+               "services", "packages", "tests", "names", "variables", "entries", "folders",
+               "directories", "docs", "documents", "commits", "dependencies", "scripts",
+               "workflows", "jobs", "queues", "components", "modules", "schemas", "enums",
+               "handlers", "workers", "containers", "images", "environments", "rows", "keys")
+NUMBER = re.compile(r"(?<![\w.$/-])(\d[\d,]*)(?![\w.%/-])\s+(?:[a-z][a-z-]*\s+){0,2}(" +
+                    "|".join(COUNT_NOUNS) + r")\b", re.I)
+# Four digits and up is never a hand-written repository count.
+BIG_NUMBER = re.compile(r"(?<![\w.$/-])(\d{4,})(?![\w.%/-])")
+YEARISH = re.compile(r"^(19|20)\d{2}$")
+# A negative claim is the other one. "No guard is applied" reads as an audited fact and the
+# gate cannot open the file, so the draft has to say what was looked at instead.
+NEGATION = re.compile(
+    r"\bthere (?:is|are) no\b"
+    r"|\bno (?:\w+ ){0,3}(?:exists?|existed|is|are|was|were|found|applies|applied)\b"
+    r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\b"
+    r"|\bnever\b|\bnothing\b|\bnone of\b|\bno such\b", re.I)
+SCOPE = re.compile(r"\bunder\s+`?[\w./*-]+|\bacross\s+`?[\w./*-]+|\bgrep\b|\bsearched\b|\bscan(?:ned|s)?\b", re.I)
+INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
+KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
+PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
 LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
@@ -185,6 +218,41 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
     return None
 
 
+def inventory_numbers(repo: Path) -> set[str] | None:
+    """Every number the evidence inventory reports, plus the length of every list in it.
+
+    None when the inventory could not be built, which turns G9 off rather than failing every
+    draft on a host where the inventory is unavailable.
+    """
+    if docs_evidence is None:
+        return None
+    try:
+        inv = docs_evidence.inventory(repo, 400, use_git=False)
+    except Exception as exc:  # the gate must never fail because the inventory did
+        warnings.append(f"evidence inventory unavailable, G9 (counts) not checked: {type(exc).__name__}")
+        return None
+    out: set[str] = set()
+
+    def walk(node: object) -> None:
+        if isinstance(node, dict):
+            for v in node.values():
+                walk(v)
+        elif isinstance(node, list):
+            out.add(str(len(node)))
+            for v in node:
+                walk(v)
+        elif isinstance(node, bool):
+            return
+        elif isinstance(node, int):
+            out.add(str(node))
+        elif isinstance(node, str):
+            for m in re.finditer(r"\d+", node):
+                out.add(m.group(0))
+
+    walk(inv)
+    return out
+
+
 def env_names(repo: Path) -> set[str]:
     """Variable names the evidence inventory found, so G7 can spot a value written beside one."""
     if docs_evidence is None:
@@ -212,7 +280,8 @@ def sections(lines: list[str]) -> list[tuple[str, int, int]]:
     return out
 
 
-def check_doc(repo: Path, rel: str, names: set[str], max_lines: int) -> list[dict]:
+def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
+              numbers: set[str] | None = None) -> list[dict]:
     """Findings for one doc. Only sections carrying the draft marker are judged."""
     path = repo / rel
     text = read(path)
@@ -276,6 +345,28 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int) -> list[dic
                 for name in names:
                     if re.search(rf"\b{re.escape(name)}\s*=\s*\S", joined):
                         add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
+                # G9: a number the inventory does not report. Brackets carry paths and keys, and
+                # code spans carry commands and identifiers, so both are removed first.
+                if numbers is not None:
+                    prose = BRACKET_ANY.sub(" ", bare)
+                    hits = [(m.group(1), m.group(2)) for m in NUMBER.finditer(prose)]
+                    hits += [(m.group(1), "") for m in BIG_NUMBER.finditer(prose)]
+                    for raw_txt, noun in hits:
+                        raw = raw_txt.replace(",", "")
+                        if YEARISH.match(raw) or int(raw) <= 2 or raw in numbers:
+                            continue
+                        what = f"{raw_txt} {noun}".strip()
+                        add("G9", first, f"the count \"{what}\" is not one the inventory reports; name the scan behind it, cite an [inventory: key], or drop it")
+                        break
+                # G10: a negative claim without a scope is an audit nobody ran.
+                # A precise citation is a scope: a backticked path, an inventory key, or a
+                # [file: key] bracket all say what was read. One bare file path does not, which
+                # is how "no authorization guard is applied" reached a clean gate.
+                neg = NEGATION.search(BRACKET_ANY.sub(" ", unquoted))
+                scoped = (SCOPE.search(joined) or INV_BRACKET.search(joined)
+                          or KEY_BRACKET.search(joined) or PATH_SPAN.search(joined))
+                if neg and not scoped:
+                    add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")
             para.clear()
 
         in_fence = False
@@ -386,9 +477,10 @@ def main() -> int:
             targets.append(rel)
 
     names = env_names(repo) if targets else set()
+    numbers = inventory_numbers(repo) if targets else set()
     findings: list[dict] = []
     for rel in targets:
-        findings.extend(check_doc(repo, rel, names, args.max_lines))
+        findings.extend(check_doc(repo, rel, names, args.max_lines, numbers))
 
     data = {"repo": str(repo), "docs": targets, "findings": findings,
             "total": len(findings), "warnings": warnings}
