@@ -60,8 +60,14 @@ DRAFT_MARK = "*(draft, review me)*"
 SKELETON_MARK = "(skeleton, write me)"
 DEFAULT_MAX_LINES = 250  # splitAt 500 / 2
 
-BRACKET_END = re.compile(r"\[([^\[\]]+)\]\.?$")
-BRACKET_ANY = re.compile(r"\[([^\[\]]+)\]")
+# One level of nesting is allowed inside a bracket. Without it the grammar SKILL.md documents
+# ([inventory: services[0]]) fails its own gate, and no file-routed framework can be cited at
+# all: Next.js, Remix, SvelteKit and Nuxt all put [param] in the path.
+BRACKET_END = re.compile(r"\[((?:[^\[\]]|\[[^\[\]]*\])+)\]\.?$")
+BRACKET_ANY = re.compile(r"\[((?:[^\[\]]|\[[^\[\]]*\])+)\](?!\()")
+# A Markdown link is not an evidence bracket; its text is prose and resolving it as a path was
+# reporting G2 on ordinary cross-doc links, which the fill rules require.
+QUOTED = re.compile(r"\"[^\"]*\"|\u201c[^\u201d]*\u201d")
 # A sentence that ended mid-paragraph without a bracket before the next one began.
 BAD_BREAK = re.compile(r"[^\]`.]\.\s+(?=[A-Z`(])")
 BANNED = re.compile(r"\b(robust|secure|simple|clean|fast|modern|scalable|easy|powerful|"
@@ -254,12 +260,19 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int) -> list[dic
                         add("G2", first, why)
                 if LINE_CITE.search(joined) and "://" not in joined:
                     add("G3", first, f"line-number citation: {LINE_CITE.search(joined).group(0)}")
-                if BANNED.search(joined):
-                    add("G4", first, f"evaluative word: {BANNED.search(joined).group(0)}")
-                if MODAL.search(bare) and '"' not in joined:
-                    add("G5", first, f"modal verb: {MODAL.search(bare).group(0)}")
-                if INTENT.search(joined) and not joined.lower().startswith("inferred:") and '"' not in joined:
-                    add("G6", first, f"intent word outside a quotation or `inferred:`: {INTENT.search(joined).group(0)}")
+                # `bare` has code spans removed: a file named fast.js or a dependency called
+                # simple-git is a name, not a claim about quality.
+                if BANNED.search(bare):
+                    add("G4", first, f"evaluative word: {BANNED.search(bare).group(0)}")
+                # Quoted spans are the repo's words, not the draft's, so they are removed before
+                # G5 and G6 rather than switching both off for the paragraph that contains them.
+                # The fill rules encourage quoting the README, so that hole sat on the happy path.
+                unquoted = QUOTED.sub(" ", bare)
+                if MODAL.search(unquoted):
+                    add("G5", first, f"modal verb: {MODAL.search(unquoted).group(0)}")
+                intent_hit = INTENT.search(QUOTED.sub(" ", joined))
+                if intent_hit and not joined.lower().startswith("inferred:"):
+                    add("G6", first, f"intent word outside a quotation or `inferred:`: {intent_hit.group(0)}")
                 for name in names:
                     if re.search(rf"\b{re.escape(name)}\s*=\s*\S", joined):
                         add("G7", first, f"a value is written beside {name}; drafts carry names, never values")

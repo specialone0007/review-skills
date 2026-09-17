@@ -1,7 +1,7 @@
 {
   "ci": [],
   "cli": [],
-  "code_files_scanned": 10,
+  "code_files_scanned": 13,
   "decisions": null,
   "ecosystems": [
     "node",
@@ -33,7 +33,7 @@
     }
   ],
   "exports": [],
-  "files_scanned": 24,
+  "files_scanned": 28,
   "frontend": [],
   "kinds": [
     "application"
@@ -56,7 +56,7 @@
       "evidence": "package.json",
       "language": "javascript",
       "manifest": "package.json",
-      "name": "mini-app",
+      "name": "@mini/exporter",
       "path": ".",
       "private": true,
       "scripts": [
@@ -97,7 +97,41 @@
   },
   "release": [],
   "repo": "<fixture>",
-  "routes": null,
+  "routes": {
+    "auth_hints": [],
+    "by_framework": {
+      "next-app-router": 1,
+      "spring": 3
+    },
+    "count": 4,
+    "hints_in_library_code": 0,
+    "items": [
+      {
+        "evidence": "src/app/api/items/[sku]/route.js",
+        "framework": "next-app-router",
+        "method": "GET",
+        "path": "/api/items/[sku]"
+      },
+      {
+        "evidence": "src/api/OwnerController.java",
+        "framework": "spring",
+        "method": "GET",
+        "path": "/owners/{ownerId}/exports"
+      },
+      {
+        "evidence": "src/api/OwnerController.java",
+        "framework": "spring",
+        "method": "GET",
+        "path": "/owners/{ownerId}/exports/new"
+      },
+      {
+        "evidence": "src/api/OwnerController.java",
+        "framework": "spring",
+        "method": "POST",
+        "path": "/owners/{ownerId}/exports/new"
+      }
+    ]
+  },
   "schema": null,
   "services": [
     {

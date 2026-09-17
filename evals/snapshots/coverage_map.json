@@ -34,11 +34,11 @@
   ],
   "repo": "<fixture>",
   "totals": {
-    "coverage_ratio": 0.4,
+    "coverage_ratio": 0.308,
     "matched": 4,
-    "source_files": 10,
+    "source_files": 13,
     "test_files": 3,
-    "untested": 6
+    "untested": 9
   },
   "untested": [
     {
@@ -56,6 +56,12 @@
       "risk_keywords": [
         "admin"
       ]
+    },
+    {
+      "dir": "src/api",
+      "lines": 30,
+      "path": "src/api/OwnerController.java",
+      "risk_keywords": []
     },
     {
       "dir": "src",
@@ -80,6 +86,18 @@
       "lines": 5,
       "path": "src/utils/misc.js",
       "risk_keywords": []
+    },
+    {
+      "dir": "src/app/api/items/[sku]",
+      "lines": 2,
+      "path": "src/app/api/items/[sku]/route.js",
+      "risk_keywords": []
+    },
+    {
+      "dir": "src/utils",
+      "lines": 2,
+      "path": "src/utils/fast-path.js",
+      "risk_keywords": []
     }
   ],
   "untested_by_directory": [
@@ -94,13 +112,23 @@
       "untested": 2
     },
     {
+      "dir": "src/utils",
+      "lines": 7,
+      "untested": 2
+    },
+    {
+      "dir": "src/api",
+      "lines": 30,
+      "untested": 1
+    },
+    {
       "dir": ".",
       "lines": 5,
       "untested": 1
     },
     {
-      "dir": "src/utils",
-      "lines": 5,
+      "dir": "src/app/api/items/[sku]",
+      "lines": 2,
       "untested": 1
     }
   ],

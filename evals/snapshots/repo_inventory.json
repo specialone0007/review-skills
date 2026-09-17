@@ -13,11 +13,14 @@
     ]
   },
   "deepest_paths": [
+    "src/app/api/items/[sku]/route.js",
     "docs/guide/advanced.md",
+    "src/api/OwnerController.java",
     "src/lib/format-date.js",
     "src/routes/admin.js",
     "src/routes/exports.js",
     "src/routes/health.js",
+    "src/utils/fast-path.js",
     "src/utils/format-date.js",
     "src/utils/misc.js",
     "docs/crlf-sample.md",
@@ -35,6 +38,7 @@
     "tests/smoke.test.js",
     ".env.example",
     ".env.local",
+    "DEPLOY.md",
     "Dockerfile",
     "README.md",
     "conf.py",
@@ -45,17 +49,17 @@
     {
       "dir": "docs",
       "files": 8,
-      "lines": 146
+      "lines": 171
     },
     {
       "dir": "src",
-      "files": 9,
-      "lines": 57
+      "files": 12,
+      "lines": 88
     },
     {
       "dir": "(root)",
-      "files": 7,
-      "lines": 44
+      "files": 8,
+      "lines": 57
     },
     {
       "dir": "tests",
@@ -70,11 +74,11 @@
   "extensions": [
     {
       "ext": ".js",
-      "files": 12
+      "files": 14
     },
     {
       "ext": ".md",
-      "files": 8
+      "files": 9
     },
     {
       "ext": ".json",
@@ -99,19 +103,28 @@
     {
       "ext": ".txt",
       "files": 1
+    },
+    {
+      "ext": ".java",
+      "files": 1
     }
   ],
   "flat_directories": [],
   "largest_files": [
+    {
+      "bytes": 1739,
+      "lines": 71,
+      "path": "docs/drafted.md"
+    },
     {
       "bytes": 1213,
       "lines": 18,
       "path": "docs/limits.md"
     },
     {
-      "bytes": 1118,
-      "lines": 46,
-      "path": "docs/drafted.md"
+      "bytes": 875,
+      "lines": 29,
+      "path": "src/api/OwnerController.java"
     },
     {
       "bytes": 754,
@@ -124,9 +137,14 @@
       "path": "docs/history.md"
     },
     {
-      "bytes": 428,
+      "bytes": 434,
       "lines": 19,
       "path": "package.json"
+    },
+    {
+      "bytes": 416,
+      "lines": 13,
+      "path": "DEPLOY.md"
     },
     {
       "bytes": 373,
@@ -237,6 +255,16 @@
       "bytes": 53,
       "lines": 3,
       "path": "requirements.txt"
+    },
+    {
+      "bytes": 45,
+      "lines": 1,
+      "path": "src/app/api/items/[sku]/route.js"
+    },
+    {
+      "bytes": 27,
+      "lines": 1,
+      "path": "src/utils/fast-path.js"
     }
   ],
   "lockfiles": [],
@@ -254,8 +282,8 @@
   },
   "totals": {
     "doc_files": 9,
-    "files": 27,
-    "lines": 272,
+    "files": 31,
+    "lines": 341,
     "test_files": 3
   },
   "warnings": []

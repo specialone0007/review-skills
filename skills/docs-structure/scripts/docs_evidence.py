@@ -517,7 +517,9 @@ def det_java(ctx: Ctx, inv: dict) -> None:
         text = read(p)
         deps = re.findall(r"""(?:implementation|api|compileOnly|runtimeOnly)\s*\(?\s*['"]([^'"]+)['"]""", text)
         lang = "kotlin" if p.name.endswith(".kts") or (p.parent / "src" / "main" / "kotlin").is_dir() else "java"
-        inv["packages"].append(item(ctx, "java", p, name=p.parent.name, path=ctx.rel(p.parent), language=lang, manifest=p.name, scripts=[], dependencies=sorted(set(deps))[:80], version=""))
+        settings = next((s for s in (p.parent / "settings.gradle", p.parent / "settings.gradle.kts") if s.is_file()), None)
+        gname = re.search(r"""rootProject\.name\s*=\s*['"]([^'"]+)""", read(settings)) if settings else None
+        inv["packages"].append(item(ctx, "java", p, name=gname.group(1) if gname else p.parent.name, path=ctx.rel(p.parent), language=lang, manifest=p.name, scripts=[], dependencies=sorted(set(deps))[:80], version=""))
         inv["_eco"].add("java")
         if (p.parent / "src" / "test").is_dir():
             inv["tests"].append(item(ctx, "java", p, runners=["gradle test"], package=ctx.rel(p.parent)))
@@ -903,13 +905,18 @@ ROUTE_PATTERNS = [
     ("go-net-http", re.compile(r"\.(?:HandleFunc|Handle|GET|POST|PUT|PATCH|DELETE|Get|Post|Put|Patch|Delete)\(\s*\"([^\"]+)\""), (".go",)),
     ("axum", re.compile(r"\.route\(\s*\"([^\"]+)\"\s*,\s*(get|post|put|patch|delete)"), (".rs",)),
     ("actix", re.compile(r"#\[(get|post|put|patch|delete)\(\s*\"([^\"]+)\""), (".rs",)),
-    ("spring", re.compile(r"@(Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:value\s*=\s*)?\"([^\"]*)\""), (".java", ".kt")),
+    ("spring", re.compile(r"@(Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:value\s*=\s*)?\{?\s*\"([^\"]*)\""), (".java", ".kt")),
     ("rails", re.compile(r"^\s*(get|post|put|patch|delete|resources|resource)\s+['\":]([^'\",\s]+)", re.M), (".rb",)),
     ("phoenix", re.compile(r"^\s*(get|post|put|patch|delete|resources|live)\s+\"([^\"]+)\"", re.M), (".ex",)),
     ("laravel", re.compile(r"Route::(get|post|put|patch|delete|resource|apiResource)\(\s*['\"]([^'\"]+)['\"]"), (".php",)),
     ("dotnet", re.compile(r"\[Http(Get|Post|Put|Patch|Delete)\(\s*\"?([^\"\)]*)\"?\s*\)\]|app\.Map(Get|Post|Put|Patch|Delete)\(\s*\"([^\"]+)\""), (".cs",)),
 ]
 VERB_LESS = {"django", "go-net-http", "rails"}
+# A Spring controller puts a path prefix on the class and the rest on each method. Reading the
+# methods alone reported every path short, and emitted the class-level annotation as a route
+# of its own with the method "REQUEST". Both were wrong in a drafted endpoint table.
+CLASS_MAPPING = re.compile(r'@RequestMapping\(\s*(?:value\s*=\s*)?\{?\s*"([^"]*)"[^)]*\)'
+                          r'(?:\s*@\w+(?:\([^)]*\))?)*\s*(?:public\s+|final\s+|abstract\s+)*class\b', re.S)
 COMMENT_LINE = re.compile(r"^\s*(//|#|\*|/\*|--|<!--)")
 TEST_FILE = re.compile(r"(_test\.go|\.test\.[jt]sx?|\.spec\.[jt]sx?|^test_.*\.py|_test\.py|Tests?\.java|Test\.kt|_spec\.rb|Tests?\.cs|_test\.exs|_test\.rs)$")
 
@@ -956,7 +963,14 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
                 text = strip_comment_lines(read(p))
                 if not text:
                     break
+            prefix, class_at = "", -1
+            if fw == "spring":
+                cm = CLASS_MAPPING.search(text)
+                if cm:
+                    prefix, class_at = cm.group(1).rstrip("/"), cm.start()
             for mt in rx.finditer(text):
+                if fw == "spring" and mt.start() == class_at:
+                    continue  # the class-level prefix is not itself a route
                 g = [x for x in mt.groups() if x is not None]
                 if fw in VERB_LESS:
                     if fw == "rails":
@@ -969,6 +983,8 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
                     method, path = g[0].upper(), (g[1] if len(g) > 1 else "")
                 if fw == "django" and (path.endswith((".html",)) or "static" in path):
                     continue
+                if fw == "spring" and prefix:
+                    path = prefix + ("" if not path or path == "/" else path if path.startswith("/") else "/" + path)
                 rel = ctx.rel(p)
                 in_lib = any(rel.startswith(root + "/") or root == "." for root in lib_roots)
                 routes.append({"method": method, "path": redact(path), "framework": fw, "evidence": rel, **({"hint": True} if in_lib else {})})

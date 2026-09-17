@@ -518,8 +518,14 @@ def linked_package_docs(repo: Path, skills: set[Path], ignore: list[str]) -> lis
             p = (repo / t).resolve()
             if p.is_dir():
                 p = p / "README.md"
-            if not p.is_file() or p.suffix.lower() not in DOC_EXTS or p.parent == repo:
+            # A root-level doc the front door links (a DEPLOY.md beside the README) is reachable
+            # in one hop and belongs to the doc set. Excluding it made the checker declare the
+            # concern uncovered and lay a thinner skeleton down beside the real document.
+            if not p.is_file() or p.suffix.lower() not in DOC_EXTS:
                 continue
+            if p.parent == repo and p.name in ROOT_FILES:
+                continue  # the standard root files are roots already
+
             try:
                 rel = p.relative_to(repo).as_posix()
             except ValueError:
@@ -927,9 +933,42 @@ def has_start_here(doc: "Doc") -> bool:
     return any(f" {tokens(w).strip()} " in h2 for w in START_HERE_WORDS) or START_HERE_OPEN in doc.raw
 
 
+PROJECT_NAME_SOURCES = (
+    ("package.json", r'"name"\s*:\s*"(?:@[^/"]+/)?([^"]+)"'),
+    ("pyproject.toml", r'^\s*name\s*=\s*"([^"]+)"'),
+    ("Cargo.toml", r'^\s*name\s*=\s*"([^"]+)"'),
+    ("go.mod", r"^module\s+(\S+)"),
+    ("pom.xml", r"<artifactId>([^<]+)</artifactId>"),
+    ("settings.gradle", r"rootProject\.name\s*=\s*[\'\"]([^\'\"]+)"),
+    ("settings.gradle.kts", r"rootProject\.name\s*=\s*[\'\"]([^\'\"]+)"),
+    ("composer.json", r'"name"\s*:\s*"(?:[^/"]+/)?([^"]+)"'),
+)
+
+
+def project_name(repo: Path) -> str:
+    """What the project calls itself.
+
+    The checkout folder is not the project: a clone into work/ or a sandbox copy renames the
+    product in every doc the skill writes, and the error is invisible whenever the two happen
+    to match. The first manifest that names itself wins; the folder is the last resort.
+    """
+    for fname, pat in PROJECT_NAME_SOURCES:
+        f = repo / fname
+        if not f.is_file():
+            continue
+        text = read(f)
+        if fname == "pom.xml":
+            # The first <artifactId> in a Spring project is its parent POM's, not its own.
+            text = re.sub(r"<parent>.*?</parent>", "", text, flags=re.S)
+        m = re.search(pat, text, re.M)
+        if m and m.group(1).strip():
+            return m.group(1).strip().rsplit("/", 1)[-1]
+    return repo.name
+
+
 def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: str, coverage: list[dict]) -> str:
     """The README's hand-off section. Names files that exist or that apply creates; authors nothing else."""
-    name = repo.name
+    name = project_name(repo)
     agent = agent_file(repo)
     steps = [f"1. **This file** - what {name} is and how the repository is laid out.",
              f"2. **[{central_rel}]({central_rel})** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder."]

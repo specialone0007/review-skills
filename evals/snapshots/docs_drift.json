@@ -9,6 +9,14 @@
       "source": "package.json"
     },
     {
+      "detail": "relative link `DEPLOY.md` does not resolve.",
+      "doc": "docs/drafted.md",
+      "kind": "broken-link",
+      "line": 62,
+      "severity": "high",
+      "source": null
+    },
+    {
       "detail": "`API_TOKEN` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
       "doc": ".env.example",
       "kind": "documented-env-in-unreferenced-module",
@@ -43,10 +51,10 @@
   ],
   "repo": "<fixture>",
   "totals": {
-    "docs_checked": 9,
+    "docs_checked": 10,
     "env_names_documented": 4,
     "env_names_in_code": 2,
-    "findings": 5,
+    "findings": 6,
     "make_targets_found": 0,
     "npm_scripts_found": 4
   },
