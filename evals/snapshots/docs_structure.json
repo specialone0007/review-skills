@@ -99,11 +99,18 @@
       "applies": "ops: src/routes/health.js",
       "companions": [],
       "concern": "operate",
-      "covered_by": null,
+      "covered_by": "docs/h3-style.md",
       "default_path": "docs/RUNBOOK.md",
-      "matched_by": "",
+      "matched_by": "H1: operations; H2: alerts, health, on-call",
+      "missing_sections": [
+        "Health",
+        "Scheduled jobs",
+        "Alerts",
+        "When something is wrong"
+      ],
       "runner_up": null,
       "seed": null,
+      "state": "reviewed",
       "template": "RUNBOOK.md",
       "universal": false
     },
@@ -129,7 +136,7 @@
     {
       "level": "fail",
       "line": 3,
-      "message": "no central index - 7 doc(s) unreachable in one hop",
+      "message": "no central index - 9 doc(s) unreachable in one hop",
       "path": "docs/structure.json",
       "rule": "R1",
       "severity": "P1"
@@ -152,70 +159,6 @@
     },
     {
       "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'purpose' (always) - apply creates docs/PRODUCT.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'architecture' (always) - apply creates docs/ARCHITECTURE.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'plan' (always) - apply creates docs/TASKLIST.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'deploy' (the repo has Dockerfile: Dockerfile) - apply creates docs/DEPLOYMENT.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'http' (the repo has 4 routes (next-app-router 1, spring 3)) - apply creates docs/API_REFERENCE.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'testing' (the repo has tests: package.json) - apply creates docs/TESTING.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'operate' (the repo has ops: src/routes/health.js) - apply creates docs/RUNBOOK.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'contribute' (the repo has governance: LICENSE.md) - apply creates docs/CONTRIBUTING.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
       "line": 32,
       "message": "line-number citation \"[src/config.js:12\" - cite a symbol or a log tag",
       "path": "docs/drafted.md",
@@ -228,6 +171,62 @@
       "message": "line-number citation \"src/config.js:12\" - cite a symbol or a log tag",
       "path": "docs/setup.md",
       "rule": "R7",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'purpose' (always) - apply creates docs/PRODUCT.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'architecture' (always) - apply creates docs/ARCHITECTURE.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'plan' (always) - apply creates docs/TASKLIST.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'deploy' (the repo has Dockerfile: Dockerfile) - apply creates docs/DEPLOYMENT.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'http' (the repo has 4 routes (next-app-router 1, spring 3)) - apply creates docs/API_REFERENCE.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'testing' (the repo has tests: package.json) - apply creates docs/TESTING.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'contribute' (the repo has governance: LICENSE.md) - apply creates docs/CONTRIBUTING.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
       "severity": "P2"
     },
     {
@@ -325,12 +324,6 @@
         "template": "references/templates/PRODUCT.md",
         "why": "purpose (always)"
       },
-      "docs/RUNBOOK.md": {
-        "concern": "operate",
-        "lines": 21,
-        "template": "references/templates/RUNBOOK.md",
-        "why": "operate (ops: src/routes/health.js)"
-      },
       "docs/TASKLIST.md": {
         "concern": "plan",
         "lines": 19,
@@ -363,11 +356,10 @@
       "| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |",
       "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
       "| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |",
-      "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |",
       "| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |"
     ],
     "print_only": {
-      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | [docs/PRODUCT.md](docs/PRODUCT.md) |\n| a service boundary, a link between services, or a decision worth a date | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a task starting, finishing or being dropped | [docs/TASKLIST.md](docs/TASKLIST.md) |\n| a service, an environment variable, a build or start command, a deploy step | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |\n| a route, its method or path, its auth guard, its request or response shape | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) |\n| a test runner, where tests live, how to run them, or what gates a merge | [docs/TESTING.md](docs/TESTING.md) |\n| a health check, a scheduled job, an alert, or what to do when one fires | [docs/RUNBOOK.md](docs/RUNBOOK.md) |\n| how a change gets proposed, reviewed or merged | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | [docs/PRODUCT.md](docs/PRODUCT.md) |\n| a service boundary, a link between services, or a decision worth a date | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a task starting, finishing or being dropped | [docs/TASKLIST.md](docs/TASKLIST.md) |\n| a service, an environment variable, a build or start command, a deploy step | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |\n| a route, its method or path, its auth guard, its request or response shape | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) |\n| a test runner, where tests live, how to run them, or what gates a merge | [docs/TESTING.md](docs/TESTING.md) |\n| a health check, a scheduled job, an alert, or what to do when one fires | [docs/h3-style.md](docs/h3-style.md) |\n| how a change gets proposed, reviewed or merged | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
@@ -410,7 +402,7 @@
       "warnings": 0
     },
     "R12": {
-      "failures": 8,
+      "failures": 0,
       "first": [
         "docs/structure.json:1",
         "docs/structure.json:1",
@@ -418,7 +410,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 0
+      "warnings": 7
     },
     "R13": {
       "failures": 0,
@@ -502,6 +494,17 @@
     }
   },
   "sections": {
+    "docs/h3-style.md": {
+      "concern": "operate",
+      "missing": [
+        "Health",
+        "Scheduled jobs",
+        "Alerts",
+        "When something is wrong"
+      ],
+      "owner": "reviewed",
+      "sections": {}
+    },
     "docs/setup.md": {
       "concern": "develop",
       "missing": [
@@ -545,26 +548,28 @@
     }
   ],
   "totals": {
-    "concerns_covered": 1,
-    "concerns_missing": 8,
-    "docs_checked": 7,
-    "failures": 13,
+    "concerns_covered": 2,
+    "concerns_missing": 7,
+    "docs_checked": 9,
+    "failures": 5,
     "non_doc_files": 0,
-    "placeholders": 16,
+    "placeholders": 19,
     "split_candidates": 3,
     "states": {
       "draft": 0,
-      "missing": 5,
+      "missing": 9,
       "reviewed": 2,
       "skeleton": 0
     },
-    "warnings": 7
+    "warnings": 14
   },
   "unreachable": [
     "docs/crlf-sample.md",
     "docs/drafted.md",
+    "docs/gated.md",
     "docs/guide/advanced.md",
     "docs/guide.md",
+    "docs/h3-style.md",
     "docs/history.md",
     "docs/limits.md",
     "docs/setup.md"

@@ -85,7 +85,8 @@ BAD_BREAK = re.compile(r"[^\]`.]\.\s+(?=[A-Z`(])")
 BANNED = re.compile(r"\b(robust|secure|simple|clean|fast|modern|scalable|easy|powerful|"
                     r"seamless|best|properly|elegant|efficient|reliable)\b", re.I)
 INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to)\b", re.I)
-MODAL = re.compile(r"\b(should|must|will|guarantees|handles)\b")
+# Case-insensitive like BANNED and INTENT: sentence-start is where a modal actually appears.
+MODAL = re.compile(r"\b(should|must|will|guarantees|handles)\b", re.I)
 # A count is the weakest sentence a draft can carry: two scanners give two answers and the
 # reader cannot tell which one wrote the doc. A number has to be one the inventory reports.
 # Things a repository scan counts. A number in front of one of these is an aggregate someone
@@ -106,13 +107,13 @@ YEARISH = re.compile(r"^(19|20)\d{2}$")
 NEGATION = re.compile(
     r"\bthere (?:is|are) no\s+\w+"
     r"|\bno (?:\w+ ){0,3}(?:exists?|existed|is|are|was|were|found|applies|applied)\s+\w+"
-    r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\s+[a-z`\"']\w*"
+    r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\s+(?!a\b|an\b|the\b)(?!recorded|documented|stated|named|written|commented|described|mentioned)[a-z`\"']\w*"
     r"|\bnever\s+\w+|\bnothing\s+\w+|\bnone of\s+\w+|\bno such\s+\w+", re.I)
 # A scope is evidence that a search happened: a command, or a named place with a path in it.
 # A bare path is not a scope - citing a file says it was read, never that anything was looked
 # for - and "under any circumstances" is not a place.
 SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\b|\bsearched\b|\bscan(?:ned|s|ning)?\b"
-                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]+", re.I)
+                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]*", re.I)
 INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
@@ -287,11 +288,22 @@ def inventory_counts(inv: dict) -> dict[str, set[str]]:
     if isinstance(routes, dict) and isinstance(routes.get("items"), list):
         for noun in ("routes", "endpoints", "handlers"):
             out.setdefault(noun, set()).add(str(len(routes["items"])))
+    # One schema read by two tools is one set of tables counted twice: a Prisma schema and the
+    # SQL baseline generated from it describe the same database. Every per-tool count is a valid
+    # answer, so "22 models" and "50 tables" are both true of the same repository.
     tables = (inv.get("schema") or {}).get("tables")
     if isinstance(tables, list):
+        per_tool: dict[str, int] = {}
+        for t in tables:
+            if isinstance(t, dict) and t.get("tool"):
+                per_tool[t["tool"]] = per_tool.get(t["tool"], 0) + 1
         for noun in ("tables", "models"):
-            out.setdefault(noun, set()).add(str(len(tables)))
-    return out
+            out.setdefault(noun, set()).update(str(v) for v in per_tool.values())
+            out[noun].add(str(len(tables)))
+    # A detector that found nothing has not counted zero of anything: it did not look where this
+    # repository keeps them. Buildkite, CircleCI, Zig, Bazel and everything else outside the
+    # detector list would otherwise make every count of that noun unwritable.
+    return {k: v for k, v in out.items() if v - {"0"}}
 
 
 def gate_inventory(repo: Path) -> tuple[set[str], dict[str, set[str]] | None]:
@@ -314,62 +326,23 @@ def gate_inventory(repo: Path) -> tuple[set[str], dict[str, set[str]] | None]:
     return names, inventory_counts(inv)
 
 
-def _unused_inventory_numbers(repo: Path) -> set[str] | None:
-    """Every number the evidence inventory reports, plus the length of every list in it.
-
-    None when the inventory could not be built, which turns G9 off rather than failing every
-    draft on a host where the inventory is unavailable.
-    """
-    if docs_evidence is None:
-        return None
-    try:
-        inv = docs_evidence.inventory(repo, 400, use_git=False)
-    except Exception as exc:  # the gate must never fail because the inventory did
-        warnings.append(f"evidence inventory unavailable, G9 (counts) not checked: {type(exc).__name__}")
-        return None
-    out: set[str] = set()
-
-    def walk(node: object) -> None:
-        if isinstance(node, dict):
-            for v in node.values():
-                walk(v)
-        elif isinstance(node, list):
-            out.add(str(len(node)))
-            for v in node:
-                walk(v)
-        elif isinstance(node, bool):
-            return
-        elif isinstance(node, int):
-            out.add(str(node))
-        elif isinstance(node, str):
-            for m in re.finditer(r"\d+", node):
-                out.add(m.group(0))
-
-    walk(inv)
-    return out
-
-
-def env_names(repo: Path) -> set[str]:
-    """Variable names the evidence inventory found, so G7 can spot a value written beside one."""
-    if docs_evidence is None:
-        warnings.append("docs_evidence.py not found beside this script; G7 (env values) not checked")
-        return set()
-    try:
-        inv = docs_evidence.inventory(repo, 100, use_git=False)
-    except Exception as exc:  # the gate must never fail because the inventory did
-        warnings.append(f"evidence inventory unavailable, G7 not checked: {type(exc).__name__}")
-        return set()
-    names: set[str] = set()
-    for entry in inv.get("env") or []:
-        names.update(n for n in entry.get("names", []) if isinstance(n, str))
-    return names
 
 
 def sections(lines: list[str]) -> list[tuple[str, int, int]]:
-    """(heading text, first body line index, end index) for every H2."""
+    """(heading text, first body line index, end index) for the lead and every H2.
+
+    The lead - what sits between the H1 and the first H2 - is the most-read paragraph in the
+    document and was not gated at all, so an unscoped negative and two modals in it passed
+    while the same sentences inside a section were caught.
+    """
     marks = [(i, HEADING.match(l)) for i, l in enumerate(lines)]
+    h1 = next((i for i, m in marks if m and len(m.group(1)) == 1), None)
     h2 = [(i, m.group(2).strip()) for i, m in marks if m and len(m.group(1)) == 2]
     out = []
+    if h1 is not None:
+        lead_end = h2[0][0] if h2 else len(lines)
+        if lead_end > h1 + 1:
+            out.append(("(lead)", h1 + 1, lead_end))
     for n, (i, text) in enumerate(h2):
         end = h2[n + 1][0] if n + 1 < len(h2) else len(lines)
         out.append((text, i + 1, end))
@@ -447,7 +420,8 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # code spans carry commands and identifiers, so both are removed first.
                 # A draft that names its own scan, or cites the inventory key it counted, has
                 # already answered this rule; the message says so and now it is true.
-                if numbers and not SCOPE.search(joined) and not INV_BRACKET.search(joined):
+                historical = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(joined))
+                if numbers and not historical and not SCOPE.search(joined) and not INV_BRACKET.search(joined):
                     prose = BRACKET_ANY.sub(" ", bare)
                     for m in NUMBER.finditer(prose):
                         raw = m.group(1).replace(",", "")
@@ -491,6 +465,13 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 if TABLE_RULE.match(nxt):
                     continue  # header row
                 cells = [c.strip() for c in s_.strip("|").split("|")]
+                # A drafted endpoint table puts the handler and its guard in middle cells;
+                # resolving only the last one let a row cite a file that does not exist.
+                for cell in cells[:-1]:
+                    for ref in BRACKET_ANY.findall(cell):
+                        why = resolve_bracket(repo, ref)
+                        if why:
+                            add("G2", n, why)
                 m = BRACKET_END.search(cells[-1]) if cells else None
                 if not m:
                     add("G1", n, "table row has no evidence bracket in its last cell")

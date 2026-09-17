@@ -33,7 +33,7 @@
     }
   ],
   "exports": [],
-  "files_scanned": 29,
+  "files_scanned": 31,
   "frontend": [],
   "kinds": [
     "application"
@@ -92,7 +92,7 @@
       "Running",
       "Configuration"
     ],
-    "lines": 18,
+    "lines": 20,
     "title": "mini-app"
   },
   "release": [],

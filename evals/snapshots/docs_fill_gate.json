@@ -1,6 +1,7 @@
 {
   "docs": [
-    "docs/drafted.md"
+    "docs/drafted.md",
+    "docs/gated.md"
   ],
   "findings": [
     {
@@ -74,9 +75,33 @@
       "line": 93,
       "message": "negative claim (\"No retry limit is configured\") names no scope; say what was searched, or cite an [inventory: key]",
       "rule": "G10"
+    },
+    {
+      "doc": "docs/gated.md",
+      "line": 5,
+      "message": "paragraph does not end with an evidence bracket: Must be installed before the suite runs [package.json]. The ",
+      "rule": "G1"
+    },
+    {
+      "doc": "docs/gated.md",
+      "line": 5,
+      "message": "modal verb: Must",
+      "rule": "G5"
+    },
+    {
+      "doc": "docs/gated.md",
+      "line": 5,
+      "message": "negative claim (\"was not gated\") names no scope; say what was searched, or cite an [inventory: key]",
+      "rule": "G10"
+    },
+    {
+      "doc": "docs/gated.md",
+      "line": 15,
+      "message": "cited path does not exist: src/does-not-exist.js",
+      "rule": "G2"
     }
   ],
   "repo": "<fixture>",
-  "total": 12,
+  "total": 16,
   "warnings": []
 }

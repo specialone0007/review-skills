@@ -25,7 +25,9 @@
     "src/utils/misc.js",
     "docs/crlf-sample.md",
     "docs/drafted.md",
+    "docs/gated.md",
     "docs/guide.md",
+    "docs/h3-style.md",
     "docs/history.md",
     "docs/limits.md",
     "docs/setup.md",
@@ -49,13 +51,13 @@
   "directories": [
     {
       "dir": "docs",
-      "files": 8,
-      "lines": 201
+      "files": 10,
+      "lines": 236
     },
     {
       "dir": "(root)",
       "files": 9,
-      "lines": 101
+      "lines": 103
     },
     {
       "dir": "src",
@@ -79,7 +81,7 @@
     },
     {
       "ext": ".md",
-      "files": 10
+      "files": 12
     },
     {
       "ext": ".json",
@@ -143,6 +145,11 @@
       "path": "docs/history.md"
     },
     {
+      "bytes": 515,
+      "lines": 17,
+      "path": "docs/gated.md"
+    },
+    {
       "bytes": 434,
       "lines": 19,
       "path": "package.json"
@@ -153,9 +160,19 @@
       "path": "DEPLOY.md"
     },
     {
+      "bytes": 382,
+      "lines": 18,
+      "path": "docs/h3-style.md"
+    },
+    {
       "bytes": 373,
       "lines": 9,
       "path": "src/routes/exports.js"
+    },
+    {
+      "bytes": 371,
+      "lines": 20,
+      "path": "README.md"
     },
     {
       "bytes": 359,
@@ -171,11 +188,6 @@
       "bytes": 282,
       "lines": 8,
       "path": "src/routes/admin.js"
-    },
-    {
-      "bytes": 281,
-      "lines": 18,
-      "path": "README.md"
     },
     {
       "bytes": 273,
@@ -287,9 +299,9 @@
     ]
   },
   "totals": {
-    "doc_files": 9,
-    "files": 32,
-    "lines": 415,
+    "doc_files": 11,
+    "files": 34,
+    "lines": 452,
     "test_files": 3
   },
   "warnings": []

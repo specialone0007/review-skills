@@ -231,6 +231,10 @@ DRAFT_MARK = "*(draft, review me)*"
 # Link targets that are examples, not promises: `[text](url)`, `[x](javascript:...)`, `[y](path/to/file)`.
 # The placeholder words match a whole path segment. As a prefix they swallowed bar-chart.md,
 # so a genuinely dead link went unreported while its neighbours were found.
+# GitHub resolves ../../<thing> from a file at the repository root to the repository itself:
+# ../../actions/workflows/x.yml/badge.svg is the standard fork-safe badge link. It is not a
+# path into the working tree and cannot be checked as one.
+GITHUB_REL = re.compile(r"^\.\./\.\./(actions|issues|pulls|pull|releases|wiki|discussions|blob|tree|commits|compare|labels|milestones|graphs|security|settings)(/|$)")
 PLACEHOLDER_TARGET = re.compile(r"^(url|link|path|file|href)$|^javascript:|^\.{3}|[<>{}$*]|(^|/)(path/to|your[-_]\w+|my[-_]\w+|example|foo|bar|placeholder)(?=[./]|$)", re.I)
 MAX_JSON_FINDINGS = 1000
 
@@ -739,7 +743,10 @@ def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door:
         score += 6
         how.append("file name")
     h1 = [t for _, lvl, t in doc.headings if lvl == 1]
-    h2 = [t for _, lvl, t in doc.headings if lvl == 2]
+    # H3 counts too, at the same weight as H2. Reading two of six heading levels meant a
+    # README whose sections are ### - ripgrep's shape - covered nothing at all, and the skill
+    # proposed a DEVELOPMENT.md beside an existing ### Building.
+    h2 = [t for _, lvl, t in doc.headings if lvl in (2, 3)]
     hits: list[str] = []
     kw = {k: tokens(k).strip() for k in keywords}
     if not front_door:
@@ -1000,7 +1007,12 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
         path = row["covered_by"] or row["default_path"]
         state = row.get("state") or ("reviewed" if row["covered_by"] else "skeleton")
         if path == front_rel:
-            continue  # the Start here block sits in this file; linking it to itself is a loop
+            # The block sits in this file, so link the section rather than the file - dropping
+            # the stop removed "how to run it", the one line a newcomer needs.
+            row = next((r for r in coverage if r["concern"] == cid), None)
+            anchor = slug((row or {}).get("matched_heading") or label)
+            stops.append(f"[{label}](#{anchor})")
+            continue
         stops.append(f"[{label}]({path})" + ("" if state == "reviewed" else f" ({state})"))
     lines = [START_HERE_OPEN, "## Start here", "",
              f"{'Three' if agent else 'Two'} files, in this order. Everything else is one hop from the {'second' if agent else 'last'} one.", ""]
@@ -1407,6 +1419,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 continue
             if PLACEHOLDER_TARGET.search(target):
                 continue
+            if GITHUB_REL.match(target) and d.path.parent == repo:
+                continue  # ../../issues from a root file is the repository on github.com
             file_part, _, anchor = target.partition("#")
             anchor = unquote(anchor).lower()
             if generator is not None and (file_part.startswith("/") or (file_part and "." not in Path(file_part).name)):
@@ -1491,9 +1505,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     candidates = []
     for d in docs:
         if d.skipped:
-            add("R3", d.rel, 1, f"over {MAX_READ} bytes, not analysed - oversize by any measure", "warn")
+            if not is_community_file(d.rel):
+                add("R3", d.rel, 1, f"over {MAX_READ} bytes, not analysed - oversize by any measure", "warn")
             continue
-        if len(d.lines) > split_at and not exempt("R3", d.rel):
+        if len(d.lines) > split_at and not exempt("R3", d.rel) and not is_community_file(d.rel):
             a = split_analysis(d, split_at, max_parts)
             candidates.append(a)
             if a["refuse"]:
@@ -1612,7 +1627,13 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_inside else front_rel)
             why = "always" if c["applies"] == "always" else ("named in the manifest" if c["applies"] == "manifest" else f"the repo has {c['applies']}")
             seed = f"; {c['seed']} has a section to seed from" if c.get("seed") else ""
-            add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}{seed}) - apply creates {c['default_path']} from the template", "fail")
+            # A doc this repository has never had is advice, not a failure. Left as a failure it
+            # was 86% of every finding on six healthy open-source repositories - three of them
+            # reported nothing else - and it turned --fail-on-findings red on day one for
+            # every repository that tracks work somewhere other than a TASKLIST.md.
+            # A team that wants the gate sets requireConcerns in the manifest.
+            add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}{seed}) - apply creates {c['default_path']} from the template",
+                "fail" if manifest.get("requireConcerns") else "warn")
     states: dict[str, dict] = {}
     for c in coverage:
         if c["covered_by"] and c["covered_by"] in by_rel:
