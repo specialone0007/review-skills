@@ -1,7 +1,7 @@
 {
   "ci": [],
   "cli": [],
-  "code_files_scanned": 9,
+  "code_files_scanned": 10,
   "decisions": null,
   "ecosystems": [
     "node",
@@ -33,10 +33,10 @@
     }
   ],
   "exports": [],
-  "files_scanned": 21,
+  "files_scanned": 24,
   "frontend": [],
   "kinds": [
-    "unclassified"
+    "application"
   ],
   "ops": [
     {
@@ -99,7 +99,22 @@
   "repo": "<fixture>",
   "routes": null,
   "schema": null,
-  "services": [],
+  "services": [
+    {
+      "detector": "dockerfile",
+      "evidence": "Dockerfile",
+      "name": "root",
+      "ports": [
+        "3000"
+      ],
+      "root": ".",
+      "runtime": [
+        "node:20-alpine"
+      ],
+      "source": "Dockerfile",
+      "start": "node"
+    }
+  ],
   "tests": [
     {
       "detector": "node",

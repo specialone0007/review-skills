@@ -34,11 +34,11 @@
   ],
   "repo": "<fixture>",
   "totals": {
-    "coverage_ratio": 0.444,
+    "coverage_ratio": 0.4,
     "matched": 4,
-    "source_files": 9,
+    "source_files": 10,
     "test_files": 3,
-    "untested": 5
+    "untested": 6
   },
   "untested": [
     {
@@ -70,6 +70,12 @@
       "risk_keywords": []
     },
     {
+      "dir": ".",
+      "lines": 5,
+      "path": "conf.py",
+      "risk_keywords": []
+    },
+    {
       "dir": "src/utils",
       "lines": 5,
       "path": "src/utils/misc.js",
@@ -86,6 +92,11 @@
       "dir": "src",
       "lines": 17,
       "untested": 2
+    },
+    {
+      "dir": ".",
+      "lines": 5,
+      "untested": 1
     },
     {
       "dir": "src/utils",

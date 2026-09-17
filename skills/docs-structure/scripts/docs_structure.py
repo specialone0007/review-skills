@@ -84,8 +84,13 @@ PACKAGE_MANIFESTS = ("package.json", "pyproject.toml", "setup.py", "setup.cfg", 
                      "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs", "Move.toml")
 RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
 # A docs site generator owns navigation and URLs; looked for at the repo root and in each docs root.
-GENERATOR_MARKERS = ("mkdocs.yml", "SUMMARY.md", "_sidebar.md", ".vitepress", "hugo.toml", "book.toml")
+GENERATOR_MARKERS = ("mkdocs.yml", "mkdocs.yaml", "SUMMARY.md", "_sidebar.md", ".vitepress", "hugo.toml", "book.toml")
 GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*", "astro.config.*", "conf.py")
+# Three of those names are ordinary words. A generator switches four rules off, so an ambiguous
+# marker has to corroborate itself before it is believed: conf.py must read like Sphinx, and a
+# SUMMARY or sidebar must be nav-shaped, a list of links and little else.
+AMBIGUOUS_MARKERS = {"conf.py": ("extensions", "master_doc", "html_theme", "sphinx"),
+                     "SUMMARY.md": None, "_sidebar.md": None}
 # Folders whose contents describe something other than this repo; ignored when deciding what the repo is.
 EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests", "__tests__", "spec", "specs"}
 # Folders whose Markdown describes test material. Such a doc is still checked for links and
@@ -240,6 +245,10 @@ def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 12):
         dirnames[:] = sorted(n for n in dirnames if n not in skip and not n.startswith("."))
         yield d, dirnames, filenames
 
+
+# A citation is a path plus a line number; nothing longer than this is one. Long tokens are
+# minified code, data URIs and signed URLs, and scanning them costs more than it can find.
+MAX_TOKEN = 512
 
 _listing: dict[Path, set[str]] = {}
 
@@ -545,15 +554,31 @@ def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
     return {"rule": "c", "status": "root-files-only", "roots": [], "candidates": {}, "package_docs": pkg}
 
 
+def corroborated(hit: Path) -> bool:
+    """An ambiguous marker is believed only when its contents back it up."""
+    want = AMBIGUOUS_MARKERS.get(hit.name)
+    if hit.name not in AMBIGUOUS_MARKERS:
+        return True
+    text = read(hit)
+    if want is not None:
+        low = text.lower()
+        return any(w in low for w in want)
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+    if len(lines) < 2:
+        return False
+    links = [ln for ln in lines if LINK_RE.search(ln)]
+    return len(links) >= 2 and len(links) * 2 >= len(lines)
+
+
 def detect_generator(repo: Path, roots: list[Path]) -> str | None:
     places = [repo] + [r for r in roots if r.is_dir()]
     for base in places:
         for m in GENERATOR_MARKERS:
-            if (base / m).exists():
+            if (base / m).exists() and corroborated(base / m):
                 return posix(base / m, repo)
         for g in GENERATOR_GLOBS:
             hit = next(iter(base.glob(g)), None)
-            if hit is not None:
+            if hit is not None and corroborated(hit):
                 return posix(hit, repo)
     return None
 
@@ -1017,10 +1042,38 @@ def resolve_target(doc_path: Path, repo: Path, file_part: str) -> Path:
     return doc_path.parent / file_part
 
 
+_INDEXES: dict[tuple[str, str], bool] = {}
+
+
+def indexes_folder(cand: Path, folder: Path) -> bool:
+    """Does this doc actually index that folder?
+
+    A doc named after a folder is not automatically its index: docs/architecture.md beside
+    docs/architecture/ is usually just a chapter. Calling it an index invented R4 failures on
+    correct layouts and, worse, skipped R1 for the folder's docs, so a genuinely orphaned file
+    passed. An index links at least half of what it indexes.
+    """
+    key = (str(cand), str(folder))
+    if key in _INDEXES:
+        return _INDEXES[key]
+    try:
+        names = sorted(p.name for p in folder.iterdir() if p.is_file() and p.suffix.lower() in DOC_EXTS)
+    except OSError:
+        names = []
+    if not names:
+        out = True
+    else:
+        text = read(cand)
+        linked = [n for n in names if f"{folder.name}/{n}" in text]
+        out = len(linked) * 2 >= len(names)
+    _INDEXES[key] = out
+    return out
+
+
 def sibling_index(folder: Path, repo: Path, convention: str) -> Path | None:
     if convention == "inside":
         for name in ("README.md", "INDEX.md", "index.md"):
-            if (folder / name).is_file():
+            if exists_exact(folder / name):
                 return folder / name
         return None
     parent = folder.parent
@@ -1030,7 +1083,7 @@ def sibling_index(folder: Path, repo: Path, convention: str) -> Path | None:
         return None
     want = f"{folder.name}.md".lower()
     for p in parent.iterdir():
-        if p.is_file() and p.name.lower() == want:
+        if p.is_file() and p.name.lower() == want and indexes_folder(p, folder):
             return p
     return None
 
@@ -1187,13 +1240,15 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         for r in roots:
             if r.is_dir():
                 for name in ("INDEX.md", "index.md", "README.md"):
-                    if (r / name).is_file():
+                    # is_file() is case-insensitive on Windows, so docs/index.md would be recorded
+                    # as docs/INDEX.md and then fail to match any case-exact link target.
+                    if exists_exact(r / name):
                         central_rel = posix(r / name, repo)
                         break
             if central_rel:
                 break
     central = repo / central_rel if central_rel else None
-    central_exists = bool(central and central.is_file())
+    central_exists = bool(central and exists_exact(central))
 
     # links out of a file, resolved to repo-relative paths (outside fences)
     def links_out(doc: Doc) -> set[str]:
@@ -1218,7 +1273,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     prefixes = list(manifest.get("pathPrefixes") or []) or top_level_dirs(repo)
     path_pat = re.compile(r"`((?:%s)/[^`\s]+?\.[a-z]{1,5})`" % "|".join(re.escape(p) for p in prefixes)) if prefixes else None
     exts = "|".join(manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"])
-    cite = re.compile(r"[\w./\[\]-]+\.(?:%s):\d+(?:-\d+)?" % exts)
+    # The quantifier is bounded: unbounded, it backtracks quadratically over one long token
+    # (16 KB took a second, and MAX_READ allows 2 MB), which hangs a CI run rather than failing it.
+    cite = re.compile(r"[\w./\[\]-]{1,200}\.(?:%s):\d+(?:-\d+)?" % exts)
 
     for d in docs:
         rec = in_record(d.rel)
@@ -1310,7 +1367,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if not exempt("R7", d.rel) and not d.skipped:
             for i, line in enumerate(d.clean, start=1):
                 for tok in line.split():
-                    if "://" in tok:
+                    if "://" in tok or len(tok) > MAX_TOKEN:
                         continue
                     for m in cite.findall(tok):
                         add("R7", d.rel, i, f'line-number citation "{m}" - cite a symbol or a log tag',

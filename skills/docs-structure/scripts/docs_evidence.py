@@ -591,15 +591,21 @@ def det_move(ctx: Ctx, inv: dict) -> None:
 
 # ------------------------------------------------------------------ agnostic detectors
 
+PORT_TOKEN = re.compile(r"^\d{1,5}(?:/(?:tcp|udp))?$", re.I)
+
+
 def det_dockerfiles(ctx: Ctx, inv: dict) -> None:
     def one(p: Path) -> None:
         text = read(p)
         froms = re.findall(r"^FROM\s+(\S+)", text, re.M | re.I)
-        expose = re.findall(r"^EXPOSE\s+([\d\s/tcpud]+)", text, re.M | re.I)
+        # \s matches the newline and re.I lets [tcpud] match the C of a following CMD, so the
+        # old class ran past the end of the line and reported a port named "C". Take the rest of
+        # the EXPOSE line, then keep only tokens that are actually a port.
+        expose = re.findall(r"^EXPOSE[ \t]+([^\r\n]*)", text, re.M | re.I)
         envs = re.findall(r"^(?:ENV|ARG)\s+([A-Za-z_][A-Za-z0-9_]*)", text, re.M | re.I)
         cmd = re.search(r"^(?:CMD|ENTRYPOINT)\s+(.+)$", text, re.M | re.I)
         inv["services"].append(item(ctx, "dockerfile", p, name=p.parent.name if p.parent != ctx.repo else (p.name if p.name != "Dockerfile" else "root"), root=ctx.rel(p.parent),
-                                    runtime=froms[:4], ports=sorted({x.strip() for e_ in expose for x in e_.split()}), start=first_token(cmd.group(1)) if cmd else "", source="Dockerfile"))
+                                    runtime=froms[:4], ports=sorted({x for e_ in expose for x in e_.split() if PORT_TOKEN.match(x)}), start=first_token(cmd.group(1)) if cmd else "", source="Dockerfile"))
         if envs:
             inv["env"].append({"source": ctx.rel(p), "kind": "dockerfile", "names": sorted(set(envs))[:60]})
     each(ctx, ctx.glob_name("Dockerfile*"), one, "dockerfiles")
