@@ -241,7 +241,7 @@
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](README.md), [the architecture](docs/ARCHITECTURE.md) (skeleton), [the plan](docs/TASKLIST.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [the architecture](docs/ARCHITECTURE.md) (skeleton), [the plan](docs/TASKLIST.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
@@ -264,6 +264,7 @@
   ],
   "manifest": {
     "path": null,
+    "proposed_path": null,
     "source": "none"
   },
   "proposed_manifest": null,

@@ -60,17 +60,23 @@
     {
       "doc": "docs/drafted.md",
       "line": 75,
-      "message": "the count \"4096 files\" is not one the inventory reports; name the scan behind it, cite an [inventory: key], or drop it",
+      "message": "the count \"77 routes\" disagrees with the inventory, which reports 4; name the scan behind it, cite an [inventory: key], or use the inventory's number",
       "rule": "G9"
     },
     {
       "doc": "docs/drafted.md",
       "line": 81,
-      "message": "negative claim (\"No authorization guard is applied\") names no scope; say what was searched, or cite an [inventory: key]",
+      "message": "negative claim (\"No authorization guard is applied to\") names no scope; say what was searched, or cite an [inventory: key]",
+      "rule": "G10"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 93,
+      "message": "negative claim (\"No retry limit is configured\") names no scope; say what was searched, or cite an [inventory: key]",
       "rule": "G10"
     }
   ],
   "repo": "<fixture>",
-  "total": 11,
+  "total": 12,
   "warnings": []
 }

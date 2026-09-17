@@ -33,7 +33,7 @@
     }
   ],
   "exports": [],
-  "files_scanned": 28,
+  "files_scanned": 29,
   "frontend": [],
   "kinds": [
     "application"
@@ -172,7 +172,9 @@
   ],
   "tree": {
     "adr_folders": [],
-    "governance_files": [],
+    "governance_files": [
+      "LICENSE.md"
+    ],
     "plan_like_docs": [],
     "pr_template": false,
     "top_level_dirs": [

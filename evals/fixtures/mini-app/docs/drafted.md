@@ -72,7 +72,7 @@ The helper is `src/utils/fast-path.js` and the export list names it once [packag
 
 ## A count nothing reports
 
-The exporter writes 4096 files and 77 tables on every run [package.json: name].
+The exporter serves 77 routes to the browser [package.json: name].
 
 *(draft, review me)*
 
@@ -85,5 +85,17 @@ No authorization guard is applied to the export route [src/server.js].
 ## A negative that names its scope
 
 No rate-limit code was found under `src/routes` (grep "rate") [src/server.js].
+
+*(draft, review me)*
+
+## A negative with the path backticked
+
+No retry limit is configured for the worker `src/utils/misc.js` [src/utils/misc.js].
+
+*(draft, review me)*
+
+## A count that names its own scan
+
+There are 12 files under `src/routes` in this package [package.json: name].
 
 *(draft, review me)*

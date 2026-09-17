@@ -39,6 +39,8 @@ Check the shape of a repository's documentation, build the docs it is missing, a
 | R12 | every concern the repo has is covered by a doc (the concern model below); an uncovered concern is one P2 and a skeleton apply can create | on for repos with code and no site generator | P2 |
 | R13 | a fact that lives outside the repo (a platform setting, a dashboard, who is on call) carries a dated line, `verified against <source> on YYYY-MM-DD`; the line warns when the date is older than `verifiedStaleDays` (default 90). No script can check the fact; this says when nobody has looked | warning only | P3 |
 
+On a repository that has never seen this skill, four of the thirteen do not fire: R6, R9 and R10 are opt-in, and R13 only dates a `verified against` line that already exists. A first run is a nine-rule check; say so rather than reporting thirteen. Standard community-health files at the root (LICENSE, CHANGELOG, CODE_OF_CONDUCT, SECURITY, CONTRIBUTING, AUTHORS, NOTICE and friends) are exempt from R1, R2 and R3: GitHub surfaces them and no index needs to. Past ten, R1 collapses into one finding, because "not linked from the index" has stopped being a fact about each document and become one fact about the repository.
+
 Record folders are `plans`, `specs`, `archive`, `log`, `logs`, `builds`, `adr`, `decisions`, `rfcs`, `changelogs`, `audit-*`, any folder with a date in its name, or one where more than half the files carry a ticket or date prefix. They describe a moment: R6 and R7 downgrade to warnings there, R8 skips them, and they never cover a concern. A manifest that sets `recordFolders` replaces the heuristic.
 
 ## The concern model (R12)

@@ -40,6 +40,7 @@
     ".env.local",
     "DEPLOY.md",
     "Dockerfile",
+    "LICENSE.md",
     "README.md",
     "conf.py",
     "package.json",
@@ -49,17 +50,17 @@
     {
       "dir": "docs",
       "files": 8,
-      "lines": 189
+      "lines": 201
+    },
+    {
+      "dir": "(root)",
+      "files": 9,
+      "lines": 101
     },
     {
       "dir": "src",
       "files": 12,
       "lines": 88
-    },
-    {
-      "dir": "(root)",
-      "files": 8,
-      "lines": 57
     },
     {
       "dir": "tests",
@@ -78,7 +79,7 @@
     },
     {
       "ext": ".md",
-      "files": 9
+      "files": 10
     },
     {
       "ext": ".json",
@@ -112,8 +113,13 @@
   "flat_directories": [],
   "largest_files": [
     {
-      "bytes": 2131,
-      "lines": 89,
+      "bytes": 2960,
+      "lines": 44,
+      "path": "LICENSE.md"
+    },
+    {
+      "bytes": 2401,
+      "lines": 101,
       "path": "docs/drafted.md"
     },
     {
@@ -282,8 +288,8 @@
   },
   "totals": {
     "doc_files": 9,
-    "files": 31,
-    "lines": 359,
+    "files": 32,
+    "lines": 415,
     "test_files": 3
   },
   "warnings": []

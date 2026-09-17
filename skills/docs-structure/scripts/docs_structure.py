@@ -82,7 +82,20 @@ ROOT_FILES = ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md")
 DOCS_FOLDER_NAMES = ("docs", "doc", "documentation")
 PACKAGE_MANIFESTS = ("package.json", "pyproject.toml", "setup.py", "setup.cfg", "go.mod", "Cargo.toml", "pom.xml",
                      "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs", "Move.toml")
+R1_COLLAPSE_AT = 10
 RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
+# Files GitHub surfaces by name. Telling a maintainer their AGPL text needs an owner line, a
+# row in an index and a human restructure is how a docs checker gets uninstalled.
+COMMUNITY_STEMS = {"license", "licence", "copying", "changelog", "change_log", "code_of_conduct",
+                   "security", "contributing", "authors", "notice", "support", "governance",
+                   "maintainers", "codeowners", "history", "acknowledgements", "acknowledgments"}
+
+
+def is_community_file(rel: str) -> bool:
+    """A standard community-health file at the repository root."""
+    if "/" in rel:
+        return False
+    return rel.rsplit(".", 1)[0].lower().replace("-", "_") in COMMUNITY_STEMS
 # A docs site generator owns navigation and URLs; looked for at the repo root and in each docs root.
 GENERATOR_MARKERS = ("mkdocs.yml", "mkdocs.yaml", "SUMMARY.md", "_sidebar.md", ".vitepress", "hugo.toml", "book.toml")
 GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*", "astro.config.*", "conf.py")
@@ -216,7 +229,9 @@ PREFIX_RE = re.compile(r"^([A-Z]{2,}-\d+|20\d{2}-\d{2}(-\d{2})?)[-_ .]")
 PLACEHOLDER_MARKERS = ("(auto, review me)", "| unreviewed |", "(skeleton, write me)", "| skeleton |", "(draft, review me)", "| draft |")
 DRAFT_MARK = "*(draft, review me)*"
 # Link targets that are examples, not promises: `[text](url)`, `[x](javascript:...)`, `[y](path/to/file)`.
-PLACEHOLDER_TARGET = re.compile(r"^(url|link|path|file|href)$|^javascript:|^\.{3}|[<>{}$*]|(^|/)(path/to|your[-_]|my[-_]|example|foo|bar|placeholder)(?=[./-]|$)", re.I)
+# The placeholder words match a whole path segment. As a prefix they swallowed bar-chart.md,
+# so a genuinely dead link went unreported while its neighbours were found.
+PLACEHOLDER_TARGET = re.compile(r"^(url|link|path|file|href)$|^javascript:|^\.{3}|[<>{}$*]|(^|/)(path/to|your[-_]\w+|my[-_]\w+|example|foo|bar|placeholder)(?=[./]|$)", re.I)
 MAX_JSON_FINDINGS = 1000
 
 warnings: list[str] = []
@@ -540,9 +555,11 @@ def linked_package_docs(repo: Path, skills: set[Path], ignore: list[str]) -> lis
 
 def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
     pkg = linked_package_docs(repo, skills, ignore)
+    # is_dir()/is_file() are case-insensitive on Windows, so a repo holding Documentation/ was
+    # discovered here and not on Linux - the same repo, two sets of findings, and CI is Linux.
     for name in DOCS_FOLDER_NAMES:
         d = repo / name
-        if d.is_dir() and docs_under(d, repo, skills, ignore):
+        if exists_exact(d) and d.is_dir() and docs_under(d, repo, skills, ignore):
             return {"rule": "a", "status": "resolved", "roots": [name], "candidates": {}, "package_docs": pkg}
     linked = linked_folders(repo, skills, ignore)
     for child in list(linked):
@@ -804,8 +821,9 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             continue
         if any(part in FIXTURE_DIRS for part in Path(d.rel).parts[:-1]):
             continue  # a README describing test material is not the project's own documentation
-        if matches_any(d.rel, records):
-            continue  # a dated plan or audit is a record, not the living doc for a concern
+        if matches_any(d.rel, records) or PREFIX_RE.match(d.path.name) or DATE_RE.search(d.path.name):
+            continue  # a dated plan or audit is a record, not the living doc for a concern,
+            # whether it sits in a record folder or alone at the docs root
         if d.path.parent != repo and index_for(d, repo, roots, convention) is not None:
             continue  # a part of a split doc; its index is the doc
         candidates.append(d)
@@ -981,6 +999,8 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
             continue
         path = row["covered_by"] or row["default_path"]
         state = row.get("state") or ("reviewed" if row["covered_by"] else "skeleton")
+        if path == front_rel:
+            continue  # the Start here block sits in this file; linking it to itself is a loop
         stops.append(f"[{label}]({path})" + ("" if state == "reviewed" else f" ({state})"))
     lines = [START_HERE_OPEN, "## Start here", "",
              f"{'Three' if agent else 'Two'} files, in this order. Everything else is one hop from the {'second' if agent else 'last'} one.", ""]
@@ -1110,6 +1130,21 @@ def indexes_folder(cand: Path, folder: Path) -> bool:
         out = len(linked) >= want
     _INDEXES[key] = out
     return out
+
+
+def detect_convention(folders: list[Path], repo: Path) -> str:
+    """Where this repo keeps a folder's index: beside the folder, or inside it.
+
+    Read from what is on disk. A folder that holds its own index.md or README.md listing its
+    chapters is the "inside" shape; a doc named after the folder beside it is "sibling".
+    """
+    inside = sibling = 0
+    for f in folders:
+        if sibling_index(f, repo, "sibling"):
+            sibling += 1
+        elif sibling_index(f, repo, "inside"):
+            inside += 1
+    return "inside" if inside > sibling else "sibling"
 
 
 def sibling_index(folder: Path, repo: Path, convention: str) -> Path | None:
@@ -1268,7 +1303,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     def exempt(rule: str, rel: str) -> bool:
         return matches_any(rel, list((manifest.get("exempt") or {}).get(rule, [])))
 
-    convention = manifest.get("indexConvention") or "sibling"
+    convention = manifest.get("indexConvention") or detect_convention(folders, repo)
     central_rel = manifest.get("centralIndex")
     if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2 and not any(r.is_dir() for r in roots):
         root_docs = True  # every root is a top-level file: the docs live at the repo root and the README is their index
@@ -1284,7 +1319,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 for name in ("INDEX.md", "index.md", "README.md"):
                     # is_file() is case-insensitive on Windows, so docs/index.md would be recorded
                     # as docs/INDEX.md and then fail to match any case-exact link target.
-                    if exists_exact(r / name):
+                    # A candidate also has to index the folder: a stub that links nothing made
+                    # every doc in the root report itself unreachable, one P1 each.
+                    if exists_exact(r / name) and indexes_folder(r / name, r):
                         central_rel = posix(r / name, repo)
                         break
             if central_rel:
@@ -1325,7 +1362,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             warnings.append(f"{d.rel} is over {MAX_READ} bytes and was not analysed")
 
         # ---- R1 / R4
-        if not r1_off and (d.path not in roots or root_docs) and central_rel != d.rel:
+        if (not r1_off and (d.path not in roots or root_docs) and central_rel != d.rel
+                and not is_community_file(d.rel)):
             idx = index_for(d, repo, roots, convention)
             if idx is not None:
                 irel = posix(idx, repo)
@@ -1356,7 +1394,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     break
                 if seen >= 12:
                     break
-        if not has_owner and not exempt("R2", d.rel) and not d.skipped and (root_docs and d.rel not in ROOT_FILES or d.path not in roots):
+        if (not has_owner and not exempt("R2", d.rel) and not d.skipped and generator is None
+                and not is_community_file(d.rel)
+                and (root_docs and d.rel not in ROOT_FILES or d.path not in roots)):
             add("R2", d.rel, 1, "no owner line near the top and no frontmatter description",
                 "fail" if enforce else "warn")
 
@@ -1605,16 +1645,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     # ---- proposed manifest
     proposed = None
     if source == "none" and not root_files_only:
-        conv = "sibling"
-        saw_inside = False
-        for f in folders:
-            if sibling_index(f, repo, "sibling"):
-                saw_inside = False
-                break
-            if sibling_index(f, repo, "inside"):
-                saw_inside = True
-        if saw_inside:
-            conv = "inside"
+        conv = convention
         proposed = {
             "roots": ["*.md"] if root_docs else roots_rel,
             "centralIndex": central_rel or (f"{roots_rel[0]}/INDEX.md" if roots_rel and not root_files_only else None),
@@ -1647,6 +1678,19 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             spec["content"] = merged
             spec["lines"] = len(json.dumps(merged, indent=2).splitlines())
 
+    # Collapse a flood of identical R1s. Past this many, "not linked from the index" has stopped
+    # being a fact about each document and become one fact about the repository.
+    r1 = [f for f in findings if f["rule"] == "R1" and f["level"] == "fail"]
+    if len(r1) > R1_COLLAPSE_AT:
+        keep = [f for f in findings if f not in r1]
+        first = ", ".join(f["path"] for f in r1[:3])
+        keep.append({"rule": "R1", "severity": SEVERITY["R1"], "level": "fail",
+                     "path": central_rel or roots_rel[0] if roots_rel else ".", "line": 1,
+                     "message": f"{len(r1)} docs are not linked from {central_rel or 'any index'} "
+                                f"- this repository has no in-repo index of its docs "
+                                f"(first: {first}). One index, or a manifest naming the one it uses."})
+        findings = keep
+
     order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
     findings.sort(key=lambda f: (0 if f["level"] == "fail" else 1, order[f["severity"]], f["rule"], f["path"], f["line"] or 0))
     per_rule = {}
@@ -1658,7 +1702,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                        "first": [f"{f['path']}:{f['line']}" if f["line"] else f["path"] for f in fs[:3]]}
     return {
         "repo": str(repo),
-        "manifest": {"source": source, "path": posix(manifest_path, repo) if manifest_path else None},
+        "manifest": {"source": source, "path": posix(manifest_path, repo) if manifest_path else None,
+                     "proposed_path": (("docs-structure.json" if root_docs else f"{pick_docs_root(repo, roots)}/structure.json")
+                                       if proposed is not None else None)},
         "discovery": discovery,
         "roots": roots_rel,
         "central_index": central_rel if central_exists else None,
@@ -1745,7 +1791,7 @@ def render(d: dict, top: int) -> str:
                 L.append(f"  {c['path']}  {c['lines']} lines  {c['level']} -> {c['parts']} parts, largest {c['largest']}")
     if d["proposed_manifest"]:
         L.append("")
-        L.append("Proposed manifest (docs/structure.json) - review before committing:")
+        L.append(f"Proposed manifest ({d['manifest'].get('proposed_path') or 'docs/structure.json'}) - review before committing:")
         L.append(json.dumps(d["proposed_manifest"], indent=2))
     if d.get("init"):
         L.append("")

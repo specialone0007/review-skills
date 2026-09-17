@@ -82,7 +82,12 @@ REDACT = [
     re.compile(r"\b[0-9a-fA-F]{32,}\b"),
     re.compile(r"\b[A-Za-z0-9+/]{40,}={0,2}\b"),
     re.compile(r"://[^/\s:@]+:[^/\s@]+@"),
-    re.compile(r"(?<=/)[A-Za-z0-9_-]{24,}(?=/|$)"),  # a long opaque path segment: a webhook or signed-URL token
+    # A long path segment only looks like a token when it also looks random. Length alone
+    # redacted ordinary slugs - /webhooks/stripe-payment-intent-succeeded became
+    # /webhooks/[redacted] - and a drafted endpoint table then documented a route that does
+    # not exist, with the bracket still resolving. Require mixed case with digits, or a long
+    # unbroken run of hex or base64, and let hyphenated lowercase words through.
+    re.compile(r"(?<=/)(?=[A-Za-z0-9_-]{24,}(?:/|$))(?![a-z0-9]+(?:-[a-z0-9]+)+(?:/|$))(?:[A-Za-z0-9_-]*[A-Z][A-Za-z0-9_-]*\d|[A-Za-z0-9_-]*\d[A-Za-z0-9_-]*[A-Z]|[0-9a-f]{24,})[A-Za-z0-9_-]*"),
 ]
 
 DECISION_RE = re.compile(r"\b(decid|switch|migrat|replace|remov|adopt|revert|drop|deprecat|instead)", re.I)
@@ -467,7 +472,7 @@ def det_go(ctx: Ctx, inv: dict) -> None:
             inv["cli"].append(item(ctx, "go", p.parent / "main.go", commands=[p.parent.name], parser="main.go"))
         if any(f.name.endswith("_test.go") for f in ctx.code_files if f.suffix == ".go"):
             inv["tests"].append(item(ctx, "go", p, runners=["go test"], package=ctx.rel(p.parent)))
-    for p in ctx.named("go.work"):
+    if ctx.named("go.work"):
         inv["_mono"] = True
 
 
@@ -882,7 +887,16 @@ def det_schema(ctx: Ctx, inv: dict) -> None:
         ext = p.suffix.lower()
         if ext == ".prisma" or (in_schema_dir and ext in (".sql", ".ts", ".js", ".py", ".rb", ".php", ".cs", ".xml", ".exs")):
             text = read(p)
-            if in_schema_dir and re.match(r"^\d{3,}|^V\d|^\d{4}-\d{2}|^\d{14}", p.name):
+            # Prisma puts the timestamp on the folder (20260812_x/migration.sql) and Alembic
+            # uses a revision hash, so matching the filename alone reported zero migrations for
+            # both - in the doc the skill makes the owner of that count.
+            stamped = re.compile(r"^\d{3,}|^V\d|^\d{4}-\d{2}|^\d{14}")
+            here = p.parent.name.lower()
+            above = p.parent.parent.name.lower() if p.parent.parent != ctx.repo else ""
+            if in_schema_dir and (stamped.match(p.name) or stamped.match(p.parent.name)
+                                  or here in ("versions", "migrations")
+                                  or above in ("versions", "migrations")) \
+                    and p.name.lower() not in ("__init__.py", "env.py", "migration_lock.toml"):
                 migrations.append(ctx.rel(p))
             for tool, rx, exts in SCHEMA_PATTERNS:
                 if ext not in exts:
@@ -1143,7 +1157,14 @@ def derive_kinds(inv: dict, code_files: int) -> list[str]:
     return kinds or (["unknown"] if not has_code else ["unclassified"])
 
 
+def _reset_warnings() -> None:
+    """Module state, so a second inventory() in one process does not inherit the first's
+    warnings. The fill gate calls inventory() itself, in the same process as the checker."""
+    del warnings[:]
+
+
 def inventory(repo: Path, cap_n: int = 400, use_git: bool = True) -> dict:
+    _reset_warnings()
     ctx = Ctx(repo, cap_n, use_git)
     inv: dict = {"packages": [], "services": [], "env": [], "schema": None, "routes": None, "cli": [], "exports": [],
                  "frontend": [], "tests": [], "ci": [], "ops": [], "decisions": None, "readme": None, "tree": {},
