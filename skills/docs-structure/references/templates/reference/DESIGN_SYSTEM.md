@@ -1,6 +1,8 @@
-# Design guidelines
+# Design system
 
 > **This document owns:** the visual system — tokens, components, and the rules for adding UI without redesigning. *(skeleton, write me)*
+
+*Read this if you are building a screen.*
 
 <!-- concern: design; fill: frontend, packages, tree -->
 

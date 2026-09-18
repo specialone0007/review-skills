@@ -2,7 +2,9 @@
 
 > **This document owns:** the endpoints — path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. *(skeleton, write me)*
 
-<!-- concern: http; fill: routes, env, packages -->
+*Read this if you call it over HTTP.*
+
+<!-- concern: http; fill: routes, auth, env, packages -->
 
 ## Authentication
 

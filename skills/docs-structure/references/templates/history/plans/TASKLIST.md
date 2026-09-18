@@ -6,7 +6,7 @@
 
 Read the phase you are working in, not the whole list. Tick items in the phase file; the
 counts here can be checked against the boxes by the docs-structure checker. Add a `counts`
-entry to `docs/structure.json` and rule R9 reports when the two drift apart; without that
+entry to the manifest and rule R9 reports when the two drift apart; without that
 entry nothing checks them.
 
 Legend: `[ ]` todo · `[x]` done. GitHub renders only those two.

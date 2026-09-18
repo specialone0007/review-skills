@@ -2,6 +2,8 @@
 
 > **This document owns:** what the product is, who it is for, where it is going, and what it has said no to. *(skeleton, write me)*
 
+*Read this if you want to know what this is becoming and why.*
+
 <!-- concern: purpose; fill: readme, packages, routes, decisions, tree -->
 
 ## What it is becoming

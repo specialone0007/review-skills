@@ -2,6 +2,8 @@
 
 > **This document owns:** how this repository is tested — the runners, where tests live, how to run them, and what CI checks. *(skeleton, write me)*
 
+*Read this if you are writing or running tests.*
+
 <!-- concern: testing; fill: tests, ci, packages -->
 
 ## Runners and layout

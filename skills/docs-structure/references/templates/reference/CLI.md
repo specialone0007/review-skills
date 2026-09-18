@@ -2,6 +2,8 @@
 
 > **This document owns:** the commands this repository exposes — each command, its arguments and flags, and what it does. *(skeleton, write me)*
 
+*Read this if you run it from a shell.*
+
 <!-- concern: commands; fill: cli, packages, readme -->
 
 ## Install and invoke

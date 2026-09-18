@@ -29,6 +29,12 @@
     },
     {
       "doc": "docs/drafted.md",
+      "line": 16,
+      "message": "paragraph does not end with an evidence bracket: *Which test runners are configured and where tests live. Fro",
+      "rule": "G1"
+    },
+    {
+      "doc": "docs/drafted.md",
       "line": 20,
       "message": "paragraph does not end with an evidence bracket: This sentence states something about the repository and name",
       "rule": "G1"
@@ -191,6 +197,6 @@
     }
   ],
   "repo": "<fixture>",
-  "total": 29,
+  "total": 30,
   "warnings": []
 }
