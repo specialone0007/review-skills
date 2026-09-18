@@ -1115,6 +1115,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             if OWNER_LINE.match(joined.strip()) or is_template_text([t for _, t in para]):
                 para.clear()
                 return
+            # A "verified against <source> on <date>" line stands alone by rule: it is R13's line, not a
+            # claim about the repository, and it carries its date instead of a bracket.
+            if re.match(r"^\s*verified against .+ on \d{4}-\d{2}-\d{2}\.?\s*$", joined.strip(), re.I):
+                para.clear()
+                return
             if not joined.lower().startswith("open question:"):
                 # A code span ending in "]" is not an evidence bracket either, and it used to
                 # satisfy this rule: `app/[slug]/page.tsx` at the end of a paragraph passed.

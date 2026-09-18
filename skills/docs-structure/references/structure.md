@@ -163,7 +163,7 @@ target names verbatim; "how to know it works" is a health route or test command;
 | section | evidence | expect | guard against |
 | --- | --- | --- | --- |
 | Services table | compose, railway, fly, render, vercel, netlify, Procfile, k8s, Helm: root, build and start names, ports, health check presence | high | "public/private" is a question unless a port is published or an Ingress exists |
-| Environment per service | example env files per package, compose keys, railway variable names, k8s env names, Actions secrets refs, code reads; a `secret_like` flag from the name | high | printing a value; asserting a variable "is a secret" |
+| Environment per service | example env files per package, compose keys, railway variable names, k8s env names, Actions secrets refs, code reads; a `secret_like` flag from the name. This table lives here and nowhere else; ARCHITECTURE labels its arrows with names and links here | high | printing a value; asserting a variable "is a secret"; a copy of this table in ARCHITECTURE |
 | Deploy steps | deploy scripts, deploy workflows, quoted step names | partial | a generic recipe; a `vercel.json` alone means "settings live outside the repo" |
 | Rollback | the one mechanical fact: whether migrations have down files | question | inventing a procedure |
 | Known traps | `fix(deploy|docker|build|env|ci)` and `revert` commits verbatim, dated | partial | storytelling |

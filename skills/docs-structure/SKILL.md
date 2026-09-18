@@ -11,7 +11,7 @@ Check the shape of a repository's documentation, build the docs it is missing, a
 ## Core Rules
 
 - Stay read-only until the user says "apply". The plan report is the contract: apply never does what the report did not list.
-- Which docs a repo needs comes from its evidence inventory (`scripts/docs_evidence.py`): a table of concerns, each one earned by something the repo contains, never a list of file names. Three are unconditional - what it is, how it is built, how to run it locally - and every other concern has to be earned; an `unknown` ecosystem means fill writes only open questions; every default is overridable in the manifest.
+- Which docs a repo needs comes from its evidence inventory (`scripts/docs_evidence.py`): a table of concerns, each one earned by something the repo contains, never a list of file names. Two are unconditional - what it is, how to run it locally - and every other concern has to be earned (architecture by more than one package or deployable, or by being an application); an `unknown` ecosystem means fill writes only open questions; every default is overridable in the manifest.
 - Never rewrite prose a human wrote. Fill writes only into template skeletons, and everything it writes is a marked draft that the checker counts until a person reviews it.
 - Every drafted sentence restates a repository artefact and carries its path, key or commit in brackets. No evidence, no sentence: the section gets one `open question:` line instead.
 - A file git ignores is not repository evidence, however much it reads like the team's rules: a gitignored `CLAUDE.md` is one developer's copy and reaches nobody who clones the repo. The inventory lists such files under `tree.ignored_governance_files`, the gate refuses a bracket that cites one, and fill writes an open question where it would have quoted it.
@@ -49,12 +49,12 @@ Record folders are `plans`, `specs`, `archive`, `log`, `logs`, `builds`, `adr`, 
 
 What no repo check can see: a doc that describes something outside the repo should say when a person last looked, with `verified against <source> on <date>`. Fill writes such a line only when the user states the check was done; the skill never claims to have looked at a platform it did not read.
 
-The inventory says what the repo **is** (kinds: application, library, cli, infrastructure, docs-only, monorepo; a repo can be several) and what it **contains**. A concern applies when the inventory finds the thing it describes. Three apply to every repo with code: purpose, architecture and develop.
+The inventory says what the repo **is** (kinds: application, library, cli, infrastructure, docs-only, monorepo; a repo can be several) and what it **contains**. A concern applies when the inventory finds the thing it describes. Two apply to every repo with code: purpose and develop.
 
 | concern | applies when | default file | drafted from |
 | --- | --- | --- | --- |
 | purpose | always | `PRODUCT.md`; `OVERVIEW.md` for a library or CLI, its own template | readme, packages, routes, decisions, tree (OVERVIEW: readme, packages, exports, cli, decisions, tree) |
-| architecture | always | `ARCHITECTURE.md` | packages, services, env, decisions, routes, schema |
+| architecture | an application or monorepo, or more than one package or deployable unit; a single-package library or CLI keeps it as a section of OVERVIEW | `ARCHITECTURE.md` | packages, services, env, decisions, routes, schema |
 | develop | always | `DEVELOPMENT.md` | packages, tree, ci, env, services |
 | plan | plan-like docs, or a `plans`, `roadmap`, `tasklist` or `tasks` folder (an `adr`, `rfcs` or `decisions` folder is a record folder: dated entries, not a checklist) | `TASKLIST.md` + `tasklist/` | tree (plan-like docs only; never as checkboxes) |
 | deploy | a deployable unit or deploy workflow exists | `DEPLOYMENT.md` | services, env, ci, ops, decisions |
@@ -171,18 +171,21 @@ R5 to R8 findings are never fixed by apply. A dead link or a copied number needs
 
 Fill drafts the sections of a skeleton from the evidence inventory. It touches a section only if the section is still the template's italic line (or empty), or, on `refill`, the doc's owner line carries the draft marker. A doc whose owner line carries neither `(skeleton, write me)` nor `(draft, review me)` is never touched; template headings it lacks are advice, never inserted.
 
+Fill in evidence order, not template order: the docs a reader is sent to for facts first - http, data, deploy, operate, testing, commands, exports, release - then architecture and develop, then design, contribute and purpose. A run that stops early leaves the reference docs drafted and the essay a skeleton, not the reverse.
+
 Per skeleton doc:
 
 1. Run `docs_evidence.py --format json`. Read the doc's template and its `<!-- concern: x; fill: keys -->` line: those inventory keys are the only evidence this doc may use.
 2. Under each heading write a draft from the inventory only. Every paragraph, bullet and table ends with one bracket in this grammar and no other (a sentence inside a paragraph need not; a table's rows need none when the sentence introducing the table carries the bracket): `[path]`, `[path § heading]`, `[path: key]`, `[sha date]`, `[inventory: services[n]]`. Never `path:NNN`. One bracket may carry several of these separated by `; ` when a sentence rests on more than one artefact - `[src/server.js; .env.example]` - and every part has to resolve. A bracket inside a code span is code: `` `app/[slug]/page.tsx` `` is a path, not evidence, and the sentence still needs a real bracket at its end. Where the inventory has nothing for a section, write exactly one line: `open question: <what would answer it>` - and the section still ends with the `*(draft, review me)*` marker, like every other section fill touched; without it the gate reports the section as not judged. Never `TBD`, never a placeholder sentence.
-3. One marker per document: change the owner line's `*(skeleton, write me)*` to `*(draft, review me)*` and set the index row's state to `draft`. Then rewrite the owner sentence with this repository's own nouns - the service names, the table count, the runners - and copy it into the index `owns` cell; the template's sentence is the same in every repo and tells a reader nothing about this one. Sections carry no marker of their own; a section under a drafted owner line is a draft, and the gate judges every one of them (a marker at the end of a section is still accepted from older drafts).
+3. One marker per document: change the owner line's `*(skeleton, write me)*` to `*(draft, review me)*` and set the index row's state to `draft`. Then rewrite the owner sentence with this repository's own nouns - the service names, the schemas, the runners - and copy it into the index `owns` cell; the template's sentence is the same in every repo and tells a reader nothing about this one. The sentence names what, never how many: a count in the owner line is a count with two homes, and the index goes wrong first. Sections carry no marker of their own; a section under a drafted owner line is a draft, and the gate judges every one of them (a marker at the end of a section is still accepted from older drafts).
 4. Draft-safety rules, gate-checked where mechanical:
    - present indicative for what the code does (`reads`, `exposes`, `writes to`); never `should`, `must`, `will`, `guarantees`
    - no evaluative words: robust, secure, simple, clean, fast, modern, scalable, easy, powerful, seamless, best, properly, elegant, efficient, reliable
    - no intent (`so that`, `because`, `designed to`, `ensures`, `aims to`) unless quoted from repo text; otherwise the sentence starts `inferred:`
    - dates only from git or migration filenames; never `currently`, `recently`, `now`
    - at most 3 sentences per paragraph and 40 lines or 40 table rows per section or H3 subsection; a list-shaped section (endpoints, tables, services, env names) puts the whole inventory into tables, one H3 per group (first path segment, name prefix, service), one row per item; only past the whole-doc cap of `splitAt/2` lines does the rest become one line `N more under <folder>`, so a draft is never a split candidate
-   - one owning doc per count: DATA_MODEL owns table and migration counts, DEPLOYMENT owns service and env counts, API_REFERENCE owns route counts; other docs link; ratios show denominators
+   - one owning doc per count and per table: DATA_MODEL owns table and migration counts, DEPLOYMENT owns service and env counts and the per-service environment table, API_REFERENCE owns route counts and the route tables; ARCHITECTURE uses env names only as arrow labels and says "see DEPLOYMENT" for the rest; other docs link; ratios show denominators
+   - a column that would say the same thing in every row is not a column: when no table carries a comment, DATA_MODEL says so once with the grep behind it and drops the meaning column
    - a count names the scan behind it, or is not written. "12 files under `src/`" is checkable; "97 environment names" is one scanner's opinion, and a second scanner will disagree because it looks in different folders. When two tools give two answers, write neither and say why
    - a negative claim names the scope searched: `no rate-limit code found under src/api (grep "rate")`
    - a word on the banned list inside a code span is a name, not a claim: `secure` as a cookie attribute or a dependency called `simple-git` is written in backticks and passes

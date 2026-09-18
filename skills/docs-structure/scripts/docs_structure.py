@@ -95,7 +95,8 @@ ECO_EXTENSIONS = {"csharp": ["cs"], "dotnet": ["cs"], "kotlin": ["kt", "kts"], "
                   "node": ["ts", "tsx", "js", "jsx", "mjs", "cjs"], "move": ["move"], "shell": ["sh"]}
 R1_COLLAPSE_AT = 10
 # The line a split writes into each part, and the only reliable sign that a doc is one.
-SPLIT_PART = re.compile(r"^\s*>\s*\*\*Part of\*\*", re.M)
+# Both the marker the split writes (**Part of**) and the older plain "> Part of [..]" line.
+SPLIT_PART = re.compile(r"^\s*>\s*(?:\*\*)?Part of(?:\*\*)?\s*\[", re.M)
 RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
 # Files GitHub surfaces by name. Telling a maintainer their AGPL text needs an owner line, a
 # row in an index and a human restructure is how a docs checker gets uninstalled.
@@ -278,7 +279,11 @@ CONCERNS = [
     # id, applies(inv) -> reason | None, default_file(inv) -> str, keywords, template, companions
     ("purpose", lambda inv: "always", lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md",
      {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission", "why", "motivation", "what is"}, lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md", []),
-    ("architecture", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
+    # A 400-line CLI does not need an architecture doc beside its overview; more than one
+    # package or deployable, or an application, does.
+    ("architecture", lambda inv: ("always" if ({"application", "monorepo", "infrastructure"} & set(inv.get("kinds") or []))
+                                  or len(inv.get("packages") or []) > 1 or len({s.get("name") for s in inv.get("services") or []}) > 1
+                                  else None), lambda inv: "ARCHITECTURE.md",
      {"architecture", "components", "services", "system", "data flow", "how it works", "design decisions", "modules", "structure"}, "ARCHITECTURE.md", []),
     ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
      {"development", "developing", "getting started", "quickstart", "quick start", "local", "locally", "setup", "install", "installation", "prerequisites", "running", "run it", "run locally", "building", "environment setup", "hacking"}, "DEVELOPMENT.md", []),
@@ -320,7 +325,7 @@ CONCERNS = [
     ("research", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
 ]
-UNIVERSAL = {"purpose", "architecture", "develop"}
+UNIVERSAL = {"purpose", "develop"}
 
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
@@ -1047,6 +1052,7 @@ INDEX_GROUPS = (
     ("Reference", ("http", "commands", "exports", "data", "design")),
     ("Product and decisions", ("purpose", "architecture", "plan", "release")),
     ("Packages", ()),
+    ("Root files", ()),
     ("History", ("research",)),
 )
 INDEX_TABLE_HEAD = "| doc | owns | state |\n| --- | --- | --- |\n"
@@ -1646,7 +1652,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     # A team groups by topic as often as by concern: a value that is a path or a glob places
     # that doc, so a hand-written doc lands in the table the team keeps for it.
     path_group = {pat: name for name, cids in (custom or {}).items() for pat in (cids or []) if "/" in pat or pat.endswith(".md")}
-    order = list(custom.keys()) + ["Packages"] if custom else None
+    order = list(custom.keys()) + ["Packages", "Root files"] if custom else None
     for c in uncovered:
         t = template_for(c["template"])
         if t is None:
@@ -1665,12 +1671,16 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         groups.setdefault(group_of.get(c["concern"], (order or ["Product and decisions"])[-2] if order and len(order) > 1 else "Product and decisions"), []).append(row)
     # Every root that is a package's own doc gets a row too: "one hop from the index" was false
     # for exactly the READMEs a new engineer on a monorepo needs first.
+    agent = agent_file(repo)
     for p in (package_docs or []):
-        if "/" not in p or not (repo / p).is_file():
+        if not (repo / p).is_file() or p in (front_rel, agent, central_rel) or is_community_file(p):
             continue
         pd = Doc(repo / p, repo)
-        h1 = next((t for _, lvl, t in pd.headings if lvl == 1), Path(p).parent.name)
-        owns = package_description(repo, (repo / p).parent) or h1
+        h1 = next((t for _, lvl, t in pd.headings if lvl == 1), Path(p).stem)
+        first = next((l.strip() for l in pd.clean[1:60] if l.strip() and not l.startswith(("#", "!", "<", ">", "|", "-", "*", "`", "["))), "")
+        first = first.split(". ")[0].rstrip(".") if first else ""
+        owns = (package_description(repo, (repo / p).parent) if "/" in p else "") or first or h1
+        owns = re.sub(r"[*_`]+", "", owns)
         owns = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", owns).replace("|", "/")
         owns = (owns[:77].rsplit(" ", 1)[0] + "...") if len(owns) > 80 else owns
         rel_link = ("../" * (docs_root.count("/") + 1)) + p if not root_docs else p
@@ -1678,7 +1688,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         # is unreviewed until a person dates it.
         row = f"| [{p}]({rel_link}) | {owns} | unreviewed |"
         rows.append(row)
-        placed = next((name for pat, name in path_group.items() if fnmatch.fnmatch(p, pat) or p == pat), "Packages")
+        placed = next((name for pat, name in path_group.items() if fnmatch.fnmatch(p, pat) or p == pat), "Packages" if "/" in p else "Root files")
         groups.setdefault(placed, []).append(row)
     if not have_index and not root_docs:
         # With the content, not just a name. SKILL.md says the template is in the checker's
@@ -2347,6 +2357,19 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             else:
                 add("R3", d.rel, 1, f"{a['lines']} lines - could become an index plus {a['parts']} parts at {a['level']} (largest {a['largest']})", "warn")
 
+    # ---- R3, the other direction: a folder of parts averaging under minPart is confetti from an
+    #      older cut, and the checker had no word for it.
+    folders: dict[str, list[int]] = {}
+    for d in docs:
+        if d.path.parent != repo and not d.skipped and SPLIT_PART.search(d.raw[:800]):
+            folders.setdefault(posix(d.path.parent, repo), []).append(len(d.lines))
+    for folder, sizes in sorted(folders.items()):
+        # phase files under tasklist/ and dated records are short by design, not confetti
+        if Path(folder).name.lower() in ("tasklist", "tasks") or matches_any(folder, record_folders):
+            continue
+        if len(sizes) >= 3 and sum(sizes) / len(sizes) < min_part and not exempt("R3", folder):
+            add("R3", folder + "/", 1, f"{len(sizes)} parts averaging {sum(sizes) // len(sizes)} lines, under minPart {min_part} - a merge candidate: rejoin them under the index, or into fewer chapters", "warn")
+
     # ---- R8 duplicated measurements
     owners: dict[str, list[str]] = {}
     dup_exempt = list(manifest.get("duplicateExempt") or [])
@@ -2486,7 +2509,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 t = tokens(text)
                 if sum(1 for k in kw if f" {k} " in t) >= 1 and not is_start_here_heading(text):
                     body = [l for l in front_doc.lines[ln:ln + 40] if l.strip() and not l.startswith("#")]
-                    if len(body) > 6:
+                    body_text = " ".join(body)
+                    named = {n for e in (inv.get("env") or []) for n in (e.get("names") or [])} | {s.get("name") for s in (inv.get("services") or []) if s.get("name")}
+                    hits = sum(1 for n in named if n and re.search(rf"(?<![A-Za-z0-9_]){re.escape(n)}(?![A-Za-z0-9_])", body_text))
+                    # six lines that name two env variables are a second home; so are forty lines that name none
+                    if len(body) > 6 or hits >= 2:
                         add("R11", front_rel, ln, f"section '{text}' is a second home for {cid}, which {row['covered_by']} owns - keep a line and a link, move the rest", "warn")
                     break
     if generator is None:
@@ -2538,7 +2565,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
     front_has = has_start_here(by_rel.get(front_rel) or Doc(front, repo)) if front.is_file() else False
     init = None if (generator is not None or ambiguous or unreadable) else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
-                                                          discovery.get("package_docs", []) if discovery else [r for r in roots_rel if "/" in r and (repo / r).is_file()], front_has,
+                                                          sorted(set(discovery.get("package_docs", []) if discovery else []) | {r for r in roots_rel if (repo / r).is_file()}
+                                                                 # in a monorepo every package README is a row, linked or not: "one hop from the index" was false for exactly those
+                                                                 | ({str(Path(p.get("path", ".")).as_posix()) + "/README.md" for p in (inv.get("packages") or []) if p.get("path") not in (None, ".", "") and (repo / p["path"] / "README.md").is_file()} if "monorepo" in (inv.get("kinds") or []) else set())), front_has,
                                                           central_rel, manifest_groups=manifest.get("indexGroups"))
 
     # ---- placeholders

@@ -28,7 +28,7 @@
       "runner_up": null,
       "seed": null,
       "template": "ARCHITECTURE.md",
-      "universal": true,
+      "universal": false,
       "weak": false
     },
     {
@@ -212,11 +212,12 @@
           ],
           "roots": [
             "docs",
+            "README.md",
             "README.md"
           ],
           "splitAt": 1000
         },
-        "lines": 21,
+        "lines": 22,
         "template": "generated"
       }
     },

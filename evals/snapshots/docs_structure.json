@@ -28,7 +28,7 @@
       "runner_up": null,
       "seed": null,
       "template": "ARCHITECTURE.md",
-      "universal": true,
+      "universal": false,
       "weak": false
     },
     {
@@ -103,13 +103,20 @@
       "applies": "ops: src/routes/health.js",
       "companions": [],
       "concern": "operate",
-      "covered_by": null,
+      "covered_by": "docs/h3-style.md",
       "default_path": "docs/RUNBOOK.md",
-      "matched_by": "",
-      "matched_heading": null,
+      "matched_by": "H1: operations; H2: alerts, health, on-call",
+      "matched_heading": "Health checks",
+      "missing_sections": [
+        "Health",
+        "Scheduled jobs",
+        "Alerts",
+        "When something is wrong"
+      ],
       "near_name": null,
       "runner_up": null,
       "seed": null,
+      "state": "reviewed",
       "template": "RUNBOOK.md",
       "universal": false,
       "weak": false
@@ -220,14 +227,6 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'operate' (the repo has ops: src/routes/health.js) - apply creates docs/RUNBOOK.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
       "message": "no doc covers 'contribute' (the repo has governance: LICENSE.md) - apply creates docs/CONTRIBUTING.md from the template",
       "path": "docs/structure.json",
       "rule": "R12",
@@ -329,8 +328,8 @@
         "why": "deploy (Dockerfile: Dockerfile)"
       },
       "docs/INDEX.md": {
-        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Run and build\n\n| doc | owns | state |\n| --- | --- | --- |\n| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |\n| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |\n\n## Operate\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |\n| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |\n\n## Reference\n\n| doc | owns | state |\n| --- | --- | --- |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n\n## Product and decisions\n\n| doc | owns | state |\n| --- | --- | --- |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
-        "lines": 32,
+        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Run and build\n\n| doc | owns | state |\n| --- | --- | --- |\n| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |\n| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |\n\n## Operate\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |\n\n## Reference\n\n| doc | owns | state |\n| --- | --- | --- |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n\n## Product and decisions\n\n| doc | owns | state |\n| --- | --- | --- |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
+        "lines": 31,
         "template": "INDEX.md (built in)"
       },
       "docs/PRODUCT.md": {
@@ -338,12 +337,6 @@
         "lines": 33,
         "template": "references/templates/PRODUCT.md",
         "why": "purpose (always)"
-      },
-      "docs/RUNBOOK.md": {
-        "concern": "operate",
-        "lines": 21,
-        "template": "references/templates/RUNBOOK.md",
-        "why": "operate (ops: src/routes/health.js)"
       },
       "docs/TESTING.md": {
         "concern": "testing",
@@ -360,8 +353,7 @@
     },
     "index_groups": {
       "Operate": [
-        "| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |",
-        "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |"
+        "| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |"
       ],
       "Product and decisions": [
         "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
@@ -381,11 +373,10 @@
       "| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |",
       "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
       "| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |",
-      "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |",
       "| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |"
     ],
     "print_only": {
-      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a service, an environment variable, a build or start command, a deploy step | `docs/DEPLOYMENT.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a test runner, where tests live, how to run them, or what gates a merge | `docs/TESTING.md` *(apply creates this)* |\n| a health check, a scheduled job, an alert, or what to do when one fires | `docs/RUNBOOK.md` *(apply creates this)* |\n| how a change gets proposed, reviewed or merged | `docs/CONTRIBUTING.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a service, an environment variable, a build or start command, a deploy step | `docs/DEPLOYMENT.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a test runner, where tests live, how to run them, or what gates a merge | `docs/TESTING.md` *(apply creates this)* |\n| a health check, a scheduled job, an alert, or what to do when one fires | [docs/h3-style.md](docs/h3-style.md) |\n| how a change gets proposed, reviewed or merged | `docs/CONTRIBUTING.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
@@ -437,7 +428,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 7
+      "warnings": 6
     },
     "R13": {
       "failures": 0,
@@ -528,6 +519,17 @@
     }
   },
   "sections": {
+    "docs/h3-style.md": {
+      "concern": "operate",
+      "missing": [
+        "Health",
+        "Scheduled jobs",
+        "Alerts",
+        "When something is wrong"
+      ],
+      "owner": "reviewed",
+      "sections": {}
+    },
     "docs/setup.md": {
       "concern": "develop",
       "missing": [
@@ -579,8 +581,8 @@
     }
   ],
   "totals": {
-    "concerns_covered": 1,
-    "concerns_missing": 7,
+    "concerns_covered": 2,
+    "concerns_missing": 6,
     "docs_checked": 10,
     "failures": 5,
     "non_doc_files": 0,
@@ -588,11 +590,11 @@
     "split_candidates": 4,
     "states": {
       "draft": 0,
-      "missing": 5,
+      "missing": 9,
       "reviewed": 2,
       "skeleton": 0
     },
-    "warnings": 15
+    "warnings": 14
   },
   "unreachable": [
     "docs/crlf-sample.md",
