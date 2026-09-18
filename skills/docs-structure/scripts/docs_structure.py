@@ -80,7 +80,9 @@ TOP_LEVEL_SKIP = {"dist", "build"}
 DOC_EXTS = {".md", ".mdx"}
 # Documentation this tool cannot parse. Their presence is worth saying out loud, because the
 # concern they cover is covered whether or not the checker can read it.
-OTHER_DOC_EXTS = {".adoc", ".asciidoc", ".rst", ".txt", ".org", ".textile"}
+# .txt is deliberately absent: a log file and an llms.txt are not documentation, and calling
+# them "a concern this covers" is worse than saying nothing.
+OTHER_DOC_EXTS = {".adoc", ".asciidoc", ".rst", ".org", ".textile"}
 ROOT_FILES = ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md")
 DOCS_FOLDER_NAMES = ("docs", "doc", "documentation")
 PACKAGE_MANIFESTS = ("package.json", "pyproject.toml", "setup.py", "setup.cfg", "go.mod", "Cargo.toml", "pom.xml",
@@ -262,7 +264,7 @@ SETEXT_RE = re.compile(r"^ {0,3}(=+|-+)\s*$")
 CODESPAN_RE = re.compile(r"`[^`\n]*`")
 BOX_RE = re.compile(r"^\s*[-*] \[( |~|x|X)\]")
 DATE_RE = re.compile(r"\b20\d{2}-\d{2}(-\d{2})?\b")
-PREFIX_RE = re.compile(r"^([A-Z]{2,}-\d+|20\d{2}-\d{2}(-\d{2})?)[-_ .]")
+PREFIX_RE = re.compile(r"^([A-Za-z]{2,}-\d+|20\d{2}-\d{2}(-\d{2})?)[-_ .]")
 PLACEHOLDER_MARKERS = ("(auto, review me)", "| unreviewed |", "(skeleton, write me)", "| skeleton |", "(draft, review me)", "| draft |")
 DRAFT_MARK = "*(draft, review me)*"
 # Link targets that are examples, not promises: `[text](url)`, `[x](javascript:...)`, `[y](path/to/file)`.
@@ -1323,7 +1325,10 @@ class Doc:
         self.lines = self.raw.splitlines()
         # HTML comments are blanked before anything reads the text: parking a stale link in a
         # comment is routine, and reporting it as a P1 dead link punishes the tidy thing to do.
-        self.clean = strip_fences(strip_html_comments(self.raw).splitlines())
+        # Fences first, then comments. The other order let a `<!--` shown inside a fenced
+        # example - this skill's own start-here marker, for instance - blank everything up to
+        # the next real comment, and R5 and R7 went silent with no warning.
+        self.clean = strip_html_comments("\n".join(strip_fences(self.raw.splitlines()))).splitlines()
         # links and citations are scanned with inline code removed as well
         self.nocode = [CODESPAN_RE.sub("", l) for l in self.clean]
         self.balanced = fences_balanced(self.lines)
@@ -2051,6 +2056,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         keep = [f for f in findings if f not in r1]
         first = ", ".join(f["path"] for f in r1[:3])
         keep.append({"rule": "R1", "severity": SEVERITY["R1"], "level": "fail",
+                     "docs": [f["path"] for f in r1],
                      "path": central_rel or roots_rel[0] if roots_rel else ".", "line": 1,
                      "message": (f"{len(r1)} docs are not linked from {central_rel} (first: {first}). "
                                  f"One index that links them, or a manifest naming the one this repo uses."

@@ -578,7 +578,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # A table cell and a YAML-style colon are both "beside". Matching only NAME=value
                 # let a live secret through in the column layout DEPLOYMENT.md asks for.
                 for name in names:
-                    hit = re.search(rf"\b{re.escape(name)}\b\s*(?:[=:]|\|)\s*([^\s|]+)", joined)
+                    # `` `? `` after the name: every Markdown table writes identifiers in code
+                    # spans, and the closing backtick sat between the name and the separator, so
+                    # the one rule that keeps values out of drafts was defeated by ordinary
+                    # formatting - in the very table the DEPLOYMENT template asks for.
+                    hit = re.search(rf"\b{re.escape(name)}\b`?\s*(?:[=:]|\|)\s*`?([^\s|`]+)", joined)
                     # A value has the shape of one. "Not a placeholder word" made the env table
                     # the DEPLOYMENT template asks for unwritable: a 200-row table produced 112
                     # findings, none of them a value, and whether a row passed depended on
@@ -706,7 +710,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 for name in names:
                     # [=:] as outside a fence: NAME: value is compose, k8s and YAML shape, which
                     # is where the DEPLOYMENT template's own evidence comes from.
-                    hit = re.search(rf"\b{re.escape(name)}\b\s*[=:]\s*([^\s]+)", s_)
+                    hit = re.search(rf"\b{re.escape(name)}\b`?\s*[=:]\s*`?([^\s`]+)", s_)
                     if hit and not PLACEHOLDER_VALUE.match(hit.group(1)):
                         add("G7", idx + 1, f"a value is written beside {name} inside a fenced block; "
                                            f"drafts carry names, never values")
@@ -794,7 +798,7 @@ def drafted_docs(repo: Path, near: list[str] | None = None) -> list[str]:
     return out
 
 
-def render(data: dict, cap: int, strict: bool = False) -> str:
+def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = None) -> str:
     lines = ["# Fill Gate", "", f"Repo: {data['repo']}",
              f"Docs checked: {len(data['docs'])}   Findings: {data['total']}"]
     if not data["docs"]:
@@ -817,7 +821,8 @@ def render(data: dict, cap: int, strict: bool = False) -> str:
             lines.append(f"  {f['doc']}: [{f['rule']}] {f['message']}")
     for w in data["warnings"]:
         lines.append(f"note: {w}")
-    blocking = [f for f in data["findings"] if strict or f.get("level") != "skipped"]
+    blocking = ([f for f in data["findings"] if strict or f.get("level") != "skipped"]
+                if blocked is None else ([1] if blocked else []))
     if blocking:
         lines.append("")
         lines.append("Nothing should be written while any finding stands: fix the draft, then run this again.")
@@ -855,6 +860,8 @@ def main() -> int:
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
     ap.add_argument("--max-lines", type=int, default=0, help="draft line cap (default: half the manifest's splitAt, else 250)")
     ap.add_argument("--cap", type=int, default=40, help="findings printed per doc in text mode (default 40)")
+    ap.add_argument("--wrote", action="append", default=[], metavar="DOC#SECTION",
+                    help="a section this run drafted, as path#Heading. With --strict, only\n                         sections named here are required to carry the marker, so a part-reviewed\n                         document can still be refilled")
     ap.add_argument("--strict", action="store_true",
                     help="treat an unjudged section as a failure; use it after a fill run, "
                          "where a dropped marker is the likeliest slip and unjudged is not clean")
@@ -904,6 +911,14 @@ def main() -> int:
     if targets and not is_git_repo(SHA_REPO):
         warnings.append("commits were not verified: no git repository here. Pass --git-repo <the real repo> to check [sha date] brackets.")
     findings: list[dict] = []
+    # A finding per document citing a commit nobody can check, so --strict refuses rather
+    # than passing an invented sha in silence. A note printed under an OK reads as permission.
+    if targets and not is_git_repo(SHA_REPO or repo):
+        for rel in targets:
+            if any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(read(repo / rel))):
+                findings.append({"doc": rel, "line": 1, "rule": "G0", "level": "skipped",
+                                 "message": "cites a commit, and no git repository is reachable "
+                                            "here, so the sha was not checked; pass --git-repo"})
     for rel in near_misses:
         findings.append({"doc": rel, "line": 1, "rule": "G0", "level": "skipped",
                          "message": f"the draft marker is misspelled here, so this document was "
@@ -911,19 +926,35 @@ def main() -> int:
     for rel in targets:
         findings.extend(check_doc(repo, rel, names, args.max_lines, numbers))
 
+    # --strict blocks on unjudged sections, but only the ones this run drafted when --wrote
+    # names them. Without that, a document with one reviewed section could never be refilled -
+    # the messy-middle workflow the design exists for.
+    wrote = {w.strip() for w in args.wrote}
+    def blocks(f: dict) -> bool:
+        if f.get("level") != "skipped":
+            return True
+        if not args.strict:
+            return False
+        if not wrote:
+            return True
+        head = f["message"].split("'")[1] if "'" in f["message"] else ""
+        # --wrote names what this run drafted. A skipped section the run did not write is a
+        # person's prose and must not block; one it did write and left unmarked must.
+        return f"{f['doc']}#{head}" in wrote
+    blocking = [f for f in findings if blocks(f)]
+
     data = {"repo": str(repo), "docs": targets, "findings": findings,
             "count_authorities": sorted(numbers or {}),
             "total": len(findings), "warnings": warnings}
     if args.format == "json":
         print(json.dumps(data, indent=2, sort_keys=True))
     else:
-        print(render(data, args.cap, args.strict))
+        print(render(data, args.cap, args.strict, bool(blocking)))
     # G0 rows say what the gate did not judge. They are information, not a defect: failing on
     # them meant a doc with one reviewed section could never be refilled, which is the whole
     # messy-middle workflow.
     # --strict: after a fill run, a section the gate did not judge is not a section that passed.
     # Without it, one dropped marker turned the gate green over prose breaking six of ten rules.
-    blocking = [f for f in findings if args.strict or f.get("level") != "skipped"]
     return 1 if (args.fail_on_findings and blocking) else 0
 
 

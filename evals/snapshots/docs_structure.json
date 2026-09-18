@@ -418,9 +418,7 @@
     "proposed_path": null,
     "source": "found"
   },
-  "other_format_docs": [
-    "requirements.txt"
-  ],
+  "other_format_docs": [],
   "proposed_manifest": null,
   "record_folders": [],
   "repo": "<fixture>",
