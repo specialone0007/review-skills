@@ -6,7 +6,7 @@ Maintainer tool. Standard library only.
     python tools/validate_evals.py                    # validate cases + check snapshots
     python tools/validate_evals.py --update-snapshots # rewrite snapshots after a deliberate change
     python tools/validate_evals.py --checklist         # print every case as a manual checklist
-    python tools/validate_evals.py --checklist security-audit
+    python tools/validate_evals.py --checklist docs-sync-audit
 
 Two tiers, and the split is deliberate.
 
@@ -46,14 +46,11 @@ MIN_CASES = 3
 # survey inside the fixture instead of expanding to this repo.
 #
 # `drop` removes keys whose value depends on the machine rather than the fixture,
-# so a snapshot stays comparable between a laptop and a CI runner. dependency_audit
-# reports which auditors are installed, which legitimately differs per machine; its
-# offline_signals are the deterministic part worth locking down.
+# so a snapshot stays comparable between a laptop and a CI runner (none of the current
+# scripts needs it; the option stays for the next one that reports something machine-bound).
 SNAPSHOT_SCRIPTS = {
     "repo_inventory": {"path": "skills/repo-health-audit/scripts/repo_inventory.py", "drop": []},
     "coverage_map": {"path": "skills/test-gap-audit/scripts/coverage_map.py", "drop": []},
-    "dependency_audit": {"path": "skills/security-audit/scripts/dependency_audit.py",
-                         "drop": ["auditors"]},
     "docs_drift": {"path": "skills/docs-sync-audit/scripts/docs_drift.py", "drop": []},
     "docs_structure": {"path": "skills/docs-structure/scripts/docs_structure.py", "drop": []},
     "docs_evidence": {"path": "skills/docs-structure/scripts/docs_evidence.py", "drop": []},

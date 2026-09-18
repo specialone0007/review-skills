@@ -133,4 +133,4 @@ git diff --find-renames <merge-base>..HEAD
 
 - Use available shell, search, git, GitHub, or MCP tools as appropriate. The evidence you gather matters more than the tool names used to gather it.
 - If the remote is unreachable, compare against the local base ref, and label the base as possibly stale in the report.
-- In hosts that support inline review comments, do not emit them from this skill; it drafts communication rather than review findings. Use `feature-audit` or `security-audit` when inline findings are wanted.
+- In hosts that support inline review comments, do not emit them from this skill; it drafts communication rather than review findings. Use `feature-audit` when inline findings are wanted.

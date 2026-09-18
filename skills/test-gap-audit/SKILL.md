@@ -1,6 +1,6 @@
 ---
 name: test-gap-audit
-description: Run a read-only audit for missing, weak, stale, or mis-scoped test coverage. If the user does not name a scope, audit the full repository and identify important code paths, routes, features, services, workflows, and contracts that lack proper tests. If the user names a feature, PR, branch, route, workflow, service, bug fix, API, security-sensitive path, or risky code change, focus only on that specific scope. Use when the user asks what tests are missing, whether coverage is enough, what regression tests to add, or how to prove a change is safe. This is not a general bug audit; use feature-audit for product readiness defects and security-audit for security risks.
+description: Run a read-only audit for missing, weak, stale, or mis-scoped test coverage. If the user does not name a scope, audit the full repository and identify important code paths, routes, features, services, workflows, and contracts that lack proper tests. If the user names a feature, PR, branch, route, workflow, service, bug fix, API, security-sensitive path, or risky code change, focus only on that specific scope. Use when the user asks what tests are missing, whether coverage is enough, what regression tests to add, or how to prove a change is safe. This is not a general bug audit; use feature-audit for product readiness defects and security risks.
 license: MIT
 ---
 
@@ -163,7 +163,7 @@ When the user asks to add tests:
 ## Related Skills
 
 - Use `feature-audit` when the ask is to find product bugs rather than evaluate coverage.
-- Use `security-audit` when the ask is whether a security-sensitive path is safe, not whether it is tested.
+- Use `feature-audit` when the ask is whether a security-sensitive path is safe, not whether it is tested.
 
 ## Agent Portability Notes
 

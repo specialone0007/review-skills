@@ -10,19 +10,19 @@ It exists so the eval cases in `evals/*.json` have a target with known problems,
 
 | Defect | Where | Skill |
 | --- | --- | --- |
-| Export lookup has no ownership check — any caller can read any export by id | `mini-app/src/routes/exports.js` | `security-audit` |
-| User deletion has no role check and no confirmation step | `mini-app/src/routes/admin.js` | `security-audit`, `feature-audit` |
+| Export lookup has no ownership check — any caller can read any export by id | `mini-app/src/routes/exports.js` | `feature-audit` |
+| User deletion has no role check and no confirmation step | `mini-app/src/routes/admin.js` | `feature-audit` |
 | `exports.js` and `admin.js` have no tests at all | `mini-app/tests/` | `test-gap-audit` |
 | `smoke.test.js` has a test case but no assertions | `mini-app/tests/smoke.test.js` | `test-gap-audit` |
 | README documents `npm run dev`; the actual script is `dev:start` | `mini-app/README.md`, `mini-app/package.json` | `docs-sync-audit` |
 | README documents `MAX_EXPORT_ROWS` and `API_TOKEN`; only one is wired to anything meaningful | `mini-app/README.md`, `mini-app/src/config.js` | `docs-sync-audit` |
 | `formatDate` is duplicated verbatim in two places | `mini-app/src/lib/format-date.js`, `mini-app/src/utils/format-date.js` | `repo-health-audit` |
 | `src/utils/` is a catch-all directory | `mini-app/src/utils/` | `repo-health-audit` |
-| A `postinstall` hook runs code automatically on install | `mini-app/package.json` | `security-audit` |
-| `left-pad` is pinned to `*`, accepting any published version | `mini-app/package.json` | `security-audit` |
-| `local-helper` resolves via `file:`, outside any registry and outside advisory coverage | `mini-app/package.json` | `security-audit` |
-| No lockfile despite declared dependencies, so installs are not reproducible | `mini-app/` | `security-audit` |
-| `requirements.txt` pins every dependency with `==` but has no lockfile, so this must be reported as **low**, not medium | `mini-app/requirements.txt` | `security-audit` |
+| A `postinstall` hook runs code automatically on install | `mini-app/package.json` | none since 2026-09-18 (security-audit was removed); kept as an inert fixture defect |
+| `left-pad` is pinned to `*`, accepting any published version | `mini-app/package.json` | none since 2026-09-18; kept |
+| `local-helper` resolves via `file:`, outside any registry and outside advisory coverage | `mini-app/package.json` | none since 2026-09-18; kept |
+| No lockfile despite declared dependencies, so installs are not reproducible | `mini-app/` | none since 2026-09-18; kept |
+| `requirements.txt` pins every dependency with `==` but has no lockfile, so this must be reported as **low**, not medium | `mini-app/requirements.txt` | none since 2026-09-18; kept |
 | `docs/` has no central index; the manifest names `docs/INDEX.md`, which does not exist. Must be reported as **one** finding, anchored to the manifest line | `mini-app/docs/structure.json` | `docs-structure` |
 | `setup.md` links to `#configuration`; the heading is `## Config` | `mini-app/docs/setup.md` | `docs-structure` (anchors are this skill's alone; both skills flag a dead relative link) |
 | `setup.md` cites `src/config.js:12`, a line number into source | `mini-app/docs/setup.md` | `docs-structure` |

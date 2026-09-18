@@ -18,7 +18,7 @@
       "id": "security-goes-elsewhere",
       "kind": "anti-trigger",
       "prompt": "is the admin delete endpoint safe",
-      "expect_skill": "security-audit"
+      "expect_skill": "feature-audit"
     },
     {
       "id": "finds-planted-gaps",
