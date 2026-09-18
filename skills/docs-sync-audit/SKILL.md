@@ -33,7 +33,7 @@ Accept any docs-sync target, including:
 - CLI/workflows: `check command docs`, `does onboarding match the current flow`.
 - Whole repo docs hygiene when explicitly requested.
 
-If scope is unclear, infer the smallest useful boundary and state it. If no scope is stated, do not ask for one; proceed with a full-repo docs audit. Ask only when different scopes would produce materially different doc checks.
+Two cases, in this order. No scope stated at all: do not ask; run the full-repository audit described under Core Rules. A scope stated but fuzzy ("the billing stuff"): infer the smallest useful boundary, state it in the report header, and ask only when different readings would produce materially different doc checks.
 
 ## Discovery Workflow
 
@@ -48,11 +48,12 @@ If scope is unclear, infer the smallest useful boundary and state it. If no scop
    - For generated docs, locate the source file, generator command, committed output, and any docs build or codegen step before deciding where updates belong.
 
 3. Compare code and docs.
-   - Run the bundled `scripts/docs_drift.py` first when it is available. It checks only claims with a definite answer: documented `npm run` scripts and `make` targets against the ones that exist, relative Markdown links against the filesystem, and environment variable names in both directions between docs and code. The path is relative to this skill's own directory, which varies by host. Use `python` if `python3` is not on PATH.
+   - Run the bundled `scripts/docs_drift.py` first when it is available. It checks only claims with a definite answer, five kinds: documented `npm run` / `make` / script commands against what exists; relative Markdown links against the filesystem; environment variable names in both directions (documented but nothing reads it, read but documented nowhere); a documented variable read only in a module nothing imports or invokes; and docs untouched long after the code they describe (`stale-doc`, low severity, one aggregated row past eight). Backticked paths are a sixth, opt-in kind (`--check-paths`). The path is relative to this skill's own directory, which varies by host. Use `python` if `python3` is not on PATH.
    - `python <skill-dir>/scripts/docs_drift.py --top 30`, or `--format json` to filter results yourself.
    - It flags a documented setting that is read only inside a module nothing imports, which is config that reads as working but cannot take effect. Confirm the module really is unreachable before reporting it: the check uses name matching and cannot see dynamic imports.
    - Add `--check-paths` only when you want backticked paths checked too. It is off by default because most such references are ambiguous, and on a large repo the noise buries the real findings. Read its output as leads, not findings.
    - The script never judges prose. Wording, completeness, and whether an explanation is actually correct are your job, and are usually where the important drift is.
+   - Every script finding is a lead until you have opened both sides. Confirm the doc line and the source line yourself before it enters the report; the script's own footer says the same. An `undocumented-env` row has no doc line (its `doc` is the placeholder `(docs)`): cite the source line it names and the doc *area* where the variable belongs - the reading service's `.env.example`, the deployment doc's env table. A `stale-doc` row is a prompt to read the doc against current behaviour, never a finding on its own.
    - Commands/scripts: names, arguments, package manager, working directory, prerequisites, outputs.
    - APIs: routes, methods, auth requirements, request/response shape, status codes, errors, pagination, webhooks, versioning.
    - Config/env: required vars, defaults, examples, secrets, feature flags, deployment settings.
