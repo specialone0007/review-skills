@@ -127,6 +127,13 @@ NEGATION = re.compile(
     r"|\bno (?:\w+ ){0,3}(?:exists?|existed|is|are|was|were|found|applies|applied)\s+\w+"
     r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\s+(?!a\b|an\b|the\b)(?!recorded|documented|stated|named|written|commented|described|mentioned)[a-z`\"']\w*"
     r"|\b(?:is|are|was|were)\s+(?:\w+\s+){0,2}(?:missing|nonexistent|non-existent|unauthenticated|unprotected|unvalidated|unchecked|unenforced)\b"
+    # "reach every handler unauthenticated", "no middleware checks", "guarded by nothing", "left
+    # out of every route": the sentences a security paragraph is actually made of, and each
+    # walked past the shapes above. Still a phrase test, and the report still says so.
+    r"|\b(?:unauthenticated|unprotected|unvalidated|unchecked|unenforced|unguarded)\b"
+    r"|\bno\s+\w+\s+(?:checks?|verif(?:y|ies)|validates?|guards?|protects?|enforces?|requires?|inspects?)\b"
+    r"|\b(?:guarded|protected|checked|validated|covered|backed)\s+by\s+(?:nothing|no one|nobody|none)\b"
+    r"|\bleft out\b|\bopted out\b|\bturned off\b|\bdisabled\b(?!\s+by)"
     r"|\bnowhere to be (?:found|seen)\b"
     # "none found" in a table cell is the wording structure.md and the API template hand fill for
 # the guard column. It is a finding in prose, where it is a claim; in a cell it is the column's

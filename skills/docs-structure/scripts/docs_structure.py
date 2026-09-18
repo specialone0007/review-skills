@@ -1482,7 +1482,7 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
 
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
                front_links_index: bool, root_docs: bool, docs_root: str = "docs", package_docs: list[str] | None = None,
-               front_has_start_here: bool = True) -> dict | None:
+               front_has_start_here: bool = True, central_rel: str | None = None) -> dict | None:
     """What apply would create. Names templates, never carries content; the agent copies them."""
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"]]
@@ -1495,8 +1495,17 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     manifest = {
         # Only tracked files: a gitignored CLAUDE.md is on this machine, not in the clone the
         # manifest travels to, and a root that does not exist there is a warning for everyone.
-        "roots": ([docs_root] + [f for f in ROOT_FILES if tracked_file(repo, f)] + list(package_docs or [])) if not root_docs else ["*.md"] + list(package_docs or []),
-        "centralIndex": "README.md" if root_docs else f"{docs_root}/INDEX.md",
+        # Under root-docs the glob already covers every root file, so only a package's own doc
+        # (one with a folder in its path) is worth naming beside it.
+        "roots": ([docs_root] + [f for f in ROOT_FILES if tracked_file(repo, f)] + list(package_docs or [])) if not root_docs
+                 else ["*.md"] + [p for p in (package_docs or []) if "/" in p],
+        # The index that exists, when one does. This hardcoded docs/INDEX.md whether or not
+        # detection had just found docs/README.md, and the merge below copied it into the
+        # printed proposal - so on the commonest GitHub layout apply wrote a manifest naming a
+        # file it never created, and the repository that had just passed failed on the next
+        # run with "no central index".
+        "centralIndex": (central_rel if have_index and central_rel
+                         else "README.md" if root_docs else f"{docs_root}/INDEX.md"),
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
         "splitAt": 500,
@@ -1938,7 +1947,14 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     add("R4", irel, 1, f"index does not link {d.rel}, which sits in its folder")
             elif central_exists:
                 if d.rel not in central_links:
-                    add("R1", d.rel, 1, f"not linked from the central index {central_rel}")
+                    # Under discovery rule (c) the README is the index by fiat, not by anyone's
+                    # decision, so a root file it does not link is advice: ripgrep went red in
+                    # CI on its first run over AI_POLICY.md. Once a manifest names the index, the
+                    # team has said so, and the finding is theirs.
+                    add("R1", d.rel, 1, f"not linked from the central index {central_rel}"
+                        + (" - the README is the index by discovery; confirm it in a manifest to enforce this"
+                           if root_docs and manifest_path is None else ""),
+                        "warn" if root_docs and manifest_path is None else "fail")
             else:
                 unreachable.append(d.rel)
 
@@ -2288,7 +2304,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
     front_has = has_start_here(by_rel.get(front_rel) or Doc(front, repo)) if front.is_file() else False
     init = None if (generator is not None or ambiguous or unreadable) else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
-                                                          discovery.get("package_docs", []) if discovery else [], front_has)
+                                                          discovery.get("package_docs", []) if discovery else [], front_has,
+                                                          central_rel)
 
     # ---- placeholders
     placeholders = 0
