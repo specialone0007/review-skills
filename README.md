@@ -208,11 +208,11 @@ Every doc in this repository, what it owns, and its state. One doc owns each fac
 
 | doc | owns | state |
 | --- | --- | --- |
-| this README | what the collection is, the skills it holds, how to install it | reviewed |
+| this README | what the collection is, the skills it holds, how to install it | reviewed 2026-09-16 |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | the parts of this collection, how a skill is put together, and what checks each part | draft |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | how to add or change a skill, and what must pass before a PR | reviewed |
-| [examples/README.md](examples/README.md) | what the example reports are and how they were produced | reviewed |
-| [evals/fixtures/README.md](evals/fixtures/README.md) | the deliberately defective fixtures and the defects each one plants | reviewed |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | how to add or change a skill, and what must pass before a PR | reviewed 2026-09-16 |
+| [examples/README.md](examples/README.md) | what the example reports are and how they were produced | reviewed 2026-09-16 |
+| [evals/fixtures/README.md](evals/fixtures/README.md) | the deliberately defective fixtures and the defects each one plants | reviewed 2026-09-16 |
 
 ## License
 
