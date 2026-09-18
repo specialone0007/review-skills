@@ -98,7 +98,8 @@ INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to|intended to
 # promise, and it is the ordinary way to write that sentence.
 # Contracted and periphrastic too: shouldn't, won't, has to, needs to are how a promise is
 # actually written, and the four bare words caught none of them.
-MODAL = re.compile(r"\b(should|shouldn't|must|mustn't|will|won't|can't|cannot|shall|may|might|could|would|guarantees|has to|have to|needs? to|ought to)\b", re.I)
+MODAL = re.compile(r"\b(should|shouldn't|must|mustn't|will|won't|can't|cannot|shall|may|might|could|would|guarantees|has to|have to|needs? to|ought to"
+                   r"|(?:is|are|was|were)\s+(?:going|supposed|expected|required|guaranteed|meant)\s+to)\b", re.I)
 # A count is the weakest sentence a draft can carry: two scanners give two answers and the
 # reader cannot tell which one wrote the doc. A number has to be one the inventory reports.
 # Things a repository scan counts. A number in front of one of these is an aggregate someone
@@ -196,12 +197,17 @@ OWNER_LINE = re.compile(r"^>?\s*\*\*(?:This document owns|Part of)")
 REDACTABLE = re.compile(r"\b(?:sk|pk|rk)[-_][A-Za-z0-9_-]{16,}|\bAIza[A-Za-z0-9_-]{20,}"
                         r"|\bglpat-[A-Za-z0-9_-]{16,}|\b(?:hf|npm)_[A-Za-z0-9]{20,}"
                         r"|\bghp_[A-Za-z0-9]{20,}|\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}"
-                        r"|\b[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@")
+                        r"|\b[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@"
+                        # user:pass@host with no scheme - app:hunter2@db:5432/app - is a
+                        # credential wherever it appears; the scheme was never the signal.
+                        r"|(?<![\w/])[A-Za-z][\w.-]*:[^\s:@/|`]+@[\w.-]+")
 # A URL, an assignment, a bare number, or a long opaque run. Prose after a colon is not a value.
 LOOKS_LIKE_VALUE = re.compile(r"://|=|^\d[\d._-]*$|^[A-Za-z0-9+/_-]{16,}$")
 # Names that say the value beside them is a credential. Kept in step with
 # docs_evidence.SECRET_NAME, which is what the inventory flags as secret_like.
-SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
+# A connection string is a value with a credential in it more often than not, so the names
+# that hold one are read like the names that say secret.
+SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH|_URL$|_URI$|DSN|CONNECTION|CONN_STR)", re.I)
 # What a secret_like column holds instead of a value: structure.md asks for that flag, and it
 # is a yes or a no, not a password.
 FLAG_VALUE = re.compile(r"^(?:yes|no|y|n|true|false|server|client|build|runtime|redacted|hidden|masked|server-only|client-only|build-time|build-only|internal|public|private)$", re.I)
@@ -408,6 +414,28 @@ def quote_sources(repo: Path, refs: list[str]) -> list[str]:
     return [o for o in out if o]
 
 
+_COMMIT_DATES: dict[str, set[str]] = {}
+
+
+def commit_dates(repo: Path, sha: str) -> set[str]:
+    """The commit's committer and author dates, YYYY-MM-DD; empty when git cannot say."""
+    if sha in _COMMIT_DATES:
+        return _COMMIT_DATES[sha]
+    out: set[str] = set()
+    git = shutil.which("git")
+    if git is not None and is_git_repo(repo):
+        try:
+            p = subprocess.run([git, "show", "-s", "--format=%cs%n%as", sha], cwd=str(repo), text=True,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=GIT_TIMEOUT,
+                               encoding="utf-8", errors="replace")
+            if p.returncode == 0:
+                out = {l.strip() for l in p.stdout.splitlines() if l.strip()}
+        except (OSError, subprocess.SubprocessError):
+            out = set()
+    _COMMIT_DATES[sha] = out
+    return out
+
+
 _GATE_LISTING: dict[str, set[str]] = {}
 # Asked once per tree: sha_known calls this for every [sha date] bracket, so a decisions
 # section citing twenty commits was spawning forty git processes.
@@ -465,8 +493,14 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
                 return f"no such inventory key: {key}"
             continue
         if SHA_REF.match(part):
-            if not sha_known(SHA_REPO or repo, part.split()[0]):
+            sha, when = part.split()[0], part.split()[1]
+            if not sha_known(SHA_REPO or repo, sha):
                 return f"commit not in this repository: {part}"
+            # SKILL.md says dates come only from git, and the bracket is the one place a draft
+            # may carry one - so an invented date used to ride through on a real sha.
+            dates = commit_dates(SHA_REPO or repo, sha)
+            if dates and when not in dates:
+                return f"the date beside {sha} is not its commit date ({' or '.join(sorted(dates))}): {part}"
             continue
         # A [path: key] bracket asserts the key is in that file. Accepting it unread let
         # "[src/api/admin.js: guard]" clear G10 on the very sentence SKILL.md names as the
@@ -710,10 +744,12 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # holding one bold sentence was skipped as a skeleton: no marker, no bracket, an
         # unscoped absence, and no G0 for --strict to see. The gate's own docstring calls
         # silent approval the one failure it must not have.
+        # The template's own line and nothing else. "Any single-asterisk italic" was the bold
+        # one-liner bug back one character over: *No authorization guard is applied to any
+        # handler.* was skipped as a skeleton with no G0 for --strict to see. A sentence in
+        # italics is a sentence; it carries no marker, so it is reported as unjudged below.
         one = body[0].strip() if len(body) == 1 else ""
-        italic_only = (one.startswith("*") and one.endswith("*") and not one.startswith("**")
-                       and not one.endswith("**") and one != DRAFT_MARK)
-        if one and one != DRAFT_MARK and (is_template_text([one]) or italic_only):
+        if one and one != DRAFT_MARK and is_template_text([one]):
             continue
         # A section holding the marker and nothing else said "drafted" and carried no draft.
         # SKILL.md asks for a sentence or an `open question:` line; silence is neither.
@@ -1162,7 +1198,9 @@ def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = No
                "No finding. Nothing here blocks a write.")
     if data["docs"]:
         lines.append("")
-        unjudged = sorted(set(COUNT_NOUNS) - set(data.get("count_authorities") or []))
+        first = ("routes", "endpoints", "tables", "migrations", "names", "variables", "packages")
+        unjudged = sorted(set(COUNT_NOUNS) - set(data.get("count_authorities") or []),
+                          key=lambda n: (n not in first, first.index(n) if n in first else 0, n))
         if unjudged:
             shown = ", ".join(unjudged[:14])
             more = "" if len(unjudged) <= 14 else " and %d more" % (len(unjudged) - 14)
