@@ -138,7 +138,11 @@ NEGATION = re.compile(
     # a miss puts an audited-sounding security claim in a document nobody audited.
     r"|(?:^|[.!?]\s+)(?:no|without)\s+(?!one\b|longer\b|doubt\b|matter\b|more\b)\w+"
     # "run with no guard", "ships without a check": the mid-sentence forms of the same claim.
-    r"|\bwith no\s+\w+|\bwithout\s+(?:a|an|any|the)\s+\w+"
+    r"|\bwith no\s+\w+|\bwithout\s+(?!--)(?:(?:a|an|any|the)\s+)?\w+"
+    # "is skipped on every route", "is off for", "only the login route checks": three more
+    # sentences a security paragraph is made of. The report still says this is a phrase test.
+    r"|\b(?:is|are|was|were|remains?|stays?)\s+(?:skipped|disabled|off|absent|omitted|bypassed|unset)\b(?!\s+by)"
+    r"|\bonly\s+(?:the\s+)?\w+(?:\s+\w+){0,2}\s+(?:checks?|requires?|guards?|verif(?:y|ies)|validates?|enforces?|protects?)\b"
     r"|\bnowhere to be (?:found|seen)\b"
     # "none found" in a table cell is the wording structure.md and the API template hand fill for
 # the guard column. It is a finding in prose, where it is a claim; in a cell it is the column's
@@ -798,6 +802,28 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # The whole field after the separator, not its first token: whether a table
                 # cell is a value or a description is the difference between one word and a
                 # sentence, and the rule has to be able to tell them apart.
+                # A table row is read cell by cell. The regex below reads the one field after the
+                # name, and structure.md asks for name, service, secret_like, then the rest - so
+                # hunter2 in the fourth column, and 3000 beside PORT, were never looked at, in
+                # the exact layout the skill prescribes.
+                if joined.lstrip().startswith("|"):
+                    cells = [c.strip() for c in joined.strip().strip("|").split("|")]
+                    at = next((i for i, c in enumerate(cells) if re.search(rf"\b{re.escape(name)}\b", c)), None)
+                    if at is None:
+                        continue
+                    for cell in cells[at + 1:]:
+                        words = BRACKET_ANY.sub(" ", cell).replace("`", " ").split()
+                        if not words:
+                            continue
+                        val = words[0].rstrip(".,;")
+                        if PLACEHOLDER_VALUE.match(val) or FLAG_VALUE.match(val):
+                            continue
+                        secretish = bool(SECRET_NAME.search(name)) and (len(words) == 1 or val.lower() not in PROSE_LEAD)
+                        valueish = any(LOOKS_LIKE_VALUE.search(w_.rstrip(".,;")) for w_ in words)
+                        if secretish or valueish:
+                            add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
+                            break
+                    continue
                 hit = re.search(rf"\b{re.escape(name)}\b`?\s*([=:]|\|)\s*([^|\[\n]*)", joined)
                 if not hit:
                     continue
@@ -1005,7 +1031,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     add("G3", n, f"line-number citation: {LINE_CITE.search(row_no_urls).group(0)}")
                 # Joined with the pipe intact: G7 reads "name | value" as a value beside a
                 # name, and splitting the row on pipes first hid exactly that shape.
-                semantics(" | ".join(cells), n)
+                # With the outer pipes too, so the rules can tell a row from a sentence and read
+                # it cell by cell.
+                semantics("| " + " | ".join(cells) + " |", n)
                 continue
             # A bullet is its own claim. Treated as a continuation of the paragraph above, a
             # list of five fabricated statements needed one bracket on the last line to pass

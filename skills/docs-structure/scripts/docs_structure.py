@@ -2246,7 +2246,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     if front_rel != "README.md" and not front_here:
         warnings.append(f"frontDoor {front_rel} does not exist")
     if (central_exists and front_here and not r1_off and not exempt("R11", front_rel)
-            and front.resolve() != central.resolve()):
+            and os.path.normpath(str(front)) != os.path.normpath(str(central))):
         fdoc = by_rel.get(front_rel) or Doc(front, repo)
         outgoing = links_out(fdoc)
         # `[docs](docs/)` renders as docs/README.md on GitHub, so a folder link reaches an
