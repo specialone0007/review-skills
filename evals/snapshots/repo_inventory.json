@@ -13,17 +13,24 @@
     ]
   },
   "deepest_paths": [
+    "src/app/api/items/[sku]/route.js",
+    "docs/guide/advanced.md",
+    "src/api/OwnerController.java",
     "src/lib/format-date.js",
     "src/routes/admin.js",
     "src/routes/exports.js",
     "src/routes/health.js",
+    "src/utils/fast-path.js",
     "src/utils/format-date.js",
     "src/utils/misc.js",
     "docs/crlf-sample.md",
     "docs/drafted.md",
+    "docs/gated.md",
     "docs/guide.md",
+    "docs/h3-style.md",
     "docs/history.md",
     "docs/limits.md",
+    "docs/quoted.md",
     "docs/setup.md",
     "docs/structure.json",
     "src/config.js",
@@ -34,25 +41,29 @@
     "tests/smoke.test.js",
     ".env.example",
     ".env.local",
+    "DEPLOY.md",
+    "Dockerfile",
+    "LICENSE.md",
     "README.md",
+    "conf.py",
     "package.json",
     "requirements.txt"
   ],
   "directories": [
     {
       "dir": "docs",
-      "files": 7,
-      "lines": 132
-    },
-    {
-      "dir": "src",
-      "files": 9,
-      "lines": 57
+      "files": 11,
+      "lines": 268
     },
     {
       "dir": "(root)",
-      "files": 5,
-      "lines": 40
+      "files": 9,
+      "lines": 103
+    },
+    {
+      "dir": "src",
+      "files": 12,
+      "lines": 88
     },
     {
       "dir": "tests",
@@ -67,11 +78,11 @@
   "extensions": [
     {
       "ext": ".js",
-      "files": 12
+      "files": 14
     },
     {
       "ext": ".md",
-      "files": 7
+      "files": 13
     },
     {
       "ext": ".json",
@@ -86,16 +97,43 @@
       "files": 1
     },
     {
+      "ext": "(none)",
+      "files": 1
+    },
+    {
+      "ext": ".py",
+      "files": 1
+    },
+    {
       "ext": ".txt",
+      "files": 1
+    },
+    {
+      "ext": ".java",
       "files": 1
     }
   ],
   "flat_directories": [],
   "largest_files": [
     {
-      "bytes": 1118,
-      "lines": 46,
+      "bytes": 2960,
+      "lines": 44,
+      "path": "LICENSE.md"
+    },
+    {
+      "bytes": 2401,
+      "lines": 101,
       "path": "docs/drafted.md"
+    },
+    {
+      "bytes": 1213,
+      "lines": 18,
+      "path": "docs/limits.md"
+    },
+    {
+      "bytes": 875,
+      "lines": 29,
+      "path": "src/api/OwnerController.java"
     },
     {
       "bytes": 754,
@@ -103,24 +141,49 @@
       "path": "docs/guide.md"
     },
     {
+      "bytes": 673,
+      "lines": 32,
+      "path": "docs/quoted.md"
+    },
+    {
       "bytes": 517,
       "lines": 28,
       "path": "docs/history.md"
     },
     {
-      "bytes": 428,
+      "bytes": 515,
+      "lines": 17,
+      "path": "docs/gated.md"
+    },
+    {
+      "bytes": 434,
       "lines": 19,
       "path": "package.json"
     },
     {
-      "bytes": 399,
-      "lines": 11,
-      "path": "docs/limits.md"
+      "bytes": 416,
+      "lines": 13,
+      "path": "DEPLOY.md"
+    },
+    {
+      "bytes": 382,
+      "lines": 18,
+      "path": "docs/h3-style.md"
     },
     {
       "bytes": 373,
       "lines": 9,
       "path": "src/routes/exports.js"
+    },
+    {
+      "bytes": 371,
+      "lines": 20,
+      "path": "README.md"
+    },
+    {
+      "bytes": 359,
+      "lines": 7,
+      "path": "docs/guide/advanced.md"
     },
     {
       "bytes": 310,
@@ -131,11 +194,6 @@
       "bytes": 282,
       "lines": 8,
       "path": "src/routes/admin.js"
-    },
-    {
-      "bytes": 281,
-      "lines": 18,
-      "path": "README.md"
     },
     {
       "bytes": 273,
@@ -166,6 +224,16 @@
       "bytes": 210,
       "lines": 8,
       "path": "tests/health.test.js"
+    },
+    {
+      "bytes": 202,
+      "lines": 4,
+      "path": "conf.py"
+    },
+    {
+      "bytes": 193,
+      "lines": 0,
+      "path": "Dockerfile"
     },
     {
       "bytes": 189,
@@ -211,11 +279,24 @@
       "bytes": 53,
       "lines": 3,
       "path": "requirements.txt"
+    },
+    {
+      "bytes": 45,
+      "lines": 1,
+      "path": "src/app/api/items/[sku]/route.js"
+    },
+    {
+      "bytes": 27,
+      "lines": 1,
+      "path": "src/utils/fast-path.js"
     }
   ],
   "lockfiles": [],
   "repo": "<fixture>",
   "stacks": {
+    "Docker": [
+      "Dockerfile"
+    ],
     "JavaScript/TypeScript": [
       "package.json"
     ],
@@ -224,9 +305,9 @@
     ]
   },
   "totals": {
-    "doc_files": 8,
-    "files": 24,
-    "lines": 254,
+    "doc_files": 12,
+    "files": 35,
+    "lines": 484,
     "test_files": 3
   },
   "warnings": []

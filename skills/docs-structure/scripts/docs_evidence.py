@@ -64,7 +64,15 @@ MAX_CODE_FILES = 6000
 
 ALWAYS_SKIP = {"node_modules", ".venv", "venv", "__pycache__", ".git", "dist", "build", "target",
                "vendor", ".next", ".nuxt", "coverage", ".terraform", "site-packages", ".tox", ".mypy_cache"}
-EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests",
+# A documentation website is about the repository, not part of it: counting its Tailwind
+# config as frontend turned a Go command-line tool into an application needing a design doc.
+# Skip-list names that can still hold the application itself.
+RESCUABLE = {"www", "site", "public", "app"}
+MANIFEST_NAMES = ("package.json", "pyproject.toml", "setup.py", "go.mod", "Cargo.toml", "pom.xml",
+                  "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs",
+                  "Move.toml", "Dockerfile", "requirements.txt")
+EVIDENCE_SKIP = {"website", "site", "docs-site", "doc-site", "www", "docs", "doc", "documentation",
+                 "fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests",
                  "__tests__", "spec", "specs", "__mocks__", "mocks", "benches", "bench", "benchmarks"}
 CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".go", ".rs", ".rb",
              ".php", ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".move"}
@@ -74,7 +82,10 @@ ENV_ALLOW = re.compile(r"^\.env(\.[A-Za-z0-9_-]+)?\.(example|sample|template)$")
 SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
 
 REDACT = [
-    re.compile(r"\b(sk|pk|rk)-[A-Za-z0-9_-]{12,}"),
+    re.compile(r"(sk|pk|rk)[-_][A-Za-z0-9_-]{12,}"),        # Stripe writes sk_live_, not sk-
+    re.compile(r"AIza[A-Za-z0-9_-]{20,}"),                   # Google
+    re.compile(r"glpat-[A-Za-z0-9_-]{16,}"),                 # GitLab
+    re.compile(r"(hf|npm)_[A-Za-z0-9]{20,}"),                # Hugging Face, npm
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -82,7 +93,12 @@ REDACT = [
     re.compile(r"\b[0-9a-fA-F]{32,}\b"),
     re.compile(r"\b[A-Za-z0-9+/]{40,}={0,2}\b"),
     re.compile(r"://[^/\s:@]+:[^/\s@]+@"),
-    re.compile(r"(?<=/)[A-Za-z0-9_-]{24,}(?=/|$)"),  # a long opaque path segment: a webhook or signed-URL token
+    # A long path segment only looks like a token when it also looks random. Length alone
+    # redacted ordinary slugs - /webhooks/stripe-payment-intent-succeeded became
+    # /webhooks/[redacted] - and a drafted endpoint table then documented a route that does
+    # not exist, with the bracket still resolving. Require mixed case with digits, or a long
+    # unbroken run of hex or base64, and let hyphenated lowercase words through.
+    re.compile(r"(?<=/)(?=[A-Za-z0-9_-]{24,}(?:/|$))(?![a-z0-9]+(?:-[a-z0-9]+)+(?:/|$))(?:[A-Za-z0-9_-]*[A-Z][A-Za-z0-9_-]*\d|[A-Za-z0-9_-]*\d[A-Za-z0-9_-]*[A-Z]|[0-9a-f]{24,})[A-Za-z0-9_-]*"),
 ]
 
 DECISION_RE = re.compile(r"\b(decid|switch|migrat|replace|remov|adopt|revert|drop|deprecat|instead)", re.I)
@@ -116,8 +132,14 @@ def redact(s: str) -> str:
     return out
 
 
-def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14, pruned: list[str] | None = None):
-    """os.walk with pruning. Sorted dirnames AND filenames, so output is the same on NTFS and ext4."""
+def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14,
+         pruned: list[str] | None = None, keep=None):
+    """os.walk with pruning. Sorted dirnames AND filenames, so output is the same on NTFS and ext4.
+
+    `keep(path)` rescues a folder the skip list would otherwise drop. A folder named www/ or
+    site/ that holds a package manifest is the application, not decoration, and pruning it by
+    name made a whole repository read as a folder of notes.
+    """
     skip = ALWAYS_SKIP | (skip_names or set())
     base = len(root.parts)
     for dirpath, dirnames, filenames in os.walk(root):
@@ -126,9 +148,14 @@ def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14, pr
             if dirnames:
                 warnings.append(f"depth cap {max_depth} reached under {d.relative_to(root).as_posix()}; deeper files not scanned")
             dirnames[:] = []
+        rescued = {n for n in dirnames if keep and n in (skip_names or set()) and keep(d / n)}
+        for n in sorted(rescued):
+            warnings.append(f"{(d / n).relative_to(root).as_posix()} is on the skip list but holds a build manifest; scanned as code")
         if pruned is not None:
-            pruned.extend((d / n).as_posix() for n in dirnames if n in (skip_names or set()))
-        dirnames[:] = sorted(n for n in dirnames if n not in skip and not n.startswith("."))
+            pruned.extend((d / n).as_posix() for n in dirnames
+                          if n in (skip_names or set()) and n not in rescued)
+        dirnames[:] = sorted(n for n in dirnames
+                             if (n not in skip or n in rescued) and not n.startswith("."))
         yield d, dirnames, sorted(filenames)
 
 
@@ -283,7 +310,16 @@ class Ctx:
         self.dirs: set[str] = set()
         self.pruned: list[str] = []
         truncated = False
-        for d, dirnames, filenames in walk(repo, EVIDENCE_SKIP, pruned=self.pruned):
+        # A folder holding a build manifest is the application, whatever it is called. Pruning
+        # www/ or site/ by name made an Express app with a Dockerfile read as a folder of
+        # notes with no findings at all - the most confident possible wrong answer.
+        def keep(d: Path) -> bool:
+            # Only names that could plausibly BE the application. A docs site, an examples
+            # package and a test fixture all carry manifests too, and rescuing those put a
+            # documentation site back into the product's inventory.
+            return d.name.lower() in RESCUABLE and any((d / m).is_file() for m in MANIFEST_NAMES)
+
+        for d, dirnames, filenames in walk(repo, EVIDENCE_SKIP, pruned=self.pruned, keep=keep):
             rel_d = posix(d, repo)
             if rel_d != ".":
                 self.dirs.add(rel_d)
@@ -467,7 +503,7 @@ def det_go(ctx: Ctx, inv: dict) -> None:
             inv["cli"].append(item(ctx, "go", p.parent / "main.go", commands=[p.parent.name], parser="main.go"))
         if any(f.name.endswith("_test.go") for f in ctx.code_files if f.suffix == ".go"):
             inv["tests"].append(item(ctx, "go", p, runners=["go test"], package=ctx.rel(p.parent)))
-    for p in ctx.named("go.work"):
+    if ctx.named("go.work"):
         inv["_mono"] = True
 
 
@@ -517,7 +553,9 @@ def det_java(ctx: Ctx, inv: dict) -> None:
         text = read(p)
         deps = re.findall(r"""(?:implementation|api|compileOnly|runtimeOnly)\s*\(?\s*['"]([^'"]+)['"]""", text)
         lang = "kotlin" if p.name.endswith(".kts") or (p.parent / "src" / "main" / "kotlin").is_dir() else "java"
-        inv["packages"].append(item(ctx, "java", p, name=p.parent.name, path=ctx.rel(p.parent), language=lang, manifest=p.name, scripts=[], dependencies=sorted(set(deps))[:80], version=""))
+        settings = next((s for s in (p.parent / "settings.gradle", p.parent / "settings.gradle.kts") if s.is_file()), None)
+        gname = re.search(r"""rootProject\.name\s*=\s*['"]([^'"]+)""", read(settings)) if settings else None
+        inv["packages"].append(item(ctx, "java", p, name=gname.group(1) if gname else p.parent.name, path=ctx.rel(p.parent), language=lang, manifest=p.name, scripts=[], dependencies=sorted(set(deps))[:80], version=""))
         inv["_eco"].add("java")
         if (p.parent / "src" / "test").is_dir():
             inv["tests"].append(item(ctx, "java", p, runners=["gradle test"], package=ctx.rel(p.parent)))
@@ -591,15 +629,21 @@ def det_move(ctx: Ctx, inv: dict) -> None:
 
 # ------------------------------------------------------------------ agnostic detectors
 
+PORT_TOKEN = re.compile(r"^\d{1,5}(?:/(?:tcp|udp))?$", re.I)
+
+
 def det_dockerfiles(ctx: Ctx, inv: dict) -> None:
     def one(p: Path) -> None:
         text = read(p)
         froms = re.findall(r"^FROM\s+(\S+)", text, re.M | re.I)
-        expose = re.findall(r"^EXPOSE\s+([\d\s/tcpud]+)", text, re.M | re.I)
+        # \s matches the newline and re.I lets [tcpud] match the C of a following CMD, so the
+        # old class ran past the end of the line and reported a port named "C". Take the rest of
+        # the EXPOSE line, then keep only tokens that are actually a port.
+        expose = re.findall(r"^EXPOSE[ \t]+([^\r\n]*)", text, re.M | re.I)
         envs = re.findall(r"^(?:ENV|ARG)\s+([A-Za-z_][A-Za-z0-9_]*)", text, re.M | re.I)
         cmd = re.search(r"^(?:CMD|ENTRYPOINT)\s+(.+)$", text, re.M | re.I)
         inv["services"].append(item(ctx, "dockerfile", p, name=p.parent.name if p.parent != ctx.repo else (p.name if p.name != "Dockerfile" else "root"), root=ctx.rel(p.parent),
-                                    runtime=froms[:4], ports=sorted({x.strip() for e_ in expose for x in e_.split()}), start=first_token(cmd.group(1)) if cmd else "", source="Dockerfile"))
+                                    runtime=froms[:4], ports=sorted({x for e_ in expose for x in e_.split() if PORT_TOKEN.match(x)}), start=first_token(cmd.group(1)) if cmd else "", source="Dockerfile"))
         if envs:
             inv["env"].append({"source": ctx.rel(p), "kind": "dockerfile", "names": sorted(set(envs))[:60]})
     each(ctx, ctx.glob_name("Dockerfile*"), one, "dockerfiles")
@@ -874,7 +918,16 @@ def det_schema(ctx: Ctx, inv: dict) -> None:
         ext = p.suffix.lower()
         if ext == ".prisma" or (in_schema_dir and ext in (".sql", ".ts", ".js", ".py", ".rb", ".php", ".cs", ".xml", ".exs")):
             text = read(p)
-            if in_schema_dir and re.match(r"^\d{3,}|^V\d|^\d{4}-\d{2}|^\d{14}", p.name):
+            # Prisma puts the timestamp on the folder (20260812_x/migration.sql) and Alembic
+            # uses a revision hash, so matching the filename alone reported zero migrations for
+            # both - in the doc the skill makes the owner of that count.
+            stamped = re.compile(r"^\d{3,}|^V\d|^\d{4}-\d{2}|^\d{14}")
+            here = p.parent.name.lower()
+            above = p.parent.parent.name.lower() if p.parent.parent != ctx.repo else ""
+            if in_schema_dir and (stamped.match(p.name) or stamped.match(p.parent.name)
+                                  or here in ("versions", "migrations")
+                                  or above in ("versions", "migrations")) \
+                    and p.name.lower() not in ("__init__.py", "env.py", "migration_lock.toml"):
                 migrations.append(ctx.rel(p))
             for tool, rx, exts in SCHEMA_PATTERNS:
                 if ext not in exts:
@@ -890,20 +943,28 @@ def det_schema(ctx: Ctx, inv: dict) -> None:
 
 
 ROUTE_PATTERNS = [
-    ("express-like", re.compile(r"\b(?:app|router|server|api|r)\.(get|post|put|patch|delete|all)\(\s*['\"`]([^'\"`]+)['\"`]"), (".js", ".ts", ".mjs", ".cjs")),
+    # The path starts with a slash. Without that, r.get("session:1") on a redis client and
+    # api.get("new-checkout") on a feature-flag client were counted as HTTP routes, and the
+    # gate then told an author their correct route count disagreed with the inventory.
+    ("express-like", re.compile(r"\b(?:app|router|server|api|r)\.(get|post|put|patch|delete|all)\(\s*['\"`](/[^'\"`]*)['\"`]"), (".js", ".ts", ".mjs", ".cjs")),
     ("nestjs", re.compile(r"@(Get|Post|Put|Patch|Delete)\(\s*['\"]?([^'\")]*)['\"]?\s*\)"), (".ts",)),
     ("fastapi-flask", re.compile(r"@(?:app|router|api|bp|blueprint)\.(get|post|put|patch|delete|route)\(\s*['\"]([^'\"]+)['\"]"), (".py",)),
     ("django", re.compile(r"\b(?:path|re_path|url)\(\s*r?['\"]([^'\"]*)['\"]"), (".py",)),
     ("go-net-http", re.compile(r"\.(?:HandleFunc|Handle|GET|POST|PUT|PATCH|DELETE|Get|Post|Put|Patch|Delete)\(\s*\"([^\"]+)\""), (".go",)),
     ("axum", re.compile(r"\.route\(\s*\"([^\"]+)\"\s*,\s*(get|post|put|patch|delete)"), (".rs",)),
     ("actix", re.compile(r"#\[(get|post|put|patch|delete)\(\s*\"([^\"]+)\""), (".rs",)),
-    ("spring", re.compile(r"@(Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:value\s*=\s*)?\"([^\"]*)\""), (".java", ".kt")),
+    ("spring", re.compile(r"@(Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:value\s*=\s*)?\{?\s*\"([^\"]*)\""), (".java", ".kt")),
     ("rails", re.compile(r"^\s*(get|post|put|patch|delete|resources|resource)\s+['\":]([^'\",\s]+)", re.M), (".rb",)),
     ("phoenix", re.compile(r"^\s*(get|post|put|patch|delete|resources|live)\s+\"([^\"]+)\"", re.M), (".ex",)),
     ("laravel", re.compile(r"Route::(get|post|put|patch|delete|resource|apiResource)\(\s*['\"]([^'\"]+)['\"]"), (".php",)),
     ("dotnet", re.compile(r"\[Http(Get|Post|Put|Patch|Delete)\(\s*\"?([^\"\)]*)\"?\s*\)\]|app\.Map(Get|Post|Put|Patch|Delete)\(\s*\"([^\"]+)\""), (".cs",)),
 ]
 VERB_LESS = {"django", "go-net-http", "rails"}
+# A Spring controller puts a path prefix on the class and the rest on each method. Reading the
+# methods alone reported every path short, and emitted the class-level annotation as a route
+# of its own with the method "REQUEST". Both were wrong in a drafted endpoint table.
+CLASS_MAPPING = re.compile(r'@RequestMapping\(\s*(?:value\s*=\s*)?\{?\s*"([^"]*)"[^)]*\)'
+                          r'(?:\s*@\w+(?:\([^)]*\))?)*\s*(?:public\s+|final\s+|abstract\s+)*class\b', re.S)
 COMMENT_LINE = re.compile(r"^\s*(//|#|\*|/\*|--|<!--)")
 TEST_FILE = re.compile(r"(_test\.go|\.test\.[jt]sx?|\.spec\.[jt]sx?|^test_.*\.py|_test\.py|Tests?\.java|Test\.kt|_spec\.rb|Tests?\.cs|_test\.exs|_test\.rs)$")
 
@@ -950,7 +1011,14 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
                 text = strip_comment_lines(read(p))
                 if not text:
                     break
+            prefix, class_at = "", -1
+            if fw == "spring":
+                cm = CLASS_MAPPING.search(text)
+                if cm:
+                    prefix, class_at = cm.group(1).rstrip("/"), cm.start()
             for mt in rx.finditer(text):
+                if fw == "spring" and mt.start() == class_at:
+                    continue  # the class-level prefix is not itself a route
                 g = [x for x in mt.groups() if x is not None]
                 if fw in VERB_LESS:
                     if fw == "rails":
@@ -963,6 +1031,8 @@ def det_routes(ctx: Ctx, inv: dict) -> None:
                     method, path = g[0].upper(), (g[1] if len(g) > 1 else "")
                 if fw == "django" and (path.endswith((".html",)) or "static" in path):
                     continue
+                if fw == "spring" and prefix:
+                    path = prefix + ("" if not path or path == "/" else path if path.startswith("/") else "/" + path)
                 rel = ctx.rel(p)
                 in_lib = any(rel.startswith(root + "/") or root == "." for root in lib_roots)
                 routes.append({"method": method, "path": redact(path), "framework": fw, "evidence": rel, **({"hint": True} if in_lib else {})})
@@ -1066,7 +1136,7 @@ def det_readme_tree(ctx: Ctx, inv: dict) -> None:
     inv["tree"].update({"top_level_dirs": ctx.top_level_dirs(), "governance_files": gov,
                         "pr_template": any((ctx.repo / ".github" / n).exists() for n in ("PULL_REQUEST_TEMPLATE.md", "pull_request_template.md")),
                         "adr_folders": sorted(d for d in ctx.dirs if Path(d).name.lower() in ("adr", "adrs", "decisions", "rfcs"))[:5],
-                        "plan_like_docs": sorted(ctx.rel(p) for p in ctx.files if p.suffix.lower() == ".md" and re.search(r"(plan|roadmap|todo|backlog|tasklist)", p.name, re.I))[:20]})
+                        "plan_like_docs": sorted(ctx.rel(p) for p in ctx.files if p.suffix.lower() == ".md" and re.search(r"\b(plan|plans|roadmap|todo|backlog|tasklist|tasks)\b", p.name, re.I))[:20]})
 
 
 def det_git(ctx: Ctx, inv: dict) -> None:
@@ -1084,7 +1154,7 @@ def det_git(ctx: Ctx, inv: dict) -> None:
     remote = run_git(ctx.repo, ["remote", "get-url", "origin"]) or ""
     inv["decisions"] = {"commits_scanned": len(commits), "first": commits[-1][1] if commits else "", "last": commits[0][1] if commits else "",
                         "decision_like": cap(decisions, ctx.cap, "decisions", inv), "tags": [redact(t) for t in tags[:20]], "tag_count": len(tags),
-                        "public_remote": bool(re.search(r"github\.com|gitlab\.com|bitbucket\.org", remote)), "remote_host": re.sub(r"^.*?([A-Za-z0-9.-]+\.(com|org|io)).*$", r"\1", remote.strip()) if remote.strip() else ""}
+                        "public_host": bool(re.search(r"github\.com|gitlab\.com|bitbucket\.org", remote)), "remote_host": re.sub(r"^.*?([A-Za-z0-9.-]+\.(com|org|io)).*$", r"\1", remote.strip()) if remote.strip() else ""}
 
 
 DETECTORS = [
@@ -1121,7 +1191,14 @@ def derive_kinds(inv: dict, code_files: int) -> list[str]:
     return kinds or (["unknown"] if not has_code else ["unclassified"])
 
 
+def _reset_warnings() -> None:
+    """Module state, so a second inventory() in one process does not inherit the first's
+    warnings. The fill gate calls inventory() itself, in the same process as the checker."""
+    del warnings[:]
+
+
 def inventory(repo: Path, cap_n: int = 400, use_git: bool = True) -> dict:
+    _reset_warnings()
     ctx = Ctx(repo, cap_n, use_git)
     inv: dict = {"packages": [], "services": [], "env": [], "schema": None, "routes": None, "cli": [], "exports": [],
                  "frontend": [], "tests": [], "ci": [], "ops": [], "decisions": None, "readme": None, "tree": {},

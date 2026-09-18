@@ -1,12 +1,28 @@
 {
   "findings": [
     {
+      "detail": "relative link `../../actions/workflows/test.yml/badge.svg` does not resolve.",
+      "doc": "README.md",
+      "kind": "broken-link",
+      "line": 3,
+      "severity": "high",
+      "source": null
+    },
+    {
       "detail": "documents `dev`, which is not a script in any package.json. Closest existing: dev:start.",
       "doc": "README.md",
       "kind": "missing-script",
-      "line": 10,
+      "line": 12,
       "severity": "high",
       "source": "package.json"
+    },
+    {
+      "detail": "relative link `DEPLOY.md` does not resolve.",
+      "doc": "docs/drafted.md",
+      "kind": "broken-link",
+      "line": 62,
+      "severity": "high",
+      "source": null
     },
     {
       "detail": "`API_TOKEN` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
@@ -36,17 +52,17 @@
       "detail": "`MAX_EXPORT_ROWS` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
       "doc": "README.md",
       "kind": "documented-env-in-unreferenced-module",
-      "line": 18,
+      "line": 20,
       "severity": "medium",
       "source": "src/config.js:3"
     }
   ],
   "repo": "<fixture>",
   "totals": {
-    "docs_checked": 8,
+    "docs_checked": 14,
     "env_names_documented": 4,
     "env_names_in_code": 2,
-    "findings": 5,
+    "findings": 7,
     "make_targets_found": 0,
     "npm_scripts_found": 4
   },
