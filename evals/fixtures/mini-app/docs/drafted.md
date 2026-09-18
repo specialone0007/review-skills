@@ -44,3 +44,58 @@ The export path is robust and the handler should retry, because the queue is slo
 Set API_TOKEN=plaintext-value-that-must-not-be-echoed in the local file [.env.example].
 
 *(draft, review me)*
+
+## Shapes the gate accepts
+
+The service list has one entry [inventory: services[0]].
+
+*(draft, review me)*
+
+## A file-routed citation
+
+One route file answers the item lookup [src/app/api/items/[sku]/route.js].
+
+*(draft, review me)*
+
+## A cross-doc link and a quotation
+
+The deploy steps live in [DEPLOY.md](DEPLOY.md), which owns them [DEPLOY.md]. The README says
+"the exporter must not run without a token", and the name is read at start-up [.env.example].
+
+*(draft, review me)*
+
+## A backticked name
+
+The helper is `src/utils/fast-path.js` and the export list names it once [package.json: name].
+
+*(draft, review me)*
+
+## A count nothing reports
+
+The exporter serves 77 routes to the browser [package.json: name].
+
+*(draft, review me)*
+
+## A negative with no scope
+
+No authorization guard is applied to the export route [src/server.js].
+
+*(draft, review me)*
+
+## A negative that names its scope
+
+No rate-limit code was found under `src/routes` (grep "rate") [src/server.js].
+
+*(draft, review me)*
+
+## A negative with the path backticked
+
+No retry limit is configured for the worker `src/utils/misc.js` [src/utils/misc.js].
+
+*(draft, review me)*
+
+## A count that names its own scan
+
+There are 12 files under `src/routes` in this package [package.json: name].
+
+*(draft, review me)*

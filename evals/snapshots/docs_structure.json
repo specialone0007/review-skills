@@ -8,10 +8,13 @@
       "covered_by": null,
       "default_path": "docs/PRODUCT.md",
       "matched_by": "",
+      "matched_heading": null,
+      "near_name": null,
       "runner_up": null,
       "seed": null,
       "template": "PRODUCT.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "always",
@@ -20,10 +23,13 @@
       "covered_by": null,
       "default_path": "docs/ARCHITECTURE.md",
       "matched_by": "",
+      "matched_heading": null,
+      "near_name": null,
       "runner_up": null,
       "seed": null,
       "template": "ARCHITECTURE.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "always",
@@ -31,7 +37,8 @@
       "concern": "develop",
       "covered_by": "docs/setup.md",
       "default_path": "docs/DEVELOPMENT.md",
-      "matched_by": "H1: setup; H2: install",
+      "matched_by": "file name; H1: setup; H2: install",
+      "matched_heading": null,
       "missing_sections": [
         "Prerequisites",
         "Setup",
@@ -39,25 +46,43 @@
         "How to know it works",
         "Common problems"
       ],
+      "near_name": null,
       "runner_up": null,
       "seed": null,
       "state": "reviewed",
       "template": "DEVELOPMENT.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
-      "applies": "always",
-      "companions": [
-        "tasklist/phase-00-foundations.md"
-      ],
-      "concern": "plan",
+      "applies": "Dockerfile: Dockerfile",
+      "companions": [],
+      "concern": "deploy",
       "covered_by": null,
-      "default_path": "docs/TASKLIST.md",
+      "default_path": "docs/DEPLOYMENT.md",
       "matched_by": "",
+      "matched_heading": null,
+      "near_name": null,
       "runner_up": null,
       "seed": null,
-      "template": "TASKLIST.md",
-      "universal": true
+      "template": "DEPLOYMENT.md",
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "4 routes (next-app-router 1, spring 3)",
+      "companions": [],
+      "concern": "http",
+      "covered_by": null,
+      "default_path": "docs/API_REFERENCE.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "API_REFERENCE.md",
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "tests: package.json",
@@ -66,10 +91,13 @@
       "covered_by": null,
       "default_path": "docs/TESTING.md",
       "matched_by": "",
+      "matched_heading": null,
+      "near_name": null,
       "runner_up": null,
       "seed": null,
       "template": "TESTING.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "ops: src/routes/health.js",
@@ -78,12 +106,31 @@
       "covered_by": null,
       "default_path": "docs/RUNBOOK.md",
       "matched_by": "",
+      "matched_heading": null,
+      "near_name": null,
       "runner_up": null,
       "seed": null,
       "template": "RUNBOOK.md",
-      "universal": false
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "governance: LICENSE.md",
+      "companions": [],
+      "concern": "contribute",
+      "covered_by": null,
+      "default_path": "docs/CONTRIBUTING.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "CONTRIBUTING.md",
+      "universal": false,
+      "weak": false
     }
   ],
+  "coverage_determined": true,
   "discovery": null,
   "ecosystems": [
     "node",
@@ -93,9 +140,17 @@
     {
       "level": "fail",
       "line": 3,
-      "message": "no central index - 6 doc(s) unreachable in one hop",
+      "message": "no central index - 10 doc(s) are linked only from the front door, if at all",
       "path": "docs/structure.json",
       "rule": "R1",
+      "severity": "P1"
+    },
+    {
+      "level": "fail",
+      "line": 62,
+      "message": "link target does not exist: DEPLOY.md",
+      "path": "docs/drafted.md",
+      "rule": "R5",
       "severity": "P1"
     },
     {
@@ -105,46 +160,6 @@
       "path": "docs/setup.md",
       "rule": "R5",
       "severity": "P1"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'purpose' (always) - apply creates docs/PRODUCT.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'architecture' (always) - apply creates docs/ARCHITECTURE.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'plan' (always) - apply creates docs/TASKLIST.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'testing' (the repo has tests: package.json) - apply creates docs/TESTING.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "fail",
-      "line": 1,
-      "message": "no doc covers 'operate' (the repo has ops: src/routes/health.js) - apply creates docs/RUNBOOK.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
     },
     {
       "level": "fail",
@@ -160,6 +175,62 @@
       "message": "line-number citation \"src/config.js:12\" - cite a symbol or a log tag",
       "path": "docs/setup.md",
       "rule": "R7",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'purpose' (always) - apply creates docs/PRODUCT.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'architecture' (always) - apply creates docs/ARCHITECTURE.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'deploy' (the repo has Dockerfile: Dockerfile) - apply creates docs/DEPLOYMENT.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'http' (the repo has 4 routes (next-app-router 1, spring 3)) - apply creates docs/API_REFERENCE.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'testing' (the repo has tests: package.json) - apply creates docs/TESTING.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'operate' (the repo has ops: src/routes/health.js) - apply creates docs/RUNBOOK.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'contribute' (the repo has governance: LICENSE.md) - apply creates docs/CONTRIBUTING.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
       "severity": "P2"
     },
     {
@@ -181,7 +252,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "46 lines - could become an index plus 7 parts at H2 (largest 7)",
+      "message": "101 lines - could become an index plus 16 parts at H2 (largest 7)",
       "path": "docs/drafted.md",
       "rule": "R3",
       "severity": "P2"
@@ -204,6 +275,14 @@
     },
     {
       "level": "warn",
+      "line": 1,
+      "message": "32 lines - could become an index plus 4 parts at H2 (largest 9)",
+      "path": "docs/quoted.md",
+      "rule": "R3",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
       "line": 7,
       "message": "verified against the billing dashboard on 2024-01-15, older than 90 days - look again or strike the line",
       "path": "docs/limits.md",
@@ -219,17 +298,38 @@
       "severity": "P3"
     }
   ],
+  "generated_docs": 0,
   "generator": null,
+  "index_convention": "sibling",
   "init": {
     "agent_file": null,
     "files": {
+      "docs/API_REFERENCE.md": {
+        "concern": "http",
+        "lines": 25,
+        "template": "references/templates/API_REFERENCE.md",
+        "why": "http (4 routes (next-app-router 1, spring 3))"
+      },
       "docs/ARCHITECTURE.md": {
         "concern": "architecture",
         "lines": 25,
         "template": "references/templates/ARCHITECTURE.md",
         "why": "architecture (always)"
       },
+      "docs/CONTRIBUTING.md": {
+        "concern": "contribute",
+        "lines": 21,
+        "template": "references/templates/CONTRIBUTING.md",
+        "why": "contribute (governance: LICENSE.md)"
+      },
+      "docs/DEPLOYMENT.md": {
+        "concern": "deploy",
+        "lines": 25,
+        "template": "references/templates/DEPLOYMENT.md",
+        "why": "deploy (Dockerfile: Dockerfile)"
+      },
       "docs/INDEX.md": {
+        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.\n\n| doc | owns | state |\n| --- | --- | --- |\n",
         "lines": 8,
         "template": "INDEX.md (built in)"
       },
@@ -245,27 +345,15 @@
         "template": "references/templates/RUNBOOK.md",
         "why": "operate (ops: src/routes/health.js)"
       },
-      "docs/TASKLIST.md": {
-        "concern": "plan",
-        "lines": 19,
-        "template": "references/templates/TASKLIST.md",
-        "why": "plan (always)"
-      },
       "docs/TESTING.md": {
         "concern": "testing",
         "lines": 21,
         "template": "references/templates/TESTING.md",
         "why": "testing (tests: package.json)"
-      },
-      "docs/tasklist/phase-00-foundations.md": {
-        "concern": "plan",
-        "lines": 6,
-        "template": "references/templates/tasklist/phase-00-foundations.md",
-        "why": "companion of plan"
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-app is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](docs/setup.md), [the architecture](docs/ARCHITECTURE.md) (skeleton), [the plan](docs/TASKLIST.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what exporter is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](docs/setup.md), [the architecture](docs/ARCHITECTURE.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
@@ -273,22 +361,26 @@
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
       "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
-      "| [TASKLIST](TASKLIST.md) | the index of the plan \u2014 one file per phase under `tasklist/`, and the count of todo / doing / done in each. | skeleton |",
+      "| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |",
+      "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
       "| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |",
-      "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |"
+      "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |",
+      "| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |"
     ],
     "print_only": {
-      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | [docs/PRODUCT.md](docs/PRODUCT.md) |\n| a service boundary, a link between services, or a decision worth a date | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a task starting, finishing or being dropped | [docs/TASKLIST.md](docs/TASKLIST.md) |\n| a test runner, where tests live, how to run them, or what gates a merge | [docs/TESTING.md](docs/TESTING.md) |\n| a health check, a scheduled job, an alert, or what to do when one fires | [docs/RUNBOOK.md](docs/RUNBOOK.md) |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a service, an environment variable, a build or start command, a deploy step | `docs/DEPLOYMENT.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a test runner, where tests live, how to run them, or what gates a merge | `docs/TESTING.md` *(apply creates this)* |\n| a health check, a scheduled job, an alert, or what to do when one fires | `docs/RUNBOOK.md` *(apply creates this)* |\n| how a change gets proposed, reviewed or merged | `docs/CONTRIBUTING.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
   "kinds": [
-    "unclassified"
+    "application"
   ],
   "manifest": {
     "path": "docs/structure.json",
+    "proposed_path": null,
     "source": "found"
   },
+  "other_format_docs": [],
   "proposed_manifest": null,
   "record_folders": [],
   "repo": "<fixture>",
@@ -320,7 +412,7 @@
       "warnings": 0
     },
     "R12": {
-      "failures": 5,
+      "failures": 0,
       "first": [
         "docs/structure.json:1",
         "docs/structure.json:1",
@@ -328,7 +420,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 0
+      "warnings": 7
     },
     "R13": {
       "failures": 0,
@@ -358,7 +450,7 @@
       ],
       "severity": "P2",
       "title": "oversize doc",
-      "warnings": 3
+      "warnings": 4
     },
     "R4": {
       "failures": 0,
@@ -368,8 +460,9 @@
       "warnings": 0
     },
     "R5": {
-      "failures": 1,
+      "failures": 2,
       "first": [
+        "docs/drafted.md:62",
         "docs/setup.md:3"
       ],
       "severity": "P1",
@@ -431,8 +524,8 @@
     {
       "largest": 7,
       "level": "H2",
-      "lines": 46,
-      "parts": 7,
+      "lines": 101,
+      "parts": 16,
       "path": "docs/drafted.md",
       "refuse": null
     },
@@ -451,30 +544,42 @@
       "parts": null,
       "path": "docs/history.md",
       "refuse": "more than one H1"
+    },
+    {
+      "largest": 9,
+      "level": "H2",
+      "lines": 32,
+      "parts": 4,
+      "path": "docs/quoted.md",
+      "refuse": null
     }
   ],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 5,
-    "docs_checked": 6,
-    "failures": 9,
+    "concerns_missing": 7,
+    "docs_checked": 10,
+    "failures": 5,
     "non_doc_files": 0,
-    "placeholders": 7,
-    "split_candidates": 3,
+    "placeholders": 24,
+    "split_candidates": 4,
     "states": {
       "draft": 0,
       "missing": 5,
       "reviewed": 2,
       "skeleton": 0
     },
-    "warnings": 7
+    "warnings": 15
   },
   "unreachable": [
     "docs/crlf-sample.md",
     "docs/drafted.md",
+    "docs/gated.md",
+    "docs/guide/advanced.md",
     "docs/guide.md",
+    "docs/h3-style.md",
     "docs/history.md",
     "docs/limits.md",
+    "docs/quoted.md",
     "docs/setup.md"
   ],
   "warnings": []

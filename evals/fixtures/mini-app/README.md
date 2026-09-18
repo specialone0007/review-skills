@@ -1,5 +1,7 @@
 # mini-app
 
+[![tests](../../actions/workflows/test.yml/badge.svg)](../../actions/workflows/test.yml)
+
 An intentionally defective fixture. See ../README.md for why.
 
 ## Running
