@@ -138,6 +138,7 @@
   "tree": {
     "adr_folders": [],
     "governance_files": [],
+    "ignored_governance_files": [],
     "plan_like_docs": [],
     "pr_template": false,
     "top_level_dirs": [

@@ -175,6 +175,7 @@
     "governance_files": [
       "LICENSE.md"
     ],
+    "ignored_governance_files": [],
     "plan_like_docs": [],
     "pr_template": false,
     "top_level_dirs": [

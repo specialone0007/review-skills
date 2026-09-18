@@ -326,6 +326,26 @@ def git_root(start: Path) -> Path | None:
         return None
 
 
+_IGNORED: dict[tuple[str, str], bool] = {}
+
+
+def is_ignored(repo: Path, rel: str) -> bool:
+    """Whether git ignores this path in `repo`; False when there is no git to ask."""
+    key = (str(repo), rel)
+    if key not in _IGNORED:
+        git = shutil.which("git")
+        ok = False
+        if git is not None and is_git_repo(repo):
+            try:
+                p = subprocess.run([git, "check-ignore", "-q", "--", rel], cwd=str(repo), timeout=GIT_TIMEOUT,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                ok = p.returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                ok = False
+        _IGNORED[key] = ok
+    return _IGNORED[key]
+
+
 def is_git_repo(repo: Path) -> bool:
     """Whether commits can be looked up here at all.
 
@@ -379,35 +399,39 @@ def quote_sources(repo: Path, refs: list[str]) -> list[str]:
     exact sentence SKILL.md names as the reason G10 exists passed under the prescribed command,
     beside two invented counts, in a repo with zero routes. A quote is the repository's words
     only when the repository can be shown to contain them.
+
+    A bracket may carry several parts separated by "; ", and each part is a source on its own:
+    [inventory: schema; 4f78b293 2026-08-12] used to skip the commit because the bracket as a
+    whole started with "inventory:", and [sha; sha] matched neither commit.
     """
     out: list[str] = []
     for ref in refs:
-        r = ref.strip()
-        if r.lower().startswith("inventory:"):
-            continue
-        if SHA_REF.match(r):
-            sha = r.split()[0]
-            key = "sha:" + sha
-            if key not in _QUOTE_SRC:
-                git = shutil.which("git")
-                body = ""
-                if git is not None and is_git_repo(SHA_REPO or repo):
-                    try:
-                        p = subprocess.run([git, "show", "-s", "--format=%B", sha], cwd=str(SHA_REPO or repo),
-                                           text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                           timeout=GIT_TIMEOUT, encoding="utf-8", errors="replace")
-                        body = p.stdout if p.returncode == 0 else ""
-                    except (OSError, subprocess.SubprocessError):
-                        body = ""
-                _QUOTE_SRC[key] = _norm(body)
-            out.append(_QUOTE_SRC[key])
-            continue
-        for sep in (" § ", "§", ": "):
-            if sep in r:
-                r = r.split(sep, 1)[0].strip()
-                break
-        for part in r.split(";"):
-            path = part.strip().strip("`")
+        for part in ref.split(";"):
+            r = part.strip()
+            if not r or r.lower().startswith("inventory:"):
+                continue
+            if SHA_REF.match(r):
+                sha = r.split()[0]
+                key = "sha:" + sha
+                if key not in _QUOTE_SRC:
+                    git = shutil.which("git")
+                    body = ""
+                    if git is not None and is_git_repo(SHA_REPO or repo):
+                        try:
+                            p = subprocess.run([git, "show", "-s", "--format=%B", sha], cwd=str(SHA_REPO or repo),
+                                               text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                               timeout=GIT_TIMEOUT, encoding="utf-8", errors="replace")
+                            body = p.stdout if p.returncode == 0 else ""
+                        except (OSError, subprocess.SubprocessError):
+                            body = ""
+                    _QUOTE_SRC[key] = _norm(body)
+                out.append(_QUOTE_SRC[key])
+                continue
+            for sep in (" § ", "§", ": "):
+                if sep in r:
+                    r = r.split(sep, 1)[0].strip()
+                    break
+            path = r.strip("`")
             if not path:
                 continue
             key = "file:" + path
@@ -543,6 +567,11 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             if ".." in path.replace(chr(92), "/").split("/"):
                 return f"a cited path may not leave the repository: {path}"
             return f"cited path does not exist: {path}"
+        # A file git ignores is one developer's copy: a gitignored CLAUDE.md sits on disk, reads
+        # like the repository's rules, and reaches nobody who clones it. The scratch copy built
+        # from `git ls-files` never has it; a gate run on the real tree did, and passed it.
+        if is_ignored(SHA_REPO or repo, path):
+            return f"cited path is gitignored, not repository evidence: {path}"
         if " § " in part:
             heading = part.split(" § ", 1)[1].strip().lower()
             if Path(path).suffix.lower() not in DOC_EXTS:
@@ -1056,7 +1085,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             if neg and not scoped:
                 add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")
 
-        def flush() -> None:
+        def flush(next_is_table: bool = False) -> None:
             if not para:
                 return
             first = para[0][0]
@@ -1069,7 +1098,12 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             if not joined.lower().startswith("open question:"):
                 # A code span ending in "]" is not an evidence bracket either, and it used to
                 # satisfy this rule: `app/[slug]/page.tsx` at the end of a paragraph passed.
-                if not BRACKET_END.search(CODESPAN.sub(" ", last)):
+                # "The names it reads, one per row [file]:" introduces a table. The bracket is in
+                # the sentence and the table follows; the colon is the natural ending, and it
+                # cost a round of rewording every time.
+                lead_in = (next_is_table and last.rstrip().endswith(":")
+                           and BRACKET_ANY.search(CODESPAN.sub(" ", joined)) is not None)
+                if not BRACKET_END.search(CODESPAN.sub(" ", last)) and not lead_in:
                     add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")
                 breaks = [m for m in BAD_BREAK.finditer(bare)
                           if not ABBREV.search(bare[:m.end(0)].rstrip())
@@ -1117,10 +1151,13 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 para.append((n, s_.lstrip("> ").strip()))
                 continue
             if not s_ or s_ == DRAFT_MARK or s_.startswith(("#", "<!--", ">")) or TABLE_RULE.match(s_):
-                flush()
+                # A table usually sits one blank line under its lead-in; the lead-in is judged
+                # here, so look past the blank to see whether a table is what follows.
+                nxt = next((lines[j].strip() for j in range(idx + 1, end) if lines[j].strip()), "") if not s_ else ""
+                flush(next_is_table=nxt.startswith("|"))
                 continue
             if s_.startswith("|"):
-                flush()
+                flush(next_is_table=True)
                 nxt = lines[idx + 1].strip() if idx + 1 < len(lines) else ""
                 if TABLE_RULE.match(nxt):
                     _TABLE_HEADER["cells"] = [c.strip().lower() for c in s_.strip().strip("|").split("|")]
