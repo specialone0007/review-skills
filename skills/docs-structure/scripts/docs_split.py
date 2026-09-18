@@ -110,7 +110,9 @@ def unsplice(line: str, records: list[tuple[str, str]]) -> str:
 def clean_slug(text: str) -> str:
     """A filename from a heading: code spans and paths out, parentheticals out, five words at
     most. `01-data-model-apps-web-src-db-schema-ts.md` was a heading slugged whole."""
-    t = re.sub(r"`[^`]*`", " ", text)
+    t = re.split(r"\s+[—–-]\s+|:\s|,\s", text, maxsplit=1)[0]
+    t = re.sub(r"\b\d{4}-\d{2}-\d{2}\b", " ", t)
+    t = re.sub(r"`[^`]*`", " ", t)
     t = re.sub(r"\([^)]*\)", " ", t)
     t = re.sub(r"\S+[/\\]\S+", " ", t)
     t = re.sub(r"^\s*\d+[.)]\s*", "", t)
@@ -178,7 +180,8 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int, min_part: i
         for ln, lvl, text in heads:
             if start <= ln < end:
                 slug_home[anchor_for(text)] = idx
-        part_specs.append({"n": idx, "start": start, "end": end, "shift": shift, "first": first_text,
+        covers = [t for ln, lvl, t in heads if start <= ln < end and lvl <= level]
+        part_specs.append({"n": idx, "start": start, "end": end, "shift": shift, "first": first_text, "covers": covers,
                            "slug": clean_slug(first_text), "body": body, "group": None})
     # Part filenames.
     for p in part_specs:
@@ -252,7 +255,7 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int, min_part: i
         injected_index += [f"> **This document owns:** {h1} - an index of its parts under `{parts_dir_name}/`. *(auto, review me)*", ""]
     injected_index += ["## Parts", "", "| part | covers | lines |", "|---|---|---|"]
     for p, info in zip(part_specs, out["parts"]):
-        injected_index.append(f"| [{p['file']}]({parts_dir_name}/{p['file']}) | {p['first']} | {info['lines']} |")
+        injected_index.append(f"| [{p['file']}]({parts_dir_name}/{p['file']}) | {'; '.join(p['covers']) or p['first']} | {info['lines']} |")
     injected_index.append("")
     while intro and not intro[-1].strip():
         intro.pop()

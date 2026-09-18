@@ -187,6 +187,9 @@ DEFAULT_MANIFEST = {
     # routes for http, tables for data, deployable units for deploy and architecture. 0 turns it off.
     "heavyEvidence": {"http": 20, "data": 10, "deploy": 3, "architecture": 3},
     "templatesDir": None,
+    # {group name: [concern ids]} replaces the built-in six groups for the index; a human-grouped
+    # index names its own tables, and a new row has to land under the right one.
+    "indexGroups": None,
     "verifiedStaleDays": 90,
     "ignore": [],
 }
@@ -1048,10 +1051,16 @@ INDEX_GROUPS = (
 INDEX_TABLE_HEAD = "| doc | owns | state |\n| --- | --- | --- |\n"
 
 
-def index_content(groups: dict[str, list[str]]) -> str:
-    """The central index from its rows, one H2 and one table per group that has rows."""
+def index_content(groups: dict[str, list[str]], order: list[str] | None = None) -> str:
+    """The central index from its rows, one H2 and one table per group that has rows. Under six
+    rows in all, one table: six one-row tables is more apparatus than docs."""
+    names = order or [n for n, _ in INDEX_GROUPS]
+    total = sum(len(groups.get(n) or []) for n in names)
     out = INDEX_TEMPLATE
-    for name, _ in INDEX_GROUPS:
+    if total < 6:
+        rows = [r for n in names for r in (groups.get(n) or [])]
+        return out + "\n" + INDEX_TABLE_HEAD + "\n".join(rows) + "\n"
+    for name in names:
         rows = groups.get(name) or []
         if rows:
             out += f"\n## {name}\n\n" + INDEX_TABLE_HEAD + "\n".join(rows) + "\n"
@@ -1565,7 +1574,7 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
 
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
                front_links_index: bool, root_docs: bool, docs_root: str = "docs", package_docs: list[str] | None = None,
-               front_has_start_here: bool = True, central_rel: str | None = None) -> dict | None:
+               front_has_start_here: bool = True, central_rel: str | None = None, manifest_groups: dict | None = None) -> dict | None:
     """What apply would create. Names templates, never carries content; the agent copies them."""
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"]]
@@ -1586,7 +1595,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
         "splitAt": 1000,
-        "pathPrefixes": [d for d in top_level_dirs(repo) if d not in ("tmp", "temp", "scratch")],
+        "pathPrefixes": [d for d in top_level_dirs(repo) if d not in ("tmp", "temp", "scratch", "public", "static", "assets")],
         "recordFolders": [c["default_path"].rsplit("/", 1)[0] + "/log" for c in uncovered if c["concern"] == "research"],
         "counts": [{"index": c["default_path"],
                     "folder": (c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else "") + "tasklist"}
@@ -1598,7 +1607,10 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
     rows = []
     groups: dict[str, list[str]] = {}
-    group_of = {cid: name for name, cids in INDEX_GROUPS for cid in cids}
+    custom = manifest_groups if isinstance(manifest_groups, dict) and manifest_groups else None
+    group_of = ({cid: name for name, cids in custom.items() for cid in (cids or [])} if custom
+                else {cid: name for name, cids in INDEX_GROUPS for cid in cids})
+    order = list(custom.keys()) + ["Packages"] if custom else None
     for c in uncovered:
         t = template_for(c["template"])
         if t is None:
@@ -1614,22 +1626,26 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         link = c["default_path"].split("/", 1)[1] if (not root_docs and "/" in c["default_path"]) else c["default_path"]
         row = f"| [{title}]({link}) | {owner_text(t)} | skeleton |"
         rows.append(row)
-        groups.setdefault(group_of.get(c["concern"], "Product and decisions"), []).append(row)
+        groups.setdefault(group_of.get(c["concern"], (order or ["Product and decisions"])[-2] if order and len(order) > 1 else "Product and decisions"), []).append(row)
     # Every root that is a package's own doc gets a row too: "one hop from the index" was false
     # for exactly the READMEs a new engineer on a monorepo needs first.
     for p in (package_docs or []):
         if "/" not in p or not (repo / p).is_file():
             continue
         pd = Doc(repo / p, repo)
+        first = next((l.strip() for l in pd.clean[1:60] if l.strip() and not l.startswith(("#", "!", "[", "<", ">", "|", "-", "*", "`"))), "")
         h1 = next((t for _, lvl, t in pd.headings if lvl == 1), Path(p).parent.name)
+        owns = (first[:140].rstrip(".") if first else h1)
         rel_link = ("../" * (docs_root.count("/") + 1)) + p if not root_docs else p
-        row = f"| [{p}]({rel_link}) | {h1} | reviewed |"
+        # A commit is not a review. A hand-written doc nobody has reviewed under this shape
+        # is unreviewed until a person dates it.
+        row = f"| [{p}]({rel_link}) | {owns} | unreviewed |"
         rows.append(row)
         groups.setdefault("Packages", []).append(row)
     if not have_index and not root_docs:
         # With the content, not just a name. SKILL.md says the template is in the checker's
         # output; it was a module constant nothing emitted, so two agents wrote two indexes.
-        content = index_content(groups)
+        content = index_content(groups, order)
         files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(content.splitlines()), "content": content}
     if not files and front_links_index and (front_has_start_here or root_docs):
         return None
@@ -2256,9 +2272,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             if len(cells) < 3 or cells[0].lower() in ("doc", "part", "phase") or not LINK_RE.search(cells[0]):
                 continue
             state = cells[-1].strip("*` ").lower()
-            m = re.match(r"(skeleton|draft|reviewed|current|stale)\b(.*)$", state)
+            m = re.match(r"(skeleton|draft|unreviewed|reviewed|current|stale)\b(.*)$", state)
             if not m:
-                add("R14", central_rel, i, f"state '{cells[-1][:40]}' is not one of skeleton, draft, reviewed <date>, stale <date>", "warn")
+                add("R14", central_rel, i, f"state '{cells[-1][:40]}' is not one of skeleton, draft, unreviewed, reviewed <date>, stale <date>", "warn")
             elif m.group(1) in ("reviewed", "current", "stale") and not re.search(r"\d{4}-\d{2}-\d{2}", m.group(2)):
                 add("R14", central_rel, i, f"state '{m.group(1)}' carries no date; write {m.group(1)} YYYY-MM-DD so a reader knows when", "warn")
 
@@ -2466,8 +2482,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
     front_has = has_start_here(by_rel.get(front_rel) or Doc(front, repo)) if front.is_file() else False
     init = None if (generator is not None or ambiguous or unreadable) else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
-                                                          discovery.get("package_docs", []) if discovery else [], front_has,
-                                                          central_rel)
+                                                          discovery.get("package_docs", []) if discovery else [r for r in roots_rel if "/" in r and (repo / r).is_file()], front_has,
+                                                          central_rel, manifest_groups=manifest.get("indexGroups"))
 
     # ---- placeholders
     placeholders = 0

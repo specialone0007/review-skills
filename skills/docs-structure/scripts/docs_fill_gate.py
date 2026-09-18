@@ -771,6 +771,19 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
     # One marker per document: when the owner line carries it, every section is a draft and is
     # judged, whether or not it repeats the marker at its end.
     owner_draft = any(DRAFT_MARK in l and OWNER_LINE.match(l.strip()) for l in lines[:12])
+    # G11: the template comment names the inventory keys this document may draw on. An
+    # [inventory: services] bracket in ARCHITECTURE is deploy evidence in the wrong home: the
+    # production service list landed there because DEPLOYMENT did not exist yet.
+    fill_m = re.search(r"<!--\s*concern: ?\s*([a-z]+);\s*fill: ?\s*([^>]*?)\s*-->", text)
+    fill_keys = None
+    if fill_m and fill_m.group(2).strip().lower() not in ("", "none"):
+        fill_keys = {k.strip().split(" ")[0].split("(")[0] for k in fill_m.group(2).split(",") if k.strip()}
+    if fill_keys:
+        for i, l in enumerate(lines, start=1):
+            for key in re.findall(r"\[inventory: ?\s*([a-z_]+)", l):
+                if key in INVENTORY_KEYS and key not in fill_keys and key not in ("tree", "kinds", "readme"):
+                    found.append({"doc": rel, "line": i, "rule": "G11",
+                                  "message": f"[inventory: {key}] is another concern's evidence (this document fills from {', '.join(sorted(fill_keys))}); the fact belongs in the doc that owns it, link to it from here"})
     _HEADINGS_SEEN[rel] = [h for h, _, _ in sections(lines)]
     for heading, start, end in sections(lines):
         body = [l for l in lines[start:end] if l.strip()]

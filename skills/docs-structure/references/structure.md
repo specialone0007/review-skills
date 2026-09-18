@@ -26,8 +26,11 @@ index plus one doc, not the whole tree.
   filenames were headings slugged whole, paths and asides included.
 - **R14 index state.** The index is where a reader learns whether a doc can be trusted. That
   needs a closed vocabulary with a date: `skeleton`, `draft`, `reviewed 2026-09-18`,
-  `stale 2026-09-18`. Free text ("current - mostly checked") tells a reader nothing the checker can
-  hold anyone to.
+  `stale 2026-09-18`, and `unreviewed` for a hand-written doc no one has dated. Free text alone
+  ("current - mostly checked") tells a reader nothing the checker can hold anyone to; a note after
+  the token is welcome. A commit date is not a review date.
+- **R8 and prose.** One home per fact is enforced for numbers (three copies of a measurement) and
+  checked at fill time for evidence keys (G11); a repeated prose fact is a reviewer's job.
 - **R4 index and folder agree.** An index a reader uses instead of the folder must list the folder.
 - **R5 links and anchors.** A link is a promise. Anchors rot when a heading is reworded; GitHub's
   slug rules (lowercase, drop punctuation, spaces to hyphens, `-1` for duplicates) are applied.
