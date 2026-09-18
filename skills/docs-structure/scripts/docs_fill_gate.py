@@ -92,6 +92,9 @@ BAD_BREAK = re.compile(r"[^\]`.][.?!]\s+(?=[A-Z`(])")
 # and the trailing lookahead used to let every -ly form through.
 BANNED = re.compile(r"(?<![\w-])(robust|secure|simple|simply|clean|fast|modern|scalable|easy|easily|powerful|"
                     r"seamless|best|properly|elegant|efficient|reliable|reliably)(?:ly)?(?![\w-])", re.I)
+# SKILL.md bans these because a date comes only from git; three words are mechanical, so the
+# gate checks them rather than leaving it to whichever agent remembers.
+TIME_WORD = re.compile(r"\b(currently|recently|now|nowadays|today|lately|these days|at the moment|as of now)\b", re.I)
 INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to|intended to|meant to|in order to)\b", re.I)
 # Case-insensitive like BANNED and INTENT: sentence-start is where a modal actually appears.
 # "handles" left: "the worker keeps 3 file handles open" is a count of file descriptors, not a
@@ -844,6 +847,8 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 break
             if MODAL.search(unquoted):
                 add("G5", first, f"modal verb: {MODAL.search(unquoted).group(0)}")
+            if TIME_WORD.search(unquoted):
+                add("G5", first, f"time word: {TIME_WORD.search(unquoted).group(0)} - a draft dates a fact from git or a filename, never from now")
             # A paragraph citing a commit is quoting its subject, which structure.md asks for
             # verbatim - so "drop redis because the latency was unacceptable" is the repo's
             # words, not the draft's reasoning.
@@ -904,6 +909,23 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     said = said or re.search(rf"\b{re.escape(name)}\b`?\s*(?:\(|,)\s*`?([^\s`\[|),]+)", joined)
                     # The imperative puts the verb first: "Set `ADMIN_TOKEN` to hunter2 before starting".
                     said = said or re.search(rf"\b(?:set|export|put|use|pass|provide)\s+`?{re.escape(name)}`?\s+(?:to|as|=)\s+`?([^\s`\[|]+)", joined, re.I)
+                    # And whatever the verb: "reads changeme_dev_key", "currently holds hunter2".
+                    # A value-shaped word - a digit or underscore inside it, a URL, a long run -
+                    # within a few words of a secret-shaped name is the value, whichever verb led
+                    # to it. A bare number is not: "expires after 30 days" is a duration.
+                    if not said:
+                        tail = re.search(rf"\b{re.escape(name)}\b((?:\s+\S+){{1,8}})", BRACKET_ANY.sub(" ", joined.replace("`", " ")))
+                        for tok in (tail.group(1).split() if tail else []):
+                            t_ = tok.strip("(),;:.'\"")
+                            if not t_ or t_.isdigit() or re.fullmatch(r"[A-Z][A-Z0-9_]+", t_) or PLACEHOLDER_VALUE.match(t_) or FLAG_VALUE.match(t_):
+                                continue
+                            if LOOKS_LIKE_VALUE.search(t_) or (VALUE_SHAPED.search(t_) and len(t_) >= 6):
+                                add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
+                                break
+                        else:
+                            tail = None
+                        if tail is not None:
+                            continue
                     if said:
                         val = said.group(1).rstrip(".,;")
                         if not (PLACEHOLDER_VALUE.match(val) or FLAG_VALUE.match(val) or val.lower() in PROSE_LEAD):
@@ -1225,8 +1247,9 @@ def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = No
         lines.append("")
         lines.append("**Values.** G7 reads the field beside a variable name. Where the name says")
         lines.append("secret, token, password or key: a one-word field is a value; a longer one is a value")
-        lines.append("when its first word carries a digit or an underscore, or follows a verb such as")
-        lines.append("\"defaults to\" or an opening bracket - and a description that happens to start with")
+        lines.append("when a word within a few of the name carries a digit, an underscore, a URL or a long run,")
+        lines.append("or when a plain word follows a verb such as \"defaults to\" or an opening bracket - and a")
+        lines.append("description that happens to start with")
         lines.append("an English word (letmein in development) will not be reported.")
     if verdict:
         lines.append("")
