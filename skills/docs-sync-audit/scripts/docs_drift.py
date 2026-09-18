@@ -55,6 +55,9 @@ SKIP_DIRS = {
     "__pycache__", ".next", "coverage", ".terraform", "site-packages",
 }
 DOC_EXTS = {".md", ".mdx", ".rst", ".txt"}
+# The languages where a module is imported by file name, which is the only case in which
+# "nothing imports this file" can be decided from the text.
+FILE_IMPORT_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".rb", ".php", ".vue", ".svelte"}
 CODE_EXTS = {
     ".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte",
     ".go", ".rs", ".rb", ".php", ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh",
@@ -109,7 +112,7 @@ PLATFORM_ENV = {
     "LOCALAPPDATA", "USERPROFILE", "SYSTEMROOT", "COMSPEC", "OS", "PROCESSOR_ARCHITECTURE",
 }
 ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
-DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy)\b", re.I)
+DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform)\b", re.I)
 CONFIG_CONTEXT = re.compile(r"\b(env|environment|variable|export|secret|config|configur\w*|setting|\.env|dotenv|flag|knob)\b", re.I)
 CONFIG_SUFFIX = re.compile(r"_(?:URL|URI|DSN|KEY|TOKEN|SECRET|PASSWORD|PASS|HOST|PORT|PATH|DIR|FILE|MODE|ENABLED|DISABLED|TIMEOUT|LIMIT|MAX|MIN|ID|NAME|REGION|BUCKET|ENDPOINT|BASE|VERSION|LEVEL|INTERVAL|SECONDS|MS|TTL|SIZE|COUNT|RATE)$")
 
@@ -237,6 +240,8 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
     for rel in files:
         if Path(rel).suffix not in CODE_EXTS or any(p in SKIP_DIRS for p in Path(rel).parts):
             continue
+        if any(p.startswith(".") and p != ".github" for p in Path(rel).parts[:-1]):
+            continue  # tooling under a dot-folder; its docs are skipped, so its reads are too
         text = read(repo / rel)
         if not text or "env" not in text.lower():
             continue
@@ -258,10 +263,25 @@ def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
     conservative: basename matching, and anything entrypoint-shaped is excluded, so
     it under-reports rather than accusing live code of being dead.
     """
+    # Only languages that import a file by its name. Elixir, Go, Rust, Java and C# resolve
+    # modules by package path - Plausible.S3 says nothing about s3.ex - so the rule called
+    # config/runtime.exs, the runtime entrypoint, a module nothing imports.
     code = [f for f in files
-            if Path(f).suffix in CODE_EXTS and not any(p in SKIP_DIRS for p in Path(f).parts)]
+            if Path(f).suffix in FILE_IMPORT_EXTS and not any(p in SKIP_DIRS for p in Path(f).parts)
+            and not any(p.startswith(".") for p in Path(f).parts[:-1])]
+    # Names a framework loads by convention - Next's route/page/layout/middleware, SvelteKit's
+    # +page/+server, Django's views/urls/models/admin/tasks - and the folders whose contents
+    # are loaded or run by convention: app/, pages/, routes/, api/, migrations/, commands/,
+    # scripts/, bin/. Three Next route handlers under src/app/api were called modules nothing
+    # imports; nothing imports them because the framework mounts them.
     entrypoint = re.compile(
-        r"(^|/)(server|main|index|app|cli|__init__|__main__|conftest|setup|wsgi|asgi)\.[A-Za-z]+$",
+        r"(^|/)(server|main|index|app|cli|__init__|__main__|conftest|setup|wsgi|asgi|manage"
+        r"|route|page|layout|template|loading|error|not-found|default|middleware|instrumentation|proxy"
+        r"|\+page|\+layout|\+server|\+error|views|urls|models|admin|tasks|signals|apps|forms|serializers|celery"
+        r"|vite\.config|next\.config|tailwind\.config|postcss\.config|jest\.config|vitest\.config|playwright\.config"
+        r"|eslint\.config|prettier\.config|webpack\.config|rollup\.config|babel\.config|svelte\.config|astro\.config"
+        r"|drizzle\.config|prisma|schema|seed|settings|gunicorn|uvicorn)(\.[A-Za-z0-9.]+)?$"
+        r"|(^|/)(app|pages|routes|api|migrations|commands|management|scripts|bin|hooks|tasks|jobs|workers|plugins|extensions|middleware|functions|lambdas|handlers|cron|seeds|fixtures|tests?|__tests__|spec|specs|e2e|stories)/",
         re.I)
     imported: set[str] = set()
     for rel in code:
@@ -270,12 +290,17 @@ def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
             continue
         # `from lib import bluesky, instagram` names two modules after the keyword; only
         # `lib` was recorded, and both files were called modules nothing imports.
-        for names in FROM_IMPORT_NAMES.findall(text):
+        # from . import (
+        #     bird_x,
+        #     bluesky,
+        # ) - the parenthesised form spans lines, and only the first name was recorded.
+        flat = re.sub(r"\(([^)]*)\)", lambda m_: "(" + " ".join(m_.group(1).split()) + ")", text)
+        for names in FROM_IMPORT_NAMES.findall(flat):
             for n_ in re.split(r"[,\s]+", names):
                 n_ = n_.strip().split(" as ")[0].strip()
                 if n_ and n_ != "*":
                     imported.add(n_.lower())
-        for groups in IMPORT_SPEC.findall(text):
+        for groups in IMPORT_SPEC.findall(flat):
             ref = next((g for g in groups if g), "").strip()
             if not ref:
                 continue
@@ -359,7 +384,15 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                 # "# KENER_API_KEY=" is how an optional variable is documented in an env sample;
                 # skipping every comment line made thirteen documented names "undocumented".
                 stripped = re.sub(r"^#\s*(?=(?:export\s+)?[A-Z][A-Z0-9_]*\s*=)", "", stripped)
-                if not stripped or stripped.startswith("#") or "=" not in stripped:
+                if stripped.startswith("#"):
+                    # "# FALKORDB_URL points the graph client at ..." - a comment in an env
+                    # sample is documentation of whatever it names. Low confidence, and it only
+                    # ever suppresses a finding.
+                    for name in ENV_NAME.findall(stripped):
+                        if "_" in name and not name.endswith("_"):
+                            documented.setdefault(name, f"{rel}:{i}")
+                    continue
+                if not stripped or "=" not in stripped:
                     continue
                 key = re.sub(r"^export\s+", "", stripped.split("=", 1)[0].strip()).strip()
                 if ENV_NAME.fullmatch(key or ""):
@@ -371,6 +404,12 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                 # anything that looks like a filename.
                 # Struck-through text is the doc recording that a name is gone; it is not a promise.
                 line_live = re.sub(r"~~[^~]*~~", " ", line)
+                # A table is the standard shape for env documentation, and the name is often a
+                # bare cell: | TABLE_ONLY_TOKEN | api token |. Read the first cell of a table row.
+                if line_live.lstrip().startswith("|"):
+                    cells = [c.strip().strip("`") for c in line_live.strip().strip("|").split("|")]
+                    if cells and re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", cells[0]) and "_" in cells[0] and not cells[0].endswith("_"):
+                        documented.setdefault(cells[0], f"{rel}:{i}")
                 for chunk in BACKTICK.findall(line_live):
                     c = chunk.strip()
                     if "." in c or "/" in c:
@@ -387,7 +426,9 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                     # And it reads as configuration: the line talks about it as such, or the
                     # name itself carries a configuration suffix. A shouted identifier in prose
                     # does not become an environment variable by being in backticks.
-                    if not (CONFIG_CONTEXT.search(line) or CONFIG_SUFFIX.search(name)):
+                    at_ = line_live.find(chunk)
+                    window = line_live[max(0, at_ - 80): at_ + len(chunk) + 80]
+                    if not (CONFIG_CONTEXT.search(window) or CONFIG_SUFFIX.search(name)):
                         continue
                     documented.setdefault(name, f"{rel}:{i}")
     return documented
@@ -415,13 +456,6 @@ def path_epochs(repo: Path) -> dict[str, int]:
         if p and current is not None and p not in epochs:
             epochs[p] = current
     return epochs
-
-
-def newest_commit_epoch(repo: Path, pathspec: str) -> int | None:
-    out = run_git(["log", "-1", "--format=%at", "--", pathspec], repo)
-    if not out or not out.strip().isdigit():
-        return None
-    return int(out.strip())
 
 
 def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
@@ -506,6 +540,11 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                     continue
                 if PLACEHOLDER.search(t) or "/actions/workflows/" in t or t.startswith("../../"):
                     continue  # a GitHub-relative badge or repository URL, not a file
+                # [`extract`](crate::extract) is a rustdoc link; (Router::fallback), (tower_http::trace)
+                # and a bare identifier with neither a slash nor a dot are the language's own
+                # references, not files. Twenty of axum's twenty-three findings were these.
+                if "::" in t or ("/" not in t and "." not in t):
+                    continue
                 # A leading slash is root-relative on GitHub, not a path on this machine - and
                 # with no file extension it is an application route (/dashboard/notifications
                 # in a site's own content), which no file could satisfy.
