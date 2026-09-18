@@ -64,7 +64,7 @@ The inventory says what the repo **is** (kinds: application, library, cli, infra
 | design | a frontend framework or styles exist | `DESIGN_GUIDELINES.md` | frontend, packages, tree |
 | testing | a test runner or tests folder exists | `TESTING.md` | tests, ci, packages |
 | operate | health checks, cron or alerts exist in configs or routes | `RUNBOOK.md` | ops, services, env, decisions |
-| contribute | a LICENSE, CONTRIBUTING or CODE_OF_CONDUCT exists | `CONTRIBUTING.md` | tree, ci, tests, packages |
+| contribute | a LICENSE, CONTRIBUTING or CODE_OF_CONDUCT exists, or the remote points at github.com or gitlab.com | `CONTRIBUTING.md` | tree, ci, tests, packages |
 | research | manifest opt-in only | `research/LOG.md` + `log/` | never drafted |
 
 The "drafted from" column repeats each template's `<!-- concern: x; fill: ... -->` line, which is the authority.

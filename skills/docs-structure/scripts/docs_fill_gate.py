@@ -178,7 +178,9 @@ INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exp
                   "ecosystems", "warnings"}
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
-LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
+# Source extensions only: ".com:5432" and "redis.io:6379" are a host and a port, and a
+# DEPLOYMENT draft is told to state them. The checker's R7 makes the same distinction.
+LINE_CITE = re.compile(r"\.(?:ts|tsx|js|jsx|mjs|cjs|py|sql|go|rs|java|kt|kts|rb|php|cs|ex|exs|swift|c|h|cpp|hpp|vue|svelte|sh|ps1|yaml|yml|toml|json|md|mdx):\d+\b")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
 # The template's own owner line. It states what the document covers; there is nothing to cite
@@ -479,6 +481,8 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
         if not path or path.startswith("!"):
             continue
         if not exists_exact(repo, path):
+            if ".." in path.replace(chr(92), "/").split("/"):
+                return f"a cited path may not leave the repository: {path}"
             return f"cited path does not exist: {path}"
         if " § " in part:
             heading = part.split(" § ", 1)[1].strip().lower()
@@ -824,6 +828,16 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                             add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
                             break
                     continue
+                # No separator at all: "defaults to hunter2", "is set to hunter2", "ships as" -
+                # the shapes a sentence about a variable actually takes. Beside a secret-shaped
+                # name the word after the verb is judged like a value after a colon.
+                if SECRET_NAME.search(name):
+                    said = re.search(rf"\b{re.escape(name)}\b`?(?:\s+\w+){{0,3}}?\s+(?:defaults?\s+to|is\s+set\s+to|set\s+to|ships\s+as|equals|is|becomes|reads\s+as|comes\s+as|starts\s+as)\s+`?([^\s`\[|]+)", joined, re.I)
+                    if said:
+                        val = said.group(1).rstrip(".,;")
+                        if not (PLACEHOLDER_VALUE.match(val) or FLAG_VALUE.match(val) or val.lower() in PROSE_LEAD):
+                            add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
+                            continue
                 hit = re.search(rf"\b{re.escape(name)}\b`?\s*([=:]|\|)\s*([^|\[\n]*)", joined)
                 if not hit:
                     continue

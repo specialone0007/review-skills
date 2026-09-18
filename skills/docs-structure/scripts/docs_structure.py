@@ -544,7 +544,10 @@ def fences_balanced(lines: list[str]) -> bool:
 def slug(text: str) -> str:
     t = re.sub(r"`[^`]*`", lambda m: m.group(0)[1:-1], text)
     t = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", t)
+    # GitHub renders an emoji shortcode before slugging, and the emoji then drops out - so
+    # "Running tests :rocket:" slugs to running-tests-, not running-tests-rocket.
     t = t.strip().lower().replace("\r", "")
+    t = re.sub(r":[a-z0-9_+-]+:", "", t)
     t = "".join(ch for ch in t if ch.isalnum() or ch in " _-")
     return t.replace(" ", "-")
 
