@@ -6,7 +6,7 @@
 
 ## Tables by area
 
-*One H3 per area, each a table with one row per table or model: name, what a row means, the relations it points at, the file that defines it. Say what must never be deleted from it.*
+*One H3 per area, each a table with one row per table or model: name, the relations it points at, the file that defines it, and what a row means where the schema says so. When no table carries a comment, say so once with the grep behind it and leave the meaning column out. Say what must never be deleted from it.*
 
 ## Relationships
 

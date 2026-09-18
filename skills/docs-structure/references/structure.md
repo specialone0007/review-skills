@@ -5,9 +5,10 @@ rule exists, where each concern's evidence comes from, and spells out the split 
 
 ## The shape in one paragraph
 
-One central index lists every doc with one line saying what it owns. A doc that grows past one
-context load becomes an index plus a folder of parts, and the index beside the folder links every
-part. Every doc says what it owns under its title, so a fact has one home and the other docs link
+One central index lists every doc with one line saying what it owns, grouped by what a reader
+came to do: run and build, operate, reference, product and decisions, packages, history. A doc that
+grows past a thousand lines becomes an index plus a folder of a few chapter-sized parts, each
+linking the previous and next, and the index beside the folder links every part. Every doc says what it owns under its title, so a fact has one home and the other docs link
 to it. Links point at headings that exist, paths that exist, and never at line numbers. The README
 says what the project is and how to run it, then points at the index once. An agent loads the
 index plus one doc, not the whole tree.
@@ -17,8 +18,19 @@ index plus one doc, not the whole tree.
 - **R1 reachable.** A doc nobody links to is a doc nobody reads.
 - **R2 owner line.** One owner per fact. When two docs both state a number, one is stale within a
   month. The line under the title says which doc is the home.
-- **R3 oversize.** 500 lines is a proxy for one context load. A candidate list only; a human
-  confirms each split, because the cut is the largest diff this skill can produce.
+- **R3 oversize.** A thousand lines is where a doc stops being one read. A candidate list only; a
+  human confirms each split, because the cut is the largest diff this skill can produce. The cut
+  makes chapters, not confetti: a part is at least `minPart` lines (shorter sections merge into the
+  next), a doc becomes at most `maxParts` parts, and each part links the previous and the next.
+  Found the day a 359-line doc was cut into eighteen parts of six to forty lines, and the
+  filenames were headings slugged whole, paths and asides included.
+- **R14 index state.** The index is where a reader learns whether a doc can be trusted. That
+  needs a closed vocabulary with a date: `skeleton`, `draft`, `reviewed 2026-09-18`,
+  `stale 2026-09-18`, and `unreviewed` for a hand-written doc no one has dated. Free text alone
+  ("current - mostly checked") tells a reader nothing the checker can hold anyone to; a note after
+  the token is welcome. A commit date is not a review date.
+- **R8 and prose.** One home per fact is enforced for numbers (three copies of a measurement) and
+  checked at fill time for evidence keys (G11); a repeated prose fact is a reviewer's job.
 - **R4 index and folder agree.** An index a reader uses instead of the folder must list the folder.
 - **R5 links and anchors.** A link is a promise. Anchors rot when a heading is reworded; GitHub's
   slug rules (lowercase, drop punctuation, spaces to hyphens, `-1` for duplicates) are applied.
@@ -58,8 +70,9 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "centralIndex": "docs/INDEX.md",
   "indexConvention": "sibling",
   "ownerLine": { "markers": ["This document owns:", "Part of"], "enforce": false },
-  "splitAt": 500,
-  "maxParts": 30,
+  "splitAt": 1000,
+  "maxParts": 12,
+  "minPart": 80,
   "pathPrefixes": ["src", "docs"],
   "citationExtensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "sql", "go", "rs", "java", "rb"],
   "recordFolders": ["docs/plans"],
@@ -111,7 +124,7 @@ fixture carries a planted `.env.local` value; the snapshot test fails if any scr
 
 ## Fill: where each section's evidence comes from
 
-Bracket grammar, the only allowed forms: `[path]`, `[path § heading]`, `[path: key]`, `[sha date]`,
+Bracket grammar, the only allowed forms: `[path]`, `[path § heading]`, `[path: key]`, `[sha date]`, `[verified: <source> YYYY-MM-DD]`,
 `[inventory: services[n]]`. Completeness: **high** = the inventory answers it; **partial** = the
 inventory gives names and the agent adds one sentence per name from the named file; **question** =
 open question by default.
@@ -150,7 +163,7 @@ target names verbatim; "how to know it works" is a health route or test command;
 | section | evidence | expect | guard against |
 | --- | --- | --- | --- |
 | Services table | compose, railway, fly, render, vercel, netlify, Procfile, k8s, Helm: root, build and start names, ports, health check presence | high | "public/private" is a question unless a port is published or an Ingress exists |
-| Environment per service | example env files per package, compose keys, railway variable names, k8s env names, Actions secrets refs, code reads; a `secret_like` flag from the name | high | printing a value; asserting a variable "is a secret" |
+| Environment per service | example env files per package, compose keys, railway variable names, k8s env names, Actions secrets refs, code reads; a `secret_like` flag from the name. This table lives here and nowhere else; ARCHITECTURE labels its arrows with names and links here | high | printing a value; asserting a variable "is a secret"; a copy of this table in ARCHITECTURE |
 | Deploy steps | deploy scripts, deploy workflows, quoted step names | partial | a generic recipe; a `vercel.json` alone means "settings live outside the repo" |
 | Rollback | the one mechanical fact: whether migrations have down files | question | inventing a procedure |
 | Known traps | `fix(deploy|docker|build|env|ci)` and `revert` commits verbatim, dated | partial | storytelling |
@@ -182,7 +195,7 @@ attributed. Tokens high, taste question.
 High. Coverage gaps are questions.
 
 **operate**: health routes and probes, cron schedules, alert rule files; each with its file.
-"When something is wrong" from `fix(prod|incident|outage)` commits until a human writes it. Partial.
+"When something is wrong" is one open question until a person who has run the system writes it; fix commits are DEPLOYMENT's Known traps, not a runbook. Partial.
 
 **contribute**: governance files present, PR template, CI checks that must pass, commit convention
 if a config declares it. Review process is a question.
@@ -272,7 +285,10 @@ first` or `Documentation` section is left alone.
 `scripts/docs_split.py` performs every step below and runs the proof in step 7 itself; the agent writes the files it returns, and only when its `proof.ok` is true.
 
 Input: one doc the user confirmed. Every step is mechanical and every step can refuse; a refusal is
-a finding ("needs a human restructure"), not a failure.
+a finding ("needs a human restructure"), not a failure. A part is a chapter: sections shorter than
+`minPart` merge into the next, the doc becomes at most `maxParts` parts, filenames are the first
+five words of the heading with code spans, paths and parentheticals removed, and every part ends
+with a `Previous · Index · Next` line.
 
 1. **Parse fence-aware.** Fences are ```` ``` ```` or `~~~`, indented up to three spaces. An
    unbalanced fence: refuse. A leading `---` frontmatter block stays on the index.

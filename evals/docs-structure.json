@@ -69,10 +69,10 @@
       "expect_skill": "repo-health-audit"
     },
     {
-      "id": "pr-summary-goes-elsewhere",
+      "id": "readiness-goes-to-feature-audit",
       "kind": "anti-trigger",
-      "prompt": "summarise what changed under docs/ on this branch versus staging for the PR body",
-      "expect_skill": "pr-branch-summary"
+      "prompt": "the onboarding flow is documented but is it actually safe to ship - check it for launch blockers",
+      "expect_skill": "feature-audit"
     },
     {
       "id": "finds-planted-shape-defects",

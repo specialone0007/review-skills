@@ -18,4 +18,4 @@
 
 ## When something is wrong
 
-*One subsection per known failure: symptom, where to look, what to do. Dated bullets from incident-like commits until a human writes the real ones.*
+*One subsection per known failure: symptom, where to look, what to do. Until a person who has run it writes one, a single open question; a list of fix commits is not a runbook.*

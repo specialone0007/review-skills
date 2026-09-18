@@ -1,141 +1,111 @@
 # `test-gap-audit` on this repository
 
 **Prompt:** "what tests am I missing"  
-**Repository:** `specialone0007/review-skills` at `cc100ad`  
+**Repository:** `specialone0007/review-skills`, branch `fix/docs-structure-layout` on top of `5597942`, with the removal of `feature-brainstorm` and `pr-branch-summary` applied  
 **Files changed by the run:** none — the skill is read-only
 
-Full-repository test-gap audit of specialone0007/review-skills (7 SKILL.md skills, 5 bundled scripts, 2 validators, eval suite, CI), run with the skill's own scripts/coverage_map.py plus both validators.
+Full-repository read-only coverage audit, running the bundled coverage_map.py, reading `tools/validate_evals.py` and its nine snapshot entries end to end, and confirming each lead by opening the file and, where a claim was cheap to settle, by re-running the script with different flags.
 
-Re-run it yourself and compare. Line numbers refer to the commit above, so a later commit will shift them.
+Re-run it yourself and compare. Line numbers refer to the tree described above, so a later commit will shift them.
 
 ---
 
-**Test Gap Audit: whole repository**
+**Test Gap Audit: whole repository (review-skills)**
 
-No code changed. I inventoried every testable surface in the repo — 7 skills, 5 bundled Python scripts, 2 maintainer validators, the eval suite, and 4 CI jobs — ran `scripts/coverage_map.py`, and ran both validators to see what they actually assert. 14 surfaces inventoried, 8 inspected in depth. No P0s found.
+No code changed. I reviewed all seven bundled scripts, the three maintainer tools, the snapshot registry, the two fixtures and the CI workflow against the repo's test conventions. I ran the bundled coverage mapper, read the snapshot registry and every snapshot file, and re-ran `docs_split.py` with varied flags to settle what its snapshot actually pins. No P0s found.
 
-The honest headline: this repo's automated testing is one thing, and it is a good thing — `validate_evals.py` snapshot-tests bundled script output against a deliberately defective fixture. That is real regression protection and it works. The gaps are around its edges: the one script that enforces the repo's write-safety promise is the one script excluded from those snapshots, and the validator that enforces every other rule has nothing testing it at all.
+**Headline: the deterministic half of the suite is broader than it was — all seven bundled scripts now have snapshots — but two of its load-bearing claims are not true.** One snapshot pins a refusal while its own comment says it pins a proof, and the thing that enforces every rule in this repo has no negative test at all.
 
-1. **P1: The `--allow-repo-output` write guard has no test, and it is the repo's only guard against a skill writing into a user's repository.**
-   Gap: `collect_pr_context.py` refuses to write a report inside the target repo unless `--allow-repo-output` is passed. Nothing exercises either branch of that check — not the allowed path, not the refused path, not the relative-path-resolution that decides which branch you land in (`Path(args.output)` is joined onto `repo` when relative, then `.resolve()`d, so `--output ../x.md` and symlinked repos both hinge on untested logic).
-   Current coverage: none. The only CI exercise of this script is `.github/workflows/ci.yml:112`, which runs it with no `--output` at all, so line 230 is never reached.
-   Evidence: guard at `skills/pr-branch-summary/scripts/collect_pr_context.py:230`; relative-path join at `:227`; CI invocation at `.github/workflows/ci.yml:112`. `CONTRIBUTING.md:120` makes this the mandated pattern for every future script — "be read-only on the target repo by default, following the `--allow-repo-output` pattern" — so a silent regression here propagates by copy-paste.
-   Suggested test: a Python unit test (`tools/tests/test_collect_pr_context.py`, stdlib `unittest` to match the repo's zero-dependency posture) over a `tempfile` git repo. Cases: `--output report.md` inside the repo exits non-zero and writes nothing; the same with `--allow-repo-output` writes the file; `--output <tmpdir outside repo>/r.md` writes without the flag; `--output ../escape.md` resolves outside and is allowed. Assert both the exit code and `os.listdir` of the repo.
+1. **P1: the only snapshot for `docs_split.py` pins a refusal, not a split — and the comment above it says the opposite.**
+   Gap: `docs_split.py` is 627 lines whose entire product is a split proposal plus a reversibility proof. The snapshot proves neither. `evals/snapshots/docs_split.json` contains `"parts": []`, `"files": {}`, `"proof": null`, `"rewrites": 0`, and `"refuse": "H2: 14 parts, over maxParts 12; H3: 14 parts, over maxParts 12"`. The configured args at `tools/validate_evals.py:62` are `["--doc", "docs/drafted.md", "--split-at", "30"]`, and `--split-at 30` on that fixture doc yields 14 candidate parts, which exceeds the default `maxParts` of 12 — so the script declines and the snapshot records the decline. Every line that builds a part, rewrites an inbound link, or assembles the proof block is unexercised.
+   The comment directly above the entry, at `tools/validate_evals.py:60`, reads "cut low so it has parts to propose; the proof block is part of the snapshot, so a reversal that stops being line-identical shows." That is a precise description of a test that does not exist. A maintainer reading the registry has been told the reversibility proof is pinned; it is `null`.
+   Current coverage: the refusal path only. I confirmed the split path works and produces a proof — the same invocation with `--max-parts 16` returns `"refuse": null`, 14 parts, and `"proof": {"ok": true, "problems": []}` — so this is a one-flag fix, not a missing feature.
+   Evidence: code `skills/docs-structure/scripts/docs_split.py:406` (`def merge`), snapshot registry `tools/validate_evals.py:62`, its claim at `tools/validate_evals.py:60`, snapshot contents `evals/snapshots/docs_split.json`.
+   Suggested test: add `--max-parts 16` to the existing `docs_split` entry's args and regenerate, so the snapshot pins parts, rewrites and the proof block. Then add a *second* entry — `docs_split_refuse` — keeping the current args, so the refusal stays pinned too. Two snapshots, both meaningful, and the comment becomes true.
 
-2. **P1: `tools/validate_skills.py` enforces the repo's entire quality contract and has no tests, so any rule can stop firing without CI noticing.**
-   Gap: 333 lines and roughly two dozen rules — frontmatter shape, name regex, the 5000-char total description budget, report-header format, `## Related Skills` cross-references, bundled-path existence, machine-specific-path detection, README table sync. Every one is a regex or a path check that returns *silently* when it stops matching. There is no fixture that is supposed to fail. A validator whose only observed output is "OK: 0 errors" is indistinguishable from a validator that has quietly become a no-op.
-   Current coverage: CI runs it once against the repo's own known-good skills (`.github/workflows/ci.yml:35`). That proves the good case passes. It proves nothing about the bad case failing.
-   Evidence: `tools/validate_skills.py:248` (`check_paths_and_links`), `:276` (`check_readme`), `:45` (`REPORT_HEADER_RE`), `:47` (`BUNDLED_PATH_RE`). No test files exist for it — `grep -rn "validate_skills"` across the repo returns four hits, all of them CI or docs invocations, none a test.
-   Suggested test: a negative-fixture table test. Add `tools/tests/fixtures/bad-skills/` holding small deliberately-broken skill folders (missing `description`, name with an underscore, a `` `scripts/nope.py` `` reference to a nonexistent file, a `## Related Skills` pointing at a skill that does not exist, a hardcoded `C:\Users\...` path). Parametrize `check_skill` / `check_paths_and_links` over them and assert each produces an error whose message contains the expected substring. This is the highest-leverage test in the repo: it is what keeps every other check honest.
+2. **P1: `merge()` — the reversibility half of the split contract — is never invoked by anything.**
+   Gap: `skills/docs-structure/scripts/docs_split.py:406` defines `merge(repo, doc_rel)`, roughly 130 lines including its own proof construction at `:532`. `grep -rn -- "--merge"` across tracked Python, YAML and JSON finds the flag only inside `docs_split.py` itself. No snapshot entry passes it, CI does not call it, and the new all-scripts CI step at `.github/workflows/ci.yml:119` invokes `docs_split.py` with `--doc` only. The skill's documented promise is that a split is reversible; the code that reverses it has never been run by a test.
+   This is not the same gap as finding 1. Fixing the args there pins the *forward* proof — the claim that a merge would restore the text. It still would not execute `merge()`.
+   Current coverage: none. Confidence: high — confirmed by grep across all tracked non-Markdown files plus reading both the registry and the CI job.
+   Evidence: code `skills/docs-structure/scripts/docs_split.py:406`; no test reference found in `tools/validate_evals.py`, `.github/workflows/ci.yml`, or `evals/snapshots/`.
+   Suggested test: a round-trip snapshot. Add a registry entry that runs `docs_split.py --doc <index> --merge --format json` against a pre-split fixture doc and pins the merged output plus its proof. The strongest version materialises a split into a temp dir with `--out`, merges it back, and asserts the result is byte-identical to the original — that is the actual contract, and it is testable without writing into the repo.
 
-3. **P1: `collect_pr_context.py` is the only bundled script excluded from snapshot tests, and its CI smoke run exercises a degenerate empty diff.**
-   Gap: `SNAPSHOT_SCRIPTS` covers 4 scripts; the repo ships 5. The excluded one is also the most stateful — it shells out to git a dozen times, resolves base refs through a fallback chain, optionally runs `git fetch`, and caps diffs. Worse, its CI run passes `--base "$(git rev-parse HEAD)"`, which makes the merge-base equal to HEAD. Every diff, log, and numstat block is therefore empty, and `capped_diff`'s truncation branch (`:95`) can never be taken.
-   Current coverage: `.github/workflows/ci.yml:108-117` proves the script exits 0 and leaves the tree clean on an empty comparison. That is worth keeping, but it is a liveness check, not a behavior check.
-   Evidence: registry at `tools/validate_evals.py:52` (4 entries, ending `:57`); script count from `ls skills/*/scripts/*.py | wc -l` → `5`; degenerate base at `.github/workflows/ci.yml:113`; untaken truncation branch at `skills/pr-branch-summary/scripts/collect_pr_context.py:95`; ref-fallback chain at `:64`.
-   Suggested test: build a scratch git repo in a `tempfile` dir (two branches, a rename, a deleted file, a 3000-line diff) and assert against the markdown: the truncation notice appears when `--max-diff-lines 100`, the commit list contains both subjects, `--base origin/main` resolves through the fallback when only `main` exists locally, and an unresolvable base exits with the `:80` message. No network, no `--fetch`.
+3. **P1: nothing proves either validator still fires. A check that silently became a no-op would keep CI green forever.**
+   Gap: `tools/validate_skills.py` (369 lines) and `tools/validate_evals.py` (286 lines) enforce every convention this repo publishes. Both are only ever run against review-skills itself, which currently passes. `REPO` is hard-coded at `tools/validate_skills.py:18` as `Path(__file__).resolve().parent.parent`, and `main()` at `:323` takes no arguments — there is no `argparse` and no `sys.argv` handling in the file, so it cannot be pointed at a deliberately bad skill. If `check_readme` at `:302` were edited to return early, or the `BODY_MAX_LINES` comparison flipped, the validator would print "OK: 0 errors" and CI would pass. Nothing would notice until a real violation shipped.
+   This is the same class of gap the repo already solved for bundled scripts: the two fixtures exist precisely so a script can be run against known-bad input. That technique is not applied to the tools that check the fixtures.
+   Current coverage: both validators run in CI (`.github/workflows/ci.yml:35` and `:88`) against a passing tree, which proves they do not crash. It proves nothing about whether any individual check still detects anything.
+   Evidence: code `tools/validate_skills.py:18`, `tools/validate_skills.py:323`, `tools/validate_skills.py:302`; CI invocations `.github/workflows/ci.yml:35`, `.github/workflows/ci.yml:88`; no test file exists — `git ls-files | grep -i test` outside `evals/fixtures/` returns only skill and eval files, no test code.
+   Suggested test: parameterise `REPO` — accept an optional path argument in `main()` — then add `evals/fixtures/bad-skill/`, a skill folder with three planted violations (an extra frontmatter key, a `## Related Skills` entry naming a skill that does not exist, and a `scripts/` path that does not resolve). Assert the validator exits non-zero and that its output contains the three expected `path:line:` diagnostics. That is one fixture and roughly 30 lines in `validate_evals.py`, and it converts every existing check from "runs" to "fires".
 
-4. **P2: Nothing enforces that a new bundled script gets a snapshot, which is exactly how script 5 of 5 ended up uncovered.**
-   Gap: `SNAPSHOT_SCRIPTS` is a hand-maintained dict. Adding `skills/<new>/scripts/foo.py` with no snapshot entry produces a green build. The registry drifted once already.
-   Current coverage: `validate_cases` checks that every skill directory has an eval file (`tools/validate_evals.py:80`). The equivalent check for scripts does not exist.
-   Evidence: `tools/validate_evals.py:52`; the missing-eval-file check it should mirror at `tools/validate_evals.py:80`.
-   Confidence: high.
-   Suggested test: extend `validate_evals.py` with a check that globs `skills/*/scripts/*.py` and errors on any file not present in `SNAPSHOT_SCRIPTS`, with an explicit opt-out list for scripts that genuinely cannot be snapshotted (and a required one-line reason). Assert the check itself in the validator's own test file from finding 2.
+4. **P2: no script has a test for a hostile or degenerate `--repo`.**
+   Gap: all seven bundled scripts accept `--repo`. Every snapshot points it at one of two well-formed fixtures. Behavior on a path that does not exist, an empty directory, a directory that is not a git repository, a repo with zero documents or zero test files, or a file that is not valid UTF-8 is unspecified and unexercised. "Zero docs" and "zero tests" are the state of a brand-new repository, which is a plausible first-run for `docs_structure.py` and `coverage_map.py` — a first-run crash is the worst possible first impression for a skill.
+   Current coverage: the new CI step at `.github/workflows/ci.yml:106` runs every script against this repository in both formats, which adds a second real-world shape beyond the fixtures. It does not cover any degenerate input.
+   Confidence: high on the gap; medium on the impact, since I did not run the scripts against those inputs to see whether they exit cleanly.
+   Evidence: `--repo` definitions in all seven scripts; snapshot fixtures at `tools/validate_evals.py:40` and the per-entry `fixture` keys at `:58` and `:59`.
+   Suggested test: a small parametrised loop in `validate_evals.py` running each script against `tempfile.mkdtemp()` — empty, no git — and asserting exit code 0 with parseable JSON rather than a traceback. Cheap, deterministic, and it does not need a committed fixture.
 
-5. **P2: Only the JSON output of the four snapshotted scripts is tested; the default text output — the format an agent actually reads — is never asserted.**
-   Gap: `run_script` always passes `--format json` (`tools/validate_evals.py:151`). The text renderers are a separate code path of meaningful size, and they are where the cross-platform console-encoding risk the CI comments call out actually lives. A text renderer could raise `UnicodeEncodeError` on a Windows console, or emit an empty section, and every check stays green.
-   Current coverage: the `scripts` CI job compiles them (`.github/workflows/ci.yml:123`) — syntax only, not execution.
-   Evidence: JSON-only invocation at `tools/validate_evals.py:151`; the encoding workaround these renderers depend on at `tools/validate_evals.py:33` (mirrored in each script).
-   Confidence: high.
-   Suggested test: add a second snapshot per script for `--format text` against the same fixture, or — lighter and less brittle — assert that text output is non-empty, contains each expected section heading, and encodes cleanly to `cp1252` with `errors="strict"` on the Windows leg.
+5. **P2: the canary assertion covers stdout only, and only for snapshot runs.**
+   Gap: `tools/validate_evals.py:170` asserts the canary string, `real:secret`, and `SECRET_CANARY` never appear in `proc.stdout`. That is the right check, and it is the repo's best security test. Two things it does not cover: `proc.stderr`, where a traceback quoting a line of a `.env` file would land; and any script run that is not a snapshot entry — including the new all-scripts CI step, which runs all seven against this repository with output redirected to `/dev/null` and asserts nothing about content.
+   Current coverage: nine snapshot runs, stdout only.
+   Evidence: `tools/validate_evals.py:170`; canary definition `tools/validate_evals.py:66`; the uncovered CI step `.github/workflows/ci.yml:106`.
+   Suggested test: extend the existing assertion to `proc.stdout + proc.stderr` — a one-line change — and plant a second canary in a `.env` file inside `mini-py` so both fixtures carry one.
 
-6. **P2: Two script flags that change real behavior are never executed.**
-   Gap: `docs_drift.py --check-paths` (`skills/docs-sync-audit/scripts/docs_drift.py:445`) and `dependency_audit.py --allow-network` (`skills/security-audit/scripts/dependency_audit.py:479`) are absent from every CI command and from `run_script`'s fixed argument list. `--check-paths` in particular does filesystem work that can crash on a path shape the fixture does not contain.
-   Current coverage: none beyond `py_compile`.
-   Evidence: `tools/validate_evals.py:151` (the fixed arg list); flag definitions at the two lines above.
-   Confidence: high.
-   Suggested test: add a `docs_drift --check-paths` snapshot against the fixture — it is deterministic and cheap. Leave `--allow-network` out of CI deliberately, but add a unit test that the flag defaults to off and that the offline path makes no outbound call (assert the network helper is not invoked).
-
-7. **P2: The "read-only on your files" promise is asserted for one script out of five.**
-   Gap: the README's Safety section makes this claim for all seven skills, and `CONTRIBUTING.md:120` makes it a requirement for every bundled script. CI checks `git status --porcelain` after running `collect_pr_context.py` only.
-   Current coverage: `.github/workflows/ci.yml:115`.
-   Evidence: the single-script check at `.github/workflows/ci.yml:115`; the repo-wide promise at `CONTRIBUTING.md:120`.
-   Confidence: high.
-   Suggested test: move the porcelain assertion into a loop that runs all five scripts against the fixture and checks the tree after each. Note the ordering constraint: the `py_compile` step at `.github/workflows/ci.yml:123` writes `__pycache__` into `skills/`, so the clean-tree assertions must stay ahead of it (they currently do, by accident rather than by comment).
-
-8. **P2: No error-path tests. Every script is only ever run against a well-formed fixture.**
-   Gap: `resolve_repo` raises `SystemExit` outside a git repo (`skills/pr-branch-summary/scripts/collect_pr_context.py:47`); the survey scripts take `--repo` pointing anywhere. Behavior on a nonexistent path, an empty directory, a repo with zero test files, or a file that is not valid UTF-8 is unspecified and unexercised. For `coverage_map.py` specifically, "zero test files" is the state of a brand-new repo — a plausible first-run crash.
-   Current coverage: none.
-   Evidence: `skills/pr-branch-summary/scripts/collect_pr_context.py:47`; `--repo` definitions at `skills/test-gap-audit/scripts/coverage_map.py:383` and the three sibling scripts.
-   Confidence: medium — these may degrade gracefully; I read the entry points but did not execute the failure cases.
-   Suggested test: a small table test running each script with `--repo <empty tmpdir> --no-git-root`, asserting exit 0 and valid JSON with zeroed counts, plus `collect_pr_context.py --repo <non-git tmpdir>` asserting exit 1 and the "Not inside a git repository" message.
-
-9. **P3: `tools/make_social_preview.py` is not run, not compiled, and not referenced anywhere.**
-   Gap: 156 lines that generate `assets/social-preview.png`, a committed binary. Nothing verifies the committed PNG still matches what the generator produces, and the syntax check at `.github/workflows/ci.yml:123` globs `find skills -name '*.py'`, which excludes `tools/` entirely. The other two `tools/` scripts are covered incidentally because CI executes them; this one is not.
-   Current coverage: none.
-   Evidence: `tools/make_social_preview.py:77`; the `skills`-scoped find at `.github/workflows/ci.yml:123`. `grep -rn "make_social_preview" --include=*.yml --include=*.md --include=*.json .` returns no hits.
-   Confidence: high.
-   Suggested test: widen the `find` to `find skills tools -name '*.py'` (one-line fix, and it is the cheapest finding here), and optionally add a check that regenerating the preview into a temp path yields bytes identical to the committed asset.
-
-10. **P3: `validate_evals.py --checklist` is never executed in CI.**
-    Gap: the manual-eval path is the documented tier-2 workflow (`CONTRIBUTING.md:90`), and it is a distinct code path that indexes into case dicts. A malformed case could crash it, and nobody finds out until a maintainer tries to run the checklist.
-    Current coverage: none — CI runs the validator in default mode only (`.github/workflows/ci.yml:88`).
-    Evidence: `tools/validate_evals.py:205` (`checklist`); `tools/validate_evals.py:212` (the per-case print).
-    Confidence: high.
-    Suggested test: add `python tools/validate_evals.py --checklist > /dev/null` as a CI step. One line, catches every crash in that path.
+6. **P3: `make_social_preview.py` is unreferenced by any check and silently went stale.**
+   Gap: 156 lines, no snapshot, no CI step, no import. Its `SKILLS` list is a hand-maintained copy of the skill folder names, and until this change it listed six skills — two that no longer exist and omitting `docs-structure` entirely. Nothing detected that. The same file's sample finding still said "Security Audit" months after that skill was removed.
+   Current coverage: none. `ast.parse` in the CI syntax step is the only thing that touches it.
+   Evidence: code `tools/make_social_preview.py:43` (`SKILLS = [`); no reference in `tools/validate_evals.py` or `.github/workflows/ci.yml`.
+   Suggested test: a three-line assertion in `validate_skills.py` that `SKILLS` in `make_social_preview.py` matches the `skills/` directory listing, parsed with `ast` rather than imported so Pillow stays optional. It is the same class of check as `check_readme`, which already exists and works.
 
 **Suggested Test Plan**
 
-Do these in order — the first two are the ones that change the repo's risk profile.
-
-1. `tools/tests/test_validate_skills.py` with a `bad-skills/` negative fixture, one assertion per rule. This is the keystone: it is what stops the rest of the suite from silently rotting.
-2. `tools/tests/test_collect_pr_context.py` over a temp git repo: the `--allow-repo-output` guard (both branches), diff truncation, base-ref fallback, unresolvable base.
-3. Widen `find skills` to `find skills tools` at `.github/workflows/ci.yml:123`, and add `--checklist` as a CI step. Two lines, two findings closed.
-4. Add the registry-completeness check to `validate_evals.py` so script 6 cannot repeat script 5's escape.
-5. Loop the clean-tree assertion over all five scripts, keeping it ahead of the `py_compile` step.
-6. Add a `docs_drift --check-paths` snapshot, and text-format assertions for the four snapshotted scripts.
-7. Error-path table test: empty repo, non-git dir, missing path.
+1. Add `--max-parts 16` to the `docs_split` snapshot args and add a second `docs_split_refuse` entry (finding 1). Smallest change, highest value, makes an existing comment true.
+2. Add the `merge()` round-trip snapshot (finding 2). This is the contract the skill advertises.
+3. Add `evals/fixtures/bad-skill/` and a negative test for `validate_skills.py` (finding 3). Largest effort, and the one that stops the whole suite from rotting invisibly.
+4. Extend the canary assertion to stderr (finding 5). One line.
+5. Add the degenerate-`--repo` loop (finding 4) and the `SKILLS` list check (finding 6).
 
 **Untested Or Weakly Tested Areas**
 
-- `tools/validate_skills.py` (333 lines) — no tests, no negative fixture.
-- `tools/make_social_preview.py` (156 lines) — not executed, not syntax-checked, unreferenced.
-- `skills/pr-branch-summary/scripts/collect_pr_context.py` (245 lines) — smoke run on an empty diff only; excluded from snapshots.
-- Text-format output of all four snapshotted scripts.
-- Every script's error and empty-input path.
-- `validate_evals.py --checklist` and `--update-snapshots` modes.
+- `tools/` — three files, 811 lines, zero coverage of any kind. The coverage mapper ranks it as the second-largest unmatched directory in the repo.
+- `skills/docs-structure/scripts/` — four files, 6,331 lines, the largest unmatched directory. Snapshot coverage exists for all four but exercises one invocation each, and for `docs_split.py` that invocation is a refusal.
+- Every error path in every bundled script. The fixtures are well-formed by construction, so `except` branches are reached only by accident.
+- The five `behavior` eval cases. They are real tests with `must_include` / `must_not_include` assertions, but they need a model and CI deliberately does not run them (`CONTRIBUTING.md:97` explains why). That is a defensible decision, not a gap — but it means the model-facing half of every skill is checked by hand or not at all.
 
 **Existing Coverage Worth Keeping**
 
-- The snapshot suite (`tools/validate_evals.py:171`) is genuinely good regression protection: it runs the real scripts against a real fixture and compares exact bytes, with per-key diff reporting at `:196` so a failure says what broke. The `drop` mechanism at `:166` for machine-dependent keys is the right call.
-- Running it on both Ubuntu and Windows (`.github/workflows/ci.yml:94-97`) is what makes byte-exact snapshots viable, and `.gitattributes` pinning fixture line endings closes the loop.
-- The structural eval checks are stronger than most repos bother with: requiring an anti-trigger case (`tools/validate_evals.py:141`) and a behavior case (`:143`) per skill means routing between seven overlapping skills is at least specified, even though a model is needed to run it.
-- `evals/fixtures/README.md` documents every planted defect and which skill should catch it. That is what makes the fixture a test rather than a pile of bad code.
+- **Nine snapshots covering all seven bundled scripts**, two of them (`docs_evidence_py`, `docs_structure_py`) against a second fixture in a different language. This is genuinely good: output regressions surface as a readable diff, and the Ubuntu/Windows matrix at `.github/workflows/ci.yml:78` means a line-ending or path-handling difference fails the build.
+- **The canary assertion** at `tools/validate_evals.py:170`. A planted secret that no script may ever print is a better test of the "never leak a value" rule than any amount of code review.
+- **The write-safety assertion** at `.github/workflows/ci.yml:122`. Running all seven scripts and then asserting `git status --porcelain` is empty is the direct test of the read-only claim, and it now covers every script rather than one.
+- **The anti-trigger eval cases** — 10 of the 31. With five overlapping skills, proving a prompt routes *away* from a skill is harder and more valuable than proving it routes toward one.
 
 **Surveyed But Not Deeply Inspected**
 
-- The internal logic of `docs_drift.py` (475 lines), `dependency_audit.py` (514), `repo_inventory.py` (378), and `coverage_map.py` (417). Snapshots pin their *output* on one fixture; none of their branching is unit-tested. A focused pass on any one of them would likely find untested detection rules — `dependency_audit.py` is the one I would run next, since it carries the severity logic the fixture README says was already corrected once after a real-repo trial.
-- The seven `agents/openai.yaml` files. `validate_skills.py` parses them (`:128`), but I did not check how much of their content is actually constrained.
-- `.claude-plugin/marketplace.json` and `plugin.json`, which are validated only by the first-party CLI job.
+- The interiors of `docs_structure.py` (2,914 lines) and `docs_fill_gate.py` (1,499 lines). I read their argument parsers, their module constants and their snapshot output; I did not trace their rule engines to find which rules are actually exercised by the fixtures. "Which of the R-rules does a fixture actually trigger" is the obvious next pass and would likely produce several P2s.
+- `evals/fixtures/mini-py/`. Confirmed it backs two snapshots; did not read its planted defects against `evals/fixtures/README.md` to check they are all still reachable.
+- The `must_include` / `must_not_include` strings in the five behavior cases, for staleness against the current report formats.
 
 **Checks Run**
 
-- `git status --short` (session start): clean.
-- `python skills/test-gap-audit/scripts/coverage_map.py --top 25`: 17 source files, 3 test files, 4 matched (24%), 13 unmatched; Vitest detected; flagged `evals/fixtures/mini-app/tests/smoke.test.js` as 1 case / 0 assertions.
-- `ls skills/*/scripts/*.py | wc -l`: `5`.
-- `python tools/validate_skills.py`: `7 skills checked. Descriptions total 3797/5000 chars. OK: 0 errors, 0 warning(s).`
-- `python tools/validate_evals.py`: `7 eval files, 27 cases checked. OK: 0 errors.`
-- `grep -rn "make_social_preview" --include=*.yml --include=*.md --include=*.json .`: no matches (exit 1).
-- `grep -rn "validate_skills" --include=*.py --include=*.yml --include=*.md .`: 4 matches, all invocations (`.github/workflows/ci.yml:28`, `CONTRIBUTING.md:10`, `README.md:112`, and the script's own docstring) — none a test.
+- `python skills/test-gap-audit/scripts/coverage_map.py --top 25`: 27 source files, 3 test files, 5 matched (18%), 22 unmatched. Largest unmatched directories: `skills/docs-structure/scripts` (4 files, 6,331 lines), `tools` (3 files, 811 lines).
+- `cat evals/snapshots/docs_split.json`: 297 bytes; `"parts": []`, `"files": {}`, `"proof": null`, `"rewrites": 0`, `"refuse": "H2: 14 parts, over maxParts 12; H3: 14 parts, over maxParts 12"`.
+- `python skills/docs-structure/scripts/docs_split.py --repo evals/fixtures/mini-app --no-git-root --doc docs/drafted.md --split-at 30 --format json`: `refuse` set, 0 parts, `proof` None — reproduces the snapshot.
+- Same command plus `--max-parts 16`: `refuse` None, 14 parts, `proof {'ok': True, 'problems': []}` — confirms the split path works and is simply not selected by the snapshot args.
+- `grep -rn -- "--merge" --include=*.py --include=*.yml --include=*.json .`, excluding `docs_split.py` itself: no output.
+- `ls evals/snapshots/`: nine files, covering all seven bundled scripts.
+- `sed -n '14,25p' tools/validate_skills.py`: `REPO` defined at line 18 from `__file__`; `grep -n "argparse\|sys.argv\|def main" tools/validate_skills.py`: one hit, `def main()` at line 323 — no argument handling.
+- `git ls-files | grep -i test`, excluding `evals/fixtures/`: six hits, all skill files, eval JSON, an example report and a doc template — no test code.
+- `grep -n "CANARY" tools/validate_evals.py`: definition at line 66, single assertion at line 170 against `proc.stdout`.
+- `grep -n "smoke\|assertion" evals/fixtures/README.md`: line 16 lists the zero-assertion smoke test as a deliberate planted defect for this skill.
+- `python tools/validate_evals.py`: exit 0 — "5 eval files, 31 cases checked. OK: 0 errors."
 
 **Not Tested**
 
-- I did not execute any script against a malformed or empty repository, which is why finding 8 carries medium confidence rather than high. Doing so writes nothing, but it was outside what I could confirm in this pass.
-- I did not run `--update-snapshots`, `--allow-network`, or `--fetch`: all three either write to the repo or reach the network.
-- I did not run `python -m py_compile` or `compileall`, since they emit `.pyc` files into the tree — gitignored, so `git status` would have looked clean while the tree was modified.
-- Tier-2 evals need a live model per `tools/validate_evals.py:18`. Nothing in this audit says whether the skills' *reports* meet their contracts; only whether the code around them is tested.
+- I did not run any script against a nonexistent path, an empty directory or a non-UTF-8 file, so finding 4 states the gap but not the consequence.
+- I did not execute `merge()` to confirm it works. The finding is that nothing tests it, which is proven by grep; whether it is correct is unknown and is exactly the point.
+- The five behavior eval cases were not run — they need a live agent, and `CONTRIBUTING.md:88` describes the checklist workflow for doing that by hand.
+- No coverage instrumentation was used. There is no Python test runner configured in this repo, so line coverage numbers do not exist and were not estimated.
 
 **Assumptions**
 
-- The unmatched files `coverage_map.py` reported under `evals/fixtures/mini-app/` are **not** gaps. `evals/fixtures/README.md` states that `exports.js` and `admin.js` having no tests, and `smoke.test.js` having no assertions, are planted defects the eval cases depend on. The script found exactly what it was supposed to find in the fixture. I excluded all of them from the findings above.
-- One thing you should know: `.github/workflows/ci.yml` was modified between my first `git status` (clean) and a later one, adding a Windows matrix leg to the `validate` job. That was not me — this audit ran read-only and I made no edits. Another process or session is touching the file. All my `ci.yml` line citations are against the current on-disk version, which now has the `validate` job at lines 15-35; if that change is reverted, the line numbers in findings 3, 5, 7, 9, and 10 shift by 8.
-
+- I audited the working tree of `fix/docs-structure-layout` with the two-skill removal staged but not committed. The snapshot registry, the CI script step and the `SKILLS` list in `make_social_preview.py` were all edited in that change; findings 1 through 5 are unaffected by it, and finding 6 describes the staleness that change repaired.
+- I treated `evals/fixtures/mini-app/tests/smoke.test.js` (1 case, 0 assertions) as a deliberate planted defect rather than a real gap, on the strength of `evals/fixtures/README.md:16`.

@@ -6,7 +6,7 @@
 
 ## In one diagram
 
-*A text diagram of the pieces and the arrows between them. If it needs more than a screen, the system needs a second doc, not a bigger diagram.*
+*A text diagram of the pieces and the arrows between them, each arrow labelled with the environment name that makes it. The per-service environment table is DEPLOYMENT's; link it. If the diagram needs more than a screen, the system needs a second doc, not a bigger diagram.*
 
 ## Services
 

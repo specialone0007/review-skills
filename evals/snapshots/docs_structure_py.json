@@ -28,7 +28,7 @@
       "runner_up": null,
       "seed": null,
       "template": "ARCHITECTURE.md",
-      "universal": true,
+      "universal": false,
       "weak": false
     },
     {
@@ -184,8 +184,8 @@
         "why": "data (schema: alembic/versions/0001_initial.py)"
       },
       "docs/INDEX.md": {
-        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.\n\n| doc | owns | state |\n| --- | --- | --- |\n",
-        "lines": 8,
+        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
+        "lines": 13,
         "template": "INDEX.md (built in)"
       },
       "docs/PRODUCT.md": {
@@ -197,38 +197,40 @@
       "docs/structure.json": {
         "content": {
           "centralIndex": "docs/INDEX.md",
-          "counts": [],
           "frontDoor": "README.md",
-          "ignore": [],
           "indexConvention": "sibling",
-          "ownerLine": {
-            "enforce": false,
-            "markers": [
-              "This document owns:",
-              "Part of"
-            ]
-          },
           "pathPrefixes": [
             "alembic",
             "app"
           ],
-          "recordFolders": [],
           "roots": [
             "docs",
+            "README.md",
             "README.md"
-          ],
-          "splitAt": 500
+          ]
         },
-        "lines": 24,
+        "lines": 14,
         "template": "generated"
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](#getting-started), [the architecture](docs/ARCHITECTURE.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](#getting-started). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
     },
+    "index_groups": {
+      "Product and decisions": [
+        "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
+        "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |"
+      ],
+      "Reference": [
+        "| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |",
+        "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
+        "| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |"
+      ]
+    },
+    "index_groups_existing": {},
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
       "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
@@ -236,6 +238,7 @@
       "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
       "| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |"
     ],
+    "index_tables": [],
     "print_only": {
       "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [README.md](README.md) *(one heading only - confirm this is the right home)* |\n| a table, a column, a migration, or what a row means | `docs/DATA_MODEL.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a command, a subcommand or a flag | `docs/CLI_REFERENCE.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
@@ -294,6 +297,13 @@
       "first": [],
       "severity": "P3",
       "title": "verified-on date fresh",
+      "warnings": 0
+    },
+    "R14": {
+      "failures": 0,
+      "first": [],
+      "severity": "P3",
+      "title": "index state vocabulary",
       "warnings": 0
     },
     "R2": {

@@ -408,7 +408,7 @@ def quote_sources(repo: Path, refs: list[str]) -> list[str]:
     for ref in refs:
         for part in ref.split(";"):
             r = part.strip()
-            if not r or r.lower().startswith("inventory:"):
+            if not r or r.lower().startswith(("inventory:", "verified:")):
                 continue
             if SHA_REF.match(r):
                 sha = r.split()[0]
@@ -521,6 +521,10 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             key = part.split(":", 1)[1].strip().split("[")[0].split(".")[0].strip()
             if key and INVENTORY_KEYS and key not in INVENTORY_KEYS:
                 return f"no such inventory key: {key}"
+            continue
+        # [verified: Railway 2026-09-18]: a fact read from a platform, a dashboard or a person,
+        # said so. A platform-sourced sentence used to carry repo paths that did not hold it.
+        if re.match(r"^verified: .+ \d{4}-\d{2}-\d{2}$", part):
             continue
         if SHA_REF.match(part):
             sha, when = part.split()[0], part.split()[1]
@@ -767,7 +771,45 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
 
     if len(lines) > max_lines:
         add("G8", 1, f"{len(lines)} lines, over the {max_lines}-line draft cap; a draft must not become a split candidate")
+    # G12: a column that says the same thing in every row is not a column. 'meaning: not
+    # documented' was printed fifty times under a sentence that had already said it once.
+    i = 0
+    while i < len(lines):
+        if lines[i].lstrip().startswith("|"):
+            j = i
+            while j < len(lines) and lines[j].lstrip().startswith("|"):
+                j += 1
+            rows = [[c.strip() for c in l.strip().strip("|").split("|")] for l in lines[i:j]]
+            data = [r for r in rows[2:] if r and not set("".join(r)) <= set("-: ")] if len(rows) > 2 else []
+            if len(data) >= 3:
+                width = min(len(r) for r in data)
+                for col in range(width):
+                    vals = {r[col] for r in data}
+                    v = next(iter(vals))
+                    if len(vals) == 1 and v and not BRACKET_END.fullmatch(v) and not re.fullmatch(r"\[[^\]]+\]", v):
+                        head = rows[0][col] if col < len(rows[0]) else str(col)
+                        add("G12", i + 1, f"column '{head}' reads '{v[:40]}' in every one of {len(data)} rows; say it once above the table and drop the column")
+                        break
+            i = j
+        else:
+            i += 1
 
+    # One marker per document: when the owner line carries it, every section is a draft and is
+    # judged, whether or not it repeats the marker at its end.
+    owner_draft = any(DRAFT_MARK in l and OWNER_LINE.match(l.strip()) for l in lines[:12])
+    # G11: the template comment names the inventory keys this document may draw on. An
+    # [inventory: services] bracket in ARCHITECTURE is deploy evidence in the wrong home: the
+    # production service list landed there because DEPLOYMENT did not exist yet.
+    fill_m = re.search(r"<!--\s*concern: ?\s*([a-z]+);\s*fill: ?\s*([^>]*?)\s*-->", text)
+    fill_keys = None
+    if fill_m and fill_m.group(2).strip().lower() not in ("", "none"):
+        fill_keys = {k.strip().split(" ")[0].split("(")[0] for k in fill_m.group(2).split(",") if k.strip()}
+    if fill_keys:
+        for i, l in enumerate(lines, start=1):
+            for key in re.findall(r"\[inventory: ?\s*([a-z_]+)", l):
+                if key in INVENTORY_KEYS and key not in fill_keys and key not in ("tree", "kinds", "readme"):
+                    found.append({"doc": rel, "line": i, "rule": "G11",
+                                  "message": f"[inventory: {key}] is another concern's evidence (this document fills from {', '.join(sorted(fill_keys))}); the fact belongs in the doc that owns it, link to it from here"})
     _HEADINGS_SEEN[rel] = [h for h, _, _ in sections(lines)]
     for heading, start, end in sections(lines):
         body = [l for l in lines[start:end] if l.strip()]
@@ -809,7 +851,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # ... --> - so the moment a person reviewed the owner line and took its marker off, the
         # lead "carried prose", the finding had no section for --wrote to name, and refill on
         # that document exited 1 for ever. That is the messy-middle case the skill is for.
-        elif heading == "(lead)" and DRAFT_MARK in text and len(
+        elif heading == "(lead)" and DRAFT_MARK in text and not owner_draft and len(
                 [l for l in body if not OWNER_LINE.match(l.strip())
                  and not l.strip().startswith("<!--")]) > 0:
             found.append({"doc": rel, "line": start, "rule": "G0", "level": "skipped",
@@ -817,7 +859,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                           "message": "the lead carries prose and no " + DRAFT_MARK + " marker, "
                                      "so it was not judged; flip the owner line if fill wrote it"})
             continue
-        elif body[-1].strip() != DRAFT_MARK:
+        elif body[-1].strip() != DRAFT_MARK and not owner_draft:
             # Not a drafted section, so a person's prose is left alone - but a section inside a
             # drafted document that carries no marker of its own was silently unjudged, and the
             # report then read OK for the whole file.
@@ -1085,14 +1127,23 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             if neg and not scoped:
                 add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")
 
+        sourced = {"table": False}
+
         def flush(next_is_table: bool = False) -> None:
             if not para:
+                if not next_is_table:
+                    sourced["table"] = False
                 return
             first = para[0][0]
             joined = " ".join(t for _, t in para)
             last = para[-1][1]
             bare = CODESPAN.sub("", joined)
             if OWNER_LINE.match(joined.strip()) or is_template_text([t for _, t in para]):
+                para.clear()
+                return
+            # A "verified against <source> on <date>" line stands alone by rule: it is R13's line, not a
+            # claim about the repository, and it carries its date instead of a bracket.
+            if re.match(r"^\s*verified against .+ on \d{4}-\d{2}-\d{2}\.?\s*$", joined.strip(), re.I):
                 para.clear()
                 return
             if not joined.lower().startswith("open question:"):
@@ -1105,11 +1156,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                            and BRACKET_ANY.search(CODESPAN.sub(" ", joined)) is not None)
                 if not BRACKET_END.search(CODESPAN.sub(" ", last)) and not lead_in:
                     add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")
-                breaks = [m for m in BAD_BREAK.finditer(bare)
-                          if not ABBREV.search(bare[:m.end(0)].rstrip())
-                          and not LIST_MARKER.search(bare[:m.end(0)].rstrip())]
-                if breaks:
-                    add("G1", first, "a sentence inside this paragraph ends without an evidence bracket")
+                # Sources are per paragraph. A bracket after every sentence made a nine-line
+                # paragraph carry six of them and read like a legal brief; the paragraph ends
+                # with its sources and that is the unit a reviewer checks.
+                sourced["table"] = bool(next_is_table and BRACKET_ANY.search(CODESPAN.sub(" ", joined)))
                 for ref in BRACKET_ANY.findall(CODESPAN.sub(" ", joined)):
                     why = resolve_bracket(repo, ref)
                     if why:
@@ -1175,8 +1225,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # Any cell, not the last: structure.md and the API template both prescribe a
                 # guard column after the handler, so the evidence lands mid-row by design.
                 m = next((BRACKET_END.search(c) for c in reversed(cells) if BRACKET_END.search(c)), None)
-                if not m:
-                    add("G1", n, "table row carries no evidence bracket in any cell")
+                if not m and not sourced["table"]:
+                    # A row needs its own bracket only when the table's lead-in carried none.
+                    add("G1", n, "table row carries no evidence bracket in any cell, and the sentence introducing the table cites nothing")
                 else:
                     why = resolve_bracket(repo, m.group(1))
                     if why:
