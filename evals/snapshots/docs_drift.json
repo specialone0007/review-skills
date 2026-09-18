@@ -47,6 +47,7 @@
     "docs_checked": 8,
     "env_names_documented": 4,
     "env_names_in_code": 2,
+    "env_names_skipped_as_platform": 0,
     "findings": 5,
     "make_targets_found": 0,
     "npm_scripts_found": 4

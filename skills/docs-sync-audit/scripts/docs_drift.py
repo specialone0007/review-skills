@@ -110,9 +110,22 @@ PLATFORM_ENV = {
     "DOCKER_HOST", "KUBERNETES_SERVICE_HOST", "AWS_REGION", "AWS_DEFAULT_REGION", "LOG_LEVEL",
     "COLUMNS", "LINES", "NO_COLOR", "FORCE_COLOR", "EDITOR", "VISUAL", "XDG_CONFIG_HOME", "APPDATA",
     "LOCALAPPDATA", "USERPROFILE", "SYSTEMROOT", "COMSPEC", "OS", "PROCESSOR_ARCHITECTURE",
+    "GOPATH", "GOROOT", "GOFLAGS", "GOOS", "GOARCH", "GOPROXY", "GOPRIVATE", "GOCACHE", "GOBIN", "CGO_ENABLED",
+    "AWS_REGION", "AWS_DEFAULT_REGION", "AWS_PROFILE", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
+    "AWS_LAMBDA_FUNCTION_NAME", "AWS_EXECUTION_ENV", "SENTRY_DSN", "SENTRY_ENVIRONMENT", "SENTRY_RELEASE",
+    "HF_HOME", "HF_TOKEN", "HF_HUB_OFFLINE", "TRANSFORMERS_CACHE", "TOKENIZERS_PARALLELISM", "CUDA_VISIBLE_DEVICES",
+    "GOOGLE_APPLICATION_CREDENTIALS", "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_CLIENT_SECRET",
+    "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES", "NEXT_PHASE",
+    "DJANGO_SETTINGS_MODULE", "FLASK_APP", "FLASK_ENV", "FLASK_DEBUG", "DISPLAY", "WAYLAND_DISPLAY",
 }
+# Prefixes that belong to a tool or a CI system wholesale; nothing an application names starts
+# with these. Vendor names (AWS_, GOOGLE_, SENTRY_, HF_) are deliberately absent: an application
+# names its own bucket AWS_S3_UPLOAD_BUCKET and its own token SENTRY_ORG_TOKEN.
+PLATFORM_PREFIXES = ("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_", "LC_", "LANG", "WERKZEUG_",
+                     "PLAYWRIGHT_", "PYTEST_", "JEST_", "VITEST", "TERM_", "SSH_", "XDG_", "CARGO_", "RUSTUP_",
+                     "JAVA_", "MAVEN_", "GRADLE_", "DOTNET_", "ASPNETCORE_", "KUBERNETES_", "LITELLM_", "TORCH_")
 ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
-DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform)\b", re.I)
+DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid)\b", re.I)
 CONFIG_CONTEXT = re.compile(r"\b(env|environment|variable|export|secret|config|configur\w*|setting|\.env|dotenv|flag|knob)\b", re.I)
 CONFIG_SUFFIX = re.compile(r"_(?:URL|URI|DSN|KEY|TOKEN|SECRET|PASSWORD|PASS|HOST|PORT|PATH|DIR|FILE|MODE|ENABLED|DISABLED|TIMEOUT|LIMIT|MAX|MIN|ID|NAME|REGION|BUCKET|ENDPOINT|BASE|VERSION|LEVEL|INTERVAL|SECONDS|MS|TTL|SIZE|COUNT|RATE)$")
 
@@ -221,16 +234,34 @@ def available_commands(repo: Path, files: list[str]) -> tuple[dict[str, set[str]
     return npm, make
 
 
-def fenced_blocks(text: str) -> list[tuple[int, str]]:
-    """Yield (line_number, line) for lines inside fenced code blocks."""
+# `cd` to an absolute path, `cd ~/deploy`, `cd "$DEPLOY_DIR"`, `ssh box` - from here to the end of the
+# fence the commands run somewhere that is not this repository; a ./svc.sh there is not a
+# missing file here.
+AWAY = re.compile(r"^\s*(?:sudo\s+)?(?:cd\s+(?:/|~|\$|[\x22\x27][/~$])|ssh\s+\S|docker\s+(?:exec|run)\b|kubectl\s+exec\b)")
+
+
+def fenced_blocks(text: str, *, skip_away: bool = False) -> list[tuple[int, str]]:
+    """Yield (line_number, line) for lines inside fenced code blocks.
+
+    With skip_away, a line after a `cd` out of the tree or an `ssh` is dropped until the
+    fence closes: whatever runs there is not a path in this repository.
+    """
     out: list[tuple[int, str]] = []
-    inside = False
+    inside = away = False
     for i, line in enumerate(text.splitlines(), start=1):
         if FENCE.match(line.strip()):
             inside = not inside
+            away = False
             continue
-        if inside:
-            out.append((i, line))
+        if not inside:
+            continue
+        if skip_away:
+            if away:
+                continue
+            if AWAY.match(line):
+                away = True
+                continue
+        out.append((i, line))
     return out
 
 
@@ -375,6 +406,8 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
         is_env_sample = base.startswith(".env")
         if not is_env_sample and Path(rel).suffix not in DOC_EXTS:
             continue
+        if any(p.startswith(".") and p != ".github" for p in Path(rel).parts[:-1]):
+            continue  # tooling under a dot-folder documents nothing for this repository's readers
         text = read(repo / rel)
         if not text:
             continue
@@ -493,9 +526,11 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
             continue
 
         # 1. commands
-        for lineno, line in fenced_blocks(text):
+        for lineno, line in fenced_blocks(text, skip_away=True):
             for script in set(CMD_NPM.findall(line)):
                 if not all_npm:
+                    continue
+                if line.lstrip().startswith("#"):
                     continue
                 if script not in all_npm:
                     near = ", ".join(sorted(s for s in all_npm if s.startswith(script.split(":")[0]))[:4])
@@ -648,15 +683,16 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     # under examples/ read ANTHROPIC_API_KEY and the whole repository was told it was
     # undocumented. Those folders still count as readers for the other direction.
     sample = re.compile(r"(^|/)(examples?|fixtures?|__fixtures__|testdata|tests?|__tests__|specs?|samples?|demos?|benchmarks?)/", re.I)
+    platform_skipped = 0
     for name, readers in sorted(in_code.items()):
         if all(sample.search(r.rsplit(":", 1)[0]) for r in readers):
             continue
-        if name in PLATFORM_ENV or name.startswith(("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_", "LC_", "LANG",
-                                                    "WERKZEUG_", "PLAYWRIGHT_", "PYTEST_", "JEST_", "VITEST", "NEXT_PHASE",
-                                                    "TERM_", "SSH_", "XDG_", "DISPLAY", "WAYLAND", "FLASK_", "DJANGO_SETTINGS",
-                                                    "CARGO_", "RUSTUP_", "GO", "JAVA_", "MAVEN_", "GRADLE_", "DOTNET_", "ASPNETCORE_",
-                                                    "KUBERNETES_", "AWS_", "GOOGLE_APPLICATION", "AZURE_CLIENT", "OTEL_", "SENTRY_",
-                                                    "LITELLM_", "HF_", "TRANSFORMERS_", "TOKENIZERS_", "CUDA_", "TORCH_")):
+        # Platform and toolchain names only. A two-letter "GO" prefix ate GOOGLE_CLIENT_SECRET
+        # and GOTRUE_JWT_SECRET; AWS_ and SENTRY_ ate an application's own bucket and token
+        # names - an undocumented secret dropped without a trace, on the kind that matters
+        # most. Exact names for the vendors, and the count of what was skipped goes in totals.
+        if name in PLATFORM_ENV or name.startswith(PLATFORM_PREFIXES):
+            platform_skipped += 1
             continue
         if name not in in_docs:
             add("undocumented-env", "medium", "(docs)", None,
@@ -700,7 +736,8 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         "stale_docs": [{"doc": d, "days": n} for n, d in (stale if newest_code else [])],
         "totals": {"docs_checked": len(docs), "findings": len(findings),
                    "npm_scripts_found": len(all_npm), "make_targets_found": len(make_targets),
-                   "env_names_in_code": len(in_code), "env_names_documented": len(in_docs)},
+                   "env_names_in_code": len(in_code), "env_names_documented": len(in_docs),
+                   "env_names_skipped_as_platform": platform_skipped},
         "findings": findings,
         "warnings": warnings,
     }
@@ -711,7 +748,8 @@ def render(d: dict, top: int) -> str:
     L = ["# Documentation Drift Check", "", f"Repo: {d['repo']}",
          f"Docs checked: {t['docs_checked']}   Findings: {t['findings']}",
          f"Known npm scripts: {t['npm_scripts_found']}   make targets: {t['make_targets_found']}",
-         f"Env names in code: {t['env_names_in_code']}   documented: {t['env_names_documented']}", ""]
+         f"Env names in code: {t['env_names_in_code']}   documented: {t['env_names_documented']}"
+         f"   skipped as platform/toolchain: {t.get('env_names_skipped_as_platform', 0)}", ""]
 
     if not d["findings"]:
         L.append("No machine-verifiable drift found. Prose accuracy is still unchecked.")
