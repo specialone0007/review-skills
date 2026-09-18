@@ -208,8 +208,12 @@ def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14,
         if pruned is not None:
             pruned.extend((d / n).as_posix() for n in dirnames
                           if n in (skip_names or set()) and n not in rescued)
+        # A folder holding a SKILL.md is an agent skill: its templates, fixtures and scripts describe
+        # other repositories, and reading them as this one's evidence proposed a decisions folder
+        # and a changelog to the skill collection itself.
         dirnames[:] = sorted(n for n in dirnames
-                             if (n not in skip or n in rescued) and not n.startswith("."))
+                             if (n not in skip or n in rescued) and not n.startswith(".")
+                             and not (d / n / "SKILL.md").is_file())
         yield d, dirnames, sorted(filenames)
 
 

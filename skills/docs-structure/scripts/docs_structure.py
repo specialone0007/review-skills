@@ -335,13 +335,9 @@ def _pipelines(inv):
 
 
 def _operate(inv):
+    # a health route or an alert file, read without guessing; a cron hint earns pipelines, not this
     ops = [o for o in inv.get("ops") or [] if not o.get("hint")]
-    if ops:
-        return f"ops: {ops[0].get('evidence')}"
-    j = inv.get("jobs") or {}
-    if j.get("cron"):
-        return f"cron: {j['cron'][0]}"
-    return None
+    return f"ops: {ops[0].get('evidence')}" if ops else None
 
 
 def _decisions(inv):

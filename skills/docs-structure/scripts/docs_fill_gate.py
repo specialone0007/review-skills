@@ -192,7 +192,7 @@ INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exports", "frontend",
                   "tests", "ci", "ops", "decisions", "readme", "tree", "release", "kinds",
                   "ecosystems", "warnings", "auth", "jobs", "integrations", "changelog", "env_count"}
-ADR_STATUS = re.compile(r"^>\s*\*\*Status:\*\*\s*(proposed|accepted|rejected|deprecated|superseded)\b.*\*\*Date:\*\*\s*\d{4}-\d{2}-\d{2}", re.I)
+ADR_STATUS = re.compile(r"^>\s*[*]{2}Status[:][*]{2}\s*(proposed|accepted|rejected|deprecated|superseded)\b.*[*]{2}Date[:][*]{2}\s*\d{4}-\d{2}-\d{2}", re.I)
 ADR_SECTIONS = ("Context", "Options", "Decision", "Consequences")
 INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(.*?)\s*(?:-\s*(\S.*?))?\s*$")
 INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
