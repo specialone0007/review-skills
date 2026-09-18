@@ -438,6 +438,16 @@ def headings(clean: list[str]) -> list[tuple[int, int, str]]:
             if clean[j].strip() in ("---", "..."):
                 start = j + 1
                 break
+    # A frontmatter title is the document's H1 as far as coverage is concerned. Skipping the
+    # block was right for anchors and wrong for scoring: on a generator-navigated tree every
+    # page has a title: and no H1, so every page scored zero and the tool reported the docs it
+    # was looking at as missing.
+    if start:
+        for j in range(1, start - 1):
+            m = re.match(r"^title[:][ 	]*[\"']?(.+?)[\"']?[ 	]*$", clean[j])
+            if m:
+                out.append((j + 1, 1, m.group(1).strip()))
+                break
     for i, line in enumerate(clean[start:], start=start + 1):
         m = HEADING_RE.match(line)
         if m:
@@ -737,6 +747,29 @@ def corroborated(hit: Path) -> bool:
         return False
     links = [ln for ln in lines if LINK_RE.search(ln)]
     return len(links) >= 2 and len(links) * 2 >= len(lines)
+
+
+# Keys a static-site generator uses to order pages. A docs tree where most pages carry a title
+# and one of these is navigated by the generator, not by links between the files.
+NAV_KEYS = ("sort_rank", "weight", "nav_order", "sidebar_position", "menu", "layout", "permalink")
+
+
+def infer_generator(docs: list) -> str | None:
+    """"external (inferred)" when the pages are ordered by frontmatter rather than by links.
+
+    Prometheus builds its site from another repository, so no config file is here to find - and
+    the checker reported 21 documents unreachable, the front door not linking the index, and
+    three site routes as dead links, on a healthy and heavily maintained tree.
+    """
+    considered = [d for d in docs if not d.skipped]
+    if len(considered) < 5:
+        return None
+    fm = 0
+    for d in considered:
+        head = d.raw[:600].lower()
+        if d.raw.startswith("---") and "title:" in head and any(k in head for k in NAV_KEYS):
+            fm += 1
+    return "external (inferred from frontmatter)" if fm * 2 > len(considered) else None
 
 
 def detect_generator(repo: Path, roots: list[Path]) -> str | None:
@@ -1528,7 +1561,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             pass
     other_format_docs = sorted(set(other_format_docs))[:20]
     generated_docs = 0
-    if generator:
+    if generator and "/" in generator:
         gen_root = (repo / generator).parent
         try:
             generated_docs = sum(1 for _, _, files in walk(gen_root)
@@ -1554,6 +1587,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     non_doc += 1
     paths = sorted(set(paths))
     docs = [Doc(p, repo) for p in paths]
+    # After the docs are read: a tree ordered by frontmatter is generator-owned even when the
+    # generator's config lives in another repository, which no file test here can see.
+    if generator is None:
+        generator = infer_generator(docs)
     by_rel = {d.rel: d for d in docs}
 
     folders = sorted({d.path.parent for d in docs if d.path.parent not in roots and d.path.parent != repo})
@@ -1650,10 +1687,16 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     # The default list is JavaScript-shaped, so a .NET or Kotlin repo got none of R7 and was
     # told nothing. When the manifest does not pin the list, add the extensions of whatever
     # languages the inventory actually found.
-    ext_list = list(manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"])
-    if not manifest.get("citationExtensions"):
-        for p in (inv.get("packages") or []):
-            ext_list += ECO_EXTENSIONS.get(str(p.get("language") or "").lower(), [])
+    # `inv` is built further down, and load_manifest always merges a non-empty default in, so
+    # this branch both crashed on an explicit [] and never ran otherwise. The languages come
+    # from the ecosystems the discovery step already knows, and the manifest wins only when it
+    # actually names the key.
+    if "citationExtensions" in raw_keys:
+        ext_list = list(manifest.get("citationExtensions") or [])
+    else:
+        ext_list = list(DEFAULT_MANIFEST["citationExtensions"])
+        for eco in (repo_inventory(repo).get("ecosystems") or []):
+            ext_list += ECO_EXTENSIONS.get(str(eco).lower(), [])
     exts = "|".join(re.escape(e) for e in dict.fromkeys(ext_list))
     # The quantifier is bounded: unbounded, it backtracks quadratically over one long token
     # (16 KB took a second, and MAX_READ allows 2 MB), which hangs a CI run rather than failing it.

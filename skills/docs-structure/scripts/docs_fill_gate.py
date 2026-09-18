@@ -138,7 +138,9 @@ NEGATION = re.compile(
 # The command needs an argument that is not the evidence bracket. Every drafted sentence ends
 # with one, so "[" was always the non-space that followed - and ", per grep" cleared the rule
 # exactly as ", per a scan" used to.
-SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+[\"'`]?[\w/*-][\w./*-]*"
+# A quoted pattern or a path-shaped argument: "per grep everywhere" is a word, not a search,
+# and it cleared this the same way ", per a scan" once did.
+SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+(?:-\S+\s+)*(?:[\"'`][^\"'`]+[\"'`]|[\w.*-]*[/.][\w./*-]+)"
                    r"|\b(?:searched|scanned|scan(?:ned)?)\s+(?:every |all |the )?`?[\w.-]*[/.][\w/*-][\w./*-]*"
                    r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w/*-][\w./*-]*", re.I)
 SCAN_CMD = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|wc|ls)\b\s*[-\w`\"']", re.I)
@@ -325,7 +327,11 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
                 if body and leaf and leaf not in body:
                     return f"{p_} does not contain '{k_}'"
         path = re.split(r" § |: ", part, maxsplit=1)[0].strip()
-        if not path or path.startswith(("http://", "https://", "^", "!")):
+        if path.startswith(("http://", "https://")):
+            # SKILL.md calls the bracket grammar closed. A link to a dashboard is not evidence
+            # from this repository, and accepting it made any claim citable.
+            return f"a URL is not repository evidence: {path[:40]}"
+        if not path or path.startswith(("^", "!")):
             continue
         if not exists_exact(repo, path):
             return f"cited path does not exist: {path}"
@@ -524,8 +530,17 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # Only when the lead's own owner line carries the marker. Judging it because some other
         # section is still a draft graded prose a person had already reviewed - the one thing the
         # skill promises never to do - and blocked refill on any part-reviewed document.
+        # The lead is judged on its own marker. When it has prose beyond the owner line and no
+        # marker, in a document that carries one elsewhere, it is reported as unjudged instead -
+        # a fill run that forgot to flip the owner line used to come back clean under --strict.
         if heading == "(lead)" and any(DRAFT_MARK in l for l in lines[start:end]):
             pass
+        elif heading == "(lead)" and DRAFT_MARK in text and len(
+                [l for l in body if not OWNER_LINE.match(l.strip())]) > 0:
+            found.append({"doc": rel, "line": start, "rule": "G0", "level": "skipped",
+                          "message": "the lead carries prose and no " + DRAFT_MARK + " marker, "
+                                     "so it was not judged; flip the owner line if fill wrote it"})
+            continue
         elif body[-1].strip() != DRAFT_MARK:
             # Not a drafted section, so a person's prose is left alone - but a section inside a
             # drafted document that carries no marker of its own was silently unjudged, and the
