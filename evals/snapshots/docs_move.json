@@ -1,0 +1,59 @@
+{
+  "delete": [
+    "docs/setup.md"
+  ],
+  "doc": "docs/setup.md",
+  "files": {
+    "docs/getting-started/SETUP.md": [
+      "# Setup",
+      "",
+      "Install the app, then read the [configuration](#configuration) section below.",
+      "",
+      "## Install",
+      "",
+      "Clone the repository and install dependencies. The export cap defaults to 42.5% of the",
+      "row budget; see [limits](../limits.md#the-cap) for why.",
+      "",
+      "## Config",
+      "",
+      "The token is read in `src/config.js:12` and nowhere else."
+    ]
+  },
+  "inbound": {
+    "docs/limits.md": [
+      "# Limits",
+      "",
+      "> **This document owns:** the export row cap and where it is enforced.",
+      "",
+      "## The cap",
+      "",
+      "Verified against the billing dashboard on 2024-01-15. Verified against the ops board on 2099-01-01.",
+      "",
+      "Exports stop at 42.5% of the row budget. The number is also quoted in",
+      "[setup](getting-started/SETUP.md#install) and in the [history](history.md), and the CRLF sample keeps a",
+      "copy under its [notes](crlf-sample.md#notes).",
+      "",
+      "## One very long token",
+      "",
+      "A citation inside a token longer than the scan limit is not a citation; it is minified code",
+      "or a signed URL. The checker skips such tokens, because scanning them backtracks.",
+      "",
+      "`segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x//deep.ts:42`"
+    ]
+  },
+  "mentions": [],
+  "move_folder": null,
+  "newline": "lf",
+  "proof": {
+    "ok": true,
+    "problems": [],
+    "rewrites": [
+      "docs/getting-started/SETUP.md:8 limits.md#the-cap -> ../limits.md#the-cap",
+      "docs/limits.md:10 setup.md#install -> getting-started/SETUP.md#install"
+    ]
+  },
+  "refuse": null,
+  "repo": "<fixture>",
+  "rewrites": 2,
+  "to": "docs/getting-started/SETUP.md"
+}

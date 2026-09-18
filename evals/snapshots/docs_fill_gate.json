@@ -3,10 +3,12 @@
     "dependencies",
     "endpoints",
     "handlers",
+    "integrations",
     "keys",
     "names",
     "packages",
     "routes",
+    "sdks",
     "variables"
   ],
   "docs": [
@@ -26,12 +28,6 @@
       "line": 50,
       "message": "[inventory: services] is another concern's evidence (this document fills from ci, packages, tests); the fact belongs in the doc that owns it, link to it from here",
       "rule": "G11"
-    },
-    {
-      "doc": "docs/drafted.md",
-      "line": 16,
-      "message": "paragraph does not end with an evidence bracket: *Which test runners are configured and where tests live. Fro",
-      "rule": "G1"
     },
     {
       "doc": "docs/drafted.md",
@@ -197,6 +193,6 @@
     }
   ],
   "repo": "<fixture>",
-  "total": 30,
+  "total": 29,
   "warnings": []
 }

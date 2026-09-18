@@ -5,6 +5,13 @@ Read-only. Standard library only. Writes nothing into the repository.
 
     python docs_split.py --repo . --doc docs/BIG.md --format json
     python docs_split.py --repo . --doc docs/BIG.md --out <scratch>   # materialise outside the repo
+    python docs_split.py --repo . --move docs/RUNBOOK.md docs/guides/OPERATIONS.md --out <scratch>
+
+A move takes one doc to the path the shape gives it (R15): the doc's own relative links are
+rebased so they still resolve from the new folder, every tracked Markdown file that links the old
+path is rewritten to the new one, and the proof is that every rewritten link resolves. A split
+parts folder beside the doc moves with it. Nothing is deleted by the script; `delete` names the
+old path for the agent.
 
 The rules are the ones in references/structure.md, "The split, exactly": fence-aware parse, refuse
 on more than one H1 or reference-style definitions, cut at H2 (else H3) so that no part is over
@@ -549,10 +556,139 @@ def merge(repo: Path, doc_rel: str) -> dict:
     return out
 
 
+def move(repo: Path, from_rel: str, to_rel: str) -> dict:
+    """One doc to its canonical path, links kept whole."""
+    out: dict = {"doc": from_rel, "to": to_rel, "files": {}, "inbound": {}, "delete": [], "mentions": [],
+                 "rewrites": 0, "refuse": None, "proof": None, "newline": "lf", "move_folder": None}
+    src = repo / from_rel
+    if not src.is_file():
+        out["refuse"] = f"{from_rel} does not exist"
+        return out
+    if (repo / to_rel).exists():
+        out["refuse"] = f"{to_rel} already exists; merge by hand"
+        return out
+    if Path(to_rel).suffix.lower() != ".md":
+        out["refuse"] = "the target must be a Markdown file"
+        return out
+    raw = ds.read(src)
+    nl = dominant_newline(raw)
+    out["newline"] = "crlf" if nl == "\r\n" else "lf"
+    lines = raw.splitlines()
+    old_dir, new_dir = src.parent, (repo / to_rel).parent
+    rewrites: list[tuple[str, int, str, str]] = []
+    # a split's parts folder moves with its doc; its Part-of links point at the doc by name and keep working
+    parts_dir = old_dir / Path(from_rel).stem.lower()
+    parts_moved: dict[str, str] = {}
+    if parts_dir.is_dir() and any(p.suffix.lower() == ".md" for p in parts_dir.iterdir()):
+        new_parts = new_dir / Path(to_rel).stem.lower()
+        out["move_folder"] = {"from": ds.posix(parts_dir, repo), "to": ds.posix(new_parts, repo)}
+        for p in sorted(parts_dir.iterdir()):
+            if p.is_file():
+                parts_moved[ds.posix(p, repo)] = ds.posix(new_parts / p.name, repo)
+
+    def new_path_for(abs_target: Path) -> Path | None:
+        rel = ds.posix(abs_target, repo) if abs_target.is_relative_to(repo) else None
+        if rel is None:
+            return None
+        if rel == from_rel:
+            return repo / to_rel
+        if rel in parts_moved:
+            return repo / parts_moved[rel]
+        return None
+
+    # 1. the doc's own links, rebased to the new folder
+    mask = fence_mask(lines)
+    moved: list[str] = []
+    for li, line in enumerate(lines):
+        if mask[li] or "](" not in line:
+            moved.append(line)
+            continue
+
+        def sub(m: re.Match, _li=li) -> str:
+            target = (m.group(2) or m.group(3) or "").strip()
+            file_part, _, anchor = target.partition("#")
+            if not file_part or file_part.startswith(EXTERNAL):
+                return m.group(0)
+            abs_t = ds.resolve_target(src, repo, file_part).resolve()
+            dest = new_path_for(abs_t) or abs_t
+            new = os.path.relpath(dest, new_dir.resolve()).replace("\\", "/") + (("#" + anchor) if anchor else "")
+            if new == target:
+                return m.group(0)
+            rewrites.append((to_rel, _li + 1, target, new))
+            return splice(m, new)
+        moved.append(ds.LINK_RE.sub(sub, line))
+    out["files"][to_rel] = moved
+    out["delete"].append(from_rel)
+    # 2. every other tracked Markdown file that links the old path (or a moved part)
+    old_abs = src.resolve()
+    old_names = {Path(from_rel).name} | {Path(p).name for p in parts_moved}
+    for rel in tracked_markdown(repo):
+        if rel == from_rel or rel in parts_moved:
+            continue
+        p = repo / rel
+        text = ds.read(p)
+        if not text:
+            continue
+        if Path(rel).suffix.lower() not in (".md", ".mdx"):
+            if from_rel in text:
+                out["mentions"].append(rel)
+            continue
+        if not any(n in text for n in old_names):
+            continue
+        src_lines = text.splitlines()
+        m2 = fence_mask(src_lines)
+        changed = False
+        new_lines = []
+        for li, line in enumerate(src_lines):
+            if m2[li] or "](" not in line:
+                new_lines.append(line)
+                continue
+
+            def sub2(m: re.Match, _rel=rel, _li=li, _p=p) -> str:
+                target = (m.group(2) or m.group(3) or "").strip()
+                file_part, _, anchor = target.partition("#")
+                if not file_part or file_part.startswith(EXTERNAL):
+                    return m.group(0)
+                abs_t = ds.resolve_target(_p, repo, file_part).resolve()
+                dest = new_path_for(abs_t)
+                if dest is None:
+                    return m.group(0)
+                new = os.path.relpath(dest, _p.parent.resolve()).replace("\\", "/") + (("#" + anchor) if anchor else "")
+                rewrites.append((_rel, _li + 1, target, new))
+                return splice(m, new)
+            nl2 = ds.LINK_RE.sub(sub2, line)
+            changed |= nl2 != line
+            new_lines.append(nl2)
+        if changed:
+            out["inbound"][rel] = new_lines
+    out["rewrites"] = len(rewrites)
+    # the parts, byte-identical, at their new place (their ../DOC.md link still names the doc by its stem)
+    for old_p, new_p in parts_moved.items():
+        body = ds.read(repo / old_p).splitlines()
+        if Path(from_rel).stem != Path(to_rel).stem:
+            body = [l.replace(f"../{Path(from_rel).name}", f"../{Path(to_rel).name}") for l in body]
+        out["files"][new_p] = body
+        out["delete"].append(old_p)
+    # 3. proof: every rewritten link resolves against the tree as it will be
+    problems: list[str] = []
+    future = {to_rel} | set(parts_moved.values()) | {r for r in tracked_markdown(repo) if r != from_rel and r not in parts_moved}
+    for rel, ln, old, new in rewrites:
+        base = (repo / rel).parent
+        file_part = new.partition("#")[0]
+        target_rel = ds.posix((base / file_part).resolve(), repo) if (base / file_part).resolve().is_relative_to(repo) else file_part
+        if target_rel not in future and not (repo / target_rel).is_dir():
+            problems.append(f"{rel}:{ln} -> {new} does not resolve after the move")
+    if not moved or moved[0].strip() != lines[0].strip():
+        problems.append("the first line changed")
+    out["proof"] = {"ok": not problems, "problems": problems, "rewrites": [f"{r}:{ln} {o} -> {n}" for r, ln, o, n in rewrites[:50]]}
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--repo", default=".", help="repository path (default: current directory)")
-    ap.add_argument("--doc", required=True, help="the doc to split, relative to the repo")
+    ap.add_argument("--doc", help="the doc to split, relative to the repo")
+    ap.add_argument("--move", nargs=2, metavar=("FROM", "TO"), help="move one doc to its canonical path, rewriting every link that points at it")
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
     ap.add_argument("--manifest", help="manifest path (default: <repo>/docs/structure.json, then docs-structure.json)")
     ap.add_argument("--split-at", type=int, help="override the manifest's splitAt (default 500)")
@@ -570,10 +706,15 @@ def main() -> int:
     split_at = a.split_at or int(manifest.get("splitAt") or 1000)
     max_parts = a.max_parts or int(manifest.get("maxParts") or 12)
     min_part = a.min_part or int(manifest.get("minPart") or 80)
-    doc_rel = Path(a.doc).as_posix()
-    if (repo / doc_rel).is_file() is False and Path(a.doc).is_file():
-        doc_rel = ds.posix(Path(a.doc).resolve(), repo)
-    result = merge(repo, doc_rel) if a.merge else propose(repo, doc_rel, split_at, max_parts, min_part)
+    if not a.doc and not a.move:
+        ap.error("one of --doc or --move is required")
+    if a.move:
+        result = move(repo, Path(a.move[0]).as_posix(), Path(a.move[1]).as_posix())
+    else:
+        doc_rel = Path(a.doc).as_posix()
+        if (repo / doc_rel).is_file() is False and Path(a.doc).is_file():
+            doc_rel = ds.posix(Path(a.doc).resolve(), repo)
+        result = merge(repo, doc_rel) if a.merge else propose(repo, doc_rel, split_at, max_parts, min_part)
     result["repo"] = str(repo)
     nl = "\r\n" if result["newline"] == "crlf" else "\n"
     if a.out and not result["refuse"] and result["proof"] and result["proof"]["ok"]:
@@ -588,6 +729,24 @@ def main() -> int:
         result["written_to"] = str(out_dir)
     if a.format == "json":
         print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    if a.move:
+        L = [f"# Move proposal: {result['doc']} -> {result['to']} ({result['newline']})", ""]
+        if result["refuse"]:
+            L.append(f"REFUSED: {result['refuse']}")
+        else:
+            L.append(f"links rewritten: {result['rewrites']} ({len(result['inbound'])} inbound files); delete after writing: {', '.join(result['delete'])}")
+            if result.get("move_folder"):
+                L.append(f"parts folder moves too: {result['move_folder']['from']} -> {result['move_folder']['to']}")
+            for m in result["mentions"][:10]:
+                L.append(f"  mention (not edited): {m}")
+            pr = result["proof"]
+            L.append("Proof: " + ("ok - every rewritten link resolves after the move" if pr["ok"] else "FAILED"))
+            L += [f"  {x}" for x in pr["problems"]]
+            if result.get("written_to"):
+                L.append(f"Written to: {result['written_to']}")
+            L += ["", "Nothing was written into the repository. Write the new files, rewrite the inbound ones, delete the old path, only when the proof is ok."]
+        print("\n".join(L))
         return 0
     if a.merge:
         L = [f"# Merge proposal: {result['doc']} ({result['newline']})", ""]
