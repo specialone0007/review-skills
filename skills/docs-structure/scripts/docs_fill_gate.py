@@ -85,20 +85,20 @@ QUOTED = re.compile(r"\"[^\"]*\"|\u201c[^\u201d]*\u201d")
 # sentence boundary the draft left unsourced.
 LIST_MARKER = re.compile(r"(?:^|\s)\d{1,3}(?:\.\d+)*\.$")
 ABBREV = re.compile(r"\b(?:[A-Z]|e\.g|i\.e|etc|vs|cf|approx|Inc|Ltd|Dr|St|No|Fig|Ref)\.$", re.I)
-BAD_BREAK = re.compile(r"[^\]`.]\.\s+(?=[A-Z`(])")
+BAD_BREAK = re.compile(r"[^\]`.][.?!]\s+(?=[A-Z`(])")
 # Hyphen-aware: fast-glob, simple-git and secure-compare are names. A hyphen is a word
 # character for this purpose even though \b says otherwise.
 # The adverb too: "validates input efficiently and securely" is the same claim as the adjective,
 # and the trailing lookahead used to let every -ly form through.
 BANNED = re.compile(r"(?<![\w-])(robust|secure|simple|simply|clean|fast|modern|scalable|easy|easily|powerful|"
                     r"seamless|best|properly|elegant|efficient|reliable|reliably)(?:ly)?(?![\w-])", re.I)
-INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to)\b", re.I)
+INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to|intended to|meant to|in order to)\b", re.I)
 # Case-insensitive like BANNED and INTENT: sentence-start is where a modal actually appears.
 # "handles" left: "the worker keeps 3 file handles open" is a count of file descriptors, not a
 # promise, and it is the ordinary way to write that sentence.
 # Contracted and periphrastic too: shouldn't, won't, has to, needs to are how a promise is
 # actually written, and the four bare words caught none of them.
-MODAL = re.compile(r"\b(should|shouldn't|must|mustn't|will|won't|can't|cannot|guarantees|has to|have to|needs? to|ought to)\b", re.I)
+MODAL = re.compile(r"\b(should|shouldn't|must|mustn't|will|won't|can't|cannot|shall|may|might|could|would|guarantees|has to|have to|needs? to|ought to)\b", re.I)
 # A count is the weakest sentence a draft can carry: two scanners give two answers and the
 # reader cannot tell which one wrote the doc. A number has to be one the inventory reports.
 # Things a repository scan counts. A number in front of one of these is an aggregate someone
@@ -209,6 +209,14 @@ FLAG_VALUE = re.compile(r"^(?:yes|no|y|n|true|false|server|client|build|runtime|
 # moment anything followed it - "hunter2 (dev only)", "hunter2 in development" - which is how
 # a password is actually written down. The first token is the value unless the field opens
 # like a sentence about the variable rather than the variable's contents.
+# What a value looks like when it is not a URL or a long run: a digit, an underscore, or a case
+# change inside the word. Ordinary English has none of these.
+VALUE_SHAPED = re.compile(r"\d|_|[a-z][A-Z]")
+# The header of the table being read, so a cell is judged by its column: under "where" or
+# "service" a single word is a place, under "value" or "default" it is a value.
+_TABLE_HEADER: dict[str, list[str]] = {}
+DESCRIPTIVE_COLUMN = re.compile(r"where|service|scope|env|owner|source|secret|sensitive|note|description|purpose|read by|used by|type|kind|required|meaning|read in")
+VALUE_COLUMN = re.compile(r"value|default|example|sample")
 PROSE_LEAD = frozenset("""a an the this that these those its it their your our any each every some no not
 one two only same both either neither used use uses set sets setting generated provided supplied issued
 created chosen picked derived read reads holds hold points identifies controls enables disables selects
@@ -226,7 +234,7 @@ DOC_EXTS = {".md", ".mdx"}
 SHA_REPO: Path | None = None
 
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", ".next",
-             "vendor", "target", "coverage", ".tox", ".mypy_cache", ".pytest_cache", "tmp"}
+             "vendor", "target", "coverage", ".tox", ".mypy_cache", ".pytest_cache"}
 MAX_WALK_DEPTH = 12
 
 warnings: list[str] = []
@@ -826,14 +834,24 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     at = next((i for i, c in enumerate(cells) if re.search(rf"\b{re.escape(name)}\b", c)), None)
                     if at is None:
                         continue
-                    for cell in cells[at + 1:]:
+                    header = _TABLE_HEADER.get("cells") or []
+                    for offset, cell in enumerate(cells[at + 1:], start=at + 1):
+                        column = header[offset] if offset < len(header) and len(header) == len(cells) else ""
                         words = BRACKET_ANY.sub(" ", cell).replace("`", " ").split()
                         if not words:
                             continue
                         val = words[0].rstrip(".,;")
                         if PLACEHOLDER_VALUE.match(val) or FLAG_VALUE.match(val):
                             continue
-                        secretish = bool(SECRET_NAME.search(name)) and (len(words) == 1 or val.lower() not in PROSE_LEAD)
+                        # A one-word cell, or a first word that looks like a value - a digit, an
+                        # underscore, a case change inside it. "signs session tokens" is a
+                        # description and the env table is unwritable if it is flagged;
+                        # "hunter2 (dev only)" is a value with a remark after it.
+                        # "web" under "where" is a place; "changeme" under "value" is a value. Without a
+                        # header, or under a column that says value, one word is a value.
+                        descriptive = bool(DESCRIPTIVE_COLUMN.search(column)) and not VALUE_COLUMN.search(column)
+                        secretish = bool(SECRET_NAME.search(name)) and (
+                            bool(VALUE_SHAPED.search(val)) or (len(words) == 1 and not descriptive))
                         valueish = any(LOOKS_LIKE_VALUE.search(w_.rstrip(".,;")) for w_ in words)
                         if secretish or valueish:
                             add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
@@ -844,6 +862,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # name the word after the verb is judged like a value after a colon.
                 if SECRET_NAME.search(name):
                     said = re.search(rf"\b{re.escape(name)}\b`?(?:\s+\w+){{0,3}}?\s+(?:defaults?\s+to|is\s+set\s+to|set\s+to|ships\s+as|equals|is|becomes|reads\s+as|comes\s+as|starts\s+as)\s+`?([^\s`\[|]+)", joined, re.I)
+                    # A parenthetical or an appositive right after the name: "`JWT_SECRET` (changeme in
+                    # development)", "`JWT_SECRET`, changeme in development,". Inside those the
+                    # first word is the value unless it opens like a sentence.
+                    said = said or re.search(rf"\b{re.escape(name)}\b`?\s*(?:\(|,)\s*`?([^\s`\[|),]+)", joined)
                     # The imperative puts the verb first: "Set `ADMIN_TOKEN` to hunter2 before starting".
                     said = said or re.search(rf"\b(?:set|export|put|use|pass|provide)\s+`?{re.escape(name)}`?\s+(?:to|as|=)\s+`?([^\s`\[|]+)", joined, re.I)
                     if said:
@@ -1033,6 +1055,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 flush()
                 nxt = lines[idx + 1].strip() if idx + 1 < len(lines) else ""
                 if TABLE_RULE.match(nxt):
+                    _TABLE_HEADER["cells"] = [c.strip().lower() for c in s_.strip().strip("|").split("|")]
                     continue  # header row
                 if is_template_text([s_]):
                     continue  # the template's own legend row
@@ -1163,9 +1186,10 @@ def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = No
         lines.append("an absence is real. The `*(draft, review me)*` markers say where to start.")
         lines.append("")
         lines.append("**Values.** G7 reads the field beside a variable name. Where the name says")
-        lines.append("secret, token, password or key it treats the first word as a value unless that")
-        lines.append("word opens a sentence - so a one-word description in the wrong column can be")
-        lines.append("reported, and a password spelled like an English article will not be.")
+        lines.append("secret, token, password or key: a one-word field is a value; a longer one is a value")
+        lines.append("when its first word carries a digit or an underscore, or follows a verb such as")
+        lines.append("\"defaults to\" or an opening bracket - and a description that happens to start with")
+        lines.append("an English word (letmein in development) will not be reported.")
     if verdict:
         lines.append("")
         lines.append(verdict)

@@ -283,7 +283,7 @@ CONCERNS = [
     ("deploy", _svc, lambda inv: "DEPLOYMENT.md",
      {"deploy", "deployment", "deploying", "production", "hosting", "infrastructure", "railway", "kubernetes", "helm", "docker", "release to"}, "DEPLOYMENT.md", []),
     ("release", lambda inv: (_first(inv.get("release") or [], "release") if _lib_or_cli(inv) else None), lambda inv: "RELEASING.md",
-     {"releasing", "release", "releases", "publish", "publishing", "versioning", "changelog"}, "RELEASING.md", []),
+     {"releasing", "release", "releases", "publish", "publishing", "versioning"}, "RELEASING.md", []),
     ("data", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables") else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"] else None)), lambda inv: "DATA_MODEL.md",
      {"data model", "schema", "database", "tables", "migrations", "entities", "storage"}, "DATA_MODEL.md", []),
     ("http", lambda inv: (f"{inv['routes']['count']} routes ({', '.join(f'{k} {v}' for k, v in sorted(inv['routes'].get('by_framework', {}).items()))})" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API_REFERENCE.md",
@@ -307,7 +307,7 @@ CONCERNS = [
     ("research", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
 ]
-UNIVERSAL = {"purpose", "architecture", "develop", "plan"}
+UNIVERSAL = {"purpose", "architecture", "develop"}
 
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
@@ -1298,7 +1298,12 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             # README.md let a sub-package's readme own a repo-wide concern - prometheus routed
             # "how to run it" to the React UI's README, and marked it reviewed.
             scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel)), d)
-                             for d in candidates), key=lambda x: -x[0][0])
+                             for d in candidates
+                             # A CHANGELOG or a SECURITY policy is not a home for a concern; a
+                             # CONTRIBUTING or a code of conduct is the home of exactly one.
+                             if not is_community_file(d.rel)
+                             or (cid == "contribute" and d.path.name.upper().startswith(("CONTRIBUTING", "CODE_OF_CONDUCT")))),
+                            key=lambda x: -x[0][0])
             # Heavy evidence: a README section is a seed, not a home. The dedicated doc is still missing.
             weight, label = evidence_weight(cid, inv)
             threshold = int(heavy_cfg.get(cid) or 0)
@@ -1941,6 +1946,14 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 # Linux runner. exists_exact exists to stop exactly that divergence.
                 tgt = resolve_target(doc.path, repo, t)
                 out.add(posix(Path(os.path.normpath(str(tgt))), repo))
+                # GitHub renders a link to a folder as that folder's README, and R11 already
+                # reads it so. R1 did not, and an index that wrote [Guides](guides/) was told
+                # docs/guides/README.md was unreachable - a P1 on a healthy tree.
+                if tgt.is_dir():
+                    for name in ("README.md", "readme.md", "index.md", "INDEX.md"):
+                        if exists_exact(tgt / name):
+                            out.add(posix(Path(os.path.normpath(str(tgt / name))), repo))
+                            break
             except (ValueError, OSError):
                 continue
         return out
@@ -2030,8 +2043,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if (not has_owner and not exempt("R2", d.rel) and not d.skipped and generator is None
                 and not is_community_file(d.rel)
                 and (root_docs and d.rel not in ROOT_FILES or d.path not in roots)):
-            add("R2", d.rel, 1, "no owner line near the top and no frontmatter description",
-                "fail" if enforce else "warn")
+            if rec:
+                pass  # a record folder describes a moment; R6 and R7 already relax there, and so does this
+            else:
+                add("R2", d.rel, 1, "no owner line near the top and no frontmatter description",
+                    "fail" if enforce else "warn")
 
         # ---- R5 links, anchors, images, reference definitions
         defs = {m.group(1).lower() for l in d.clean for m in [REF_DEF_RE.match(l)] if m}
