@@ -219,7 +219,7 @@ CONCERNS = [
      {"testing", "tests", "test", "qa", "coverage", "e2e"}, "TESTING.md", []),
     ("operate", lambda inv: _first([o for o in inv.get("ops") or [] if not o.get("hint")], "ops"), lambda inv: "RUNBOOK.md",
      {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, "RUNBOOK.md", []),
-    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("public remote" if (inv.get("decisions") or {}).get("public_remote") else None)), lambda inv: "CONTRIBUTING.md",
+    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("the remote is on a public forge" if (inv.get("decisions") or {}).get("public_host") else None)), lambda inv: "CONTRIBUTING.md",
      {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, "CONTRIBUTING.md", []),
     ("research", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
@@ -774,11 +774,12 @@ def routing_section(coverage: list[dict], docs_root: str, central_rel: str) -> s
         if not trigger:
             continue
         path = c_["covered_by"] or c_["default_path"]
-        note = ""
         if not c_["covered_by"]:
-            note = " *(apply creates this)*"
-        elif c_.get("weak"):
-            note = " *(one heading only - confirm this is the right home)*"
+            # Code, not a link: apply has not created this file, and a markdown link to it is a
+            # dead link inside the one file every agent reads first.
+            rows.append(f"| {trigger} | `{path}` *(apply creates this)* |")
+            continue
+        note = " *(one heading only - confirm this is the right home)*" if c_.get("weak") else ""
         rows.append(f"| {trigger} | [{path}]({path}){note} |")
     body = "\n".join(rows) or "| <a kind of change> | `<the doc that owns it>` |"
     out = ROUTING_STARTER.replace("| <a kind of change> | `docs/<OWNER>.md` |", body)
@@ -1105,10 +1106,10 @@ def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> 
     if (develop is not None and not develop.get("covered_by")
             and not any(f" {tokens(w).strip()} " in text for w in RUN_WORDS)):
         gaps.append("how to run it - no doc covers `develop` and the front door has no setup section")
-    if ((inv.get("decisions") or {}).get("public_remote")
+    if ((inv.get("decisions") or {}).get("public_host")
             and not any((repo / n).is_file() for n in LICENCE_FILES)
             and " licence " not in text and " license " not in text):
-        gaps.append("its licence - the remote is public and no LICENSE file exists")
+        gaps.append("its licence - the remote is on a public forge and no LICENSE file exists; if the repository itself is private, say so or set a licence")
     return gaps
 
 
@@ -1505,7 +1506,16 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     if not central_rel and not root_files_only and not root_docs:
         for r in roots:
             if r.is_dir():
-                for name in ("INDEX.md", "index.md", "README.md"):
+                # The conventional names first, then any doc in the folder that actually indexes
+                # it: a complete docs/CONTENTS.md or docs/INDICE.md used to produce "no central
+                # index" and one P1 per doc, including the index itself.
+                names = ["INDEX.md", "index.md", "README.md"]
+                try:
+                    names += sorted(p.name for p in r.iterdir()
+                                    if p.is_file() and p.suffix.lower() in DOC_EXTS and p.name not in names)
+                except OSError:
+                    pass
+                for name in names:
                     # is_file() is case-insensitive on Windows, so docs/index.md would be recorded
                     # as docs/INDEX.md and then fail to match any case-exact link target.
                     # A candidate also has to index the folder: a stub that links nothing made
@@ -1650,7 +1660,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
         # ---- R7 line-number citations
         if not exempt("R7", d.rel) and not d.skipped:
-            for i, line in enumerate(d.clean, start=1):
+            # nocode, not clean: a doc quoting `file.ts:123` as an example of what not to write
+            # was flagged for writing it - including the routing block this skill prints for a
+            # maintainer to paste into their agent file, which then failed the skill's own check.
+            for i, line in enumerate(d.nocode, start=1):
                 for tok in line.split():
                     if "://" in tok or len(tok) > MAX_TOKEN:
                         continue

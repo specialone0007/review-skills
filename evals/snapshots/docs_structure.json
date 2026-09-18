@@ -186,14 +186,6 @@
       "severity": "P2"
     },
     {
-      "level": "fail",
-      "line": 12,
-      "message": "line-number citation \"src/config.js:12\" - cite a symbol or a log tag",
-      "path": "docs/setup.md",
-      "rule": "R7",
-      "severity": "P2"
-    },
-    {
       "level": "warn",
       "line": 1,
       "message": "no doc covers 'purpose' (always) - apply creates docs/PRODUCT.md from the template",
@@ -402,7 +394,7 @@
       "| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |"
     ],
     "print_only": {
-      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | [docs/PRODUCT.md](docs/PRODUCT.md) *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a task starting, finishing or being dropped | [docs/TASKLIST.md](docs/TASKLIST.md) *(apply creates this)* |\n| a service, an environment variable, a build or start command, a deploy step | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) *(apply creates this)* |\n| a test runner, where tests live, how to run them, or what gates a merge | [docs/TESTING.md](docs/TESTING.md) *(apply creates this)* |\n| a health check, a scheduled job, an alert, or what to do when one fires | [docs/RUNBOOK.md](docs/RUNBOOK.md) *(apply creates this)* |\n| how a change gets proposed, reviewed or merged | [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a task starting, finishing or being dropped | `docs/TASKLIST.md` *(apply creates this)* |\n| a service, an environment variable, a build or start command, a deploy step | `docs/DEPLOYMENT.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a test runner, where tests live, how to run them, or what gates a merge | `docs/TESTING.md` *(apply creates this)* |\n| a health check, a scheduled job, an alert, or what to do when one fires | `docs/RUNBOOK.md` *(apply creates this)* |\n| how a change gets proposed, reviewed or merged | `docs/CONTRIBUTING.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
@@ -510,10 +502,9 @@
       "warnings": 0
     },
     "R7": {
-      "failures": 2,
+      "failures": 1,
       "first": [
-        "docs/drafted.md:32",
-        "docs/setup.md:12"
+        "docs/drafted.md:32"
       ],
       "severity": "P2",
       "title": "line-number citations",
@@ -591,7 +582,7 @@
     "concerns_covered": 1,
     "concerns_missing": 8,
     "docs_checked": 10,
-    "failures": 5,
+    "failures": 4,
     "non_doc_files": 0,
     "placeholders": 24,
     "split_candidates": 4,

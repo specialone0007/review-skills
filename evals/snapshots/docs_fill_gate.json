@@ -85,12 +85,6 @@
     },
     {
       "doc": "docs/gated.md",
-      "line": 3,
-      "message": "paragraph does not end with an evidence bracket: **This document owns:** the shapes the gate has to see. *(dr",
-      "rule": "G1"
-    },
-    {
-      "doc": "docs/gated.md",
       "line": 5,
       "message": "paragraph does not end with an evidence bracket: Must be installed before the suite runs [package.json]. The ",
       "rule": "G1"
@@ -163,6 +157,6 @@
     }
   ],
   "repo": "<fixture>",
-  "total": 26,
+  "total": 25,
   "warnings": []
 }

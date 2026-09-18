@@ -142,6 +142,9 @@ PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
 LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
+# The template's own owner line. It states what the document covers; there is nothing to cite
+# for that, so asking it for an evidence bracket makes the lead unwritable.
+OWNER_LINE = re.compile(r"^>?\s*\*\*(?:This document owns|Part of)")
 # What a doc legitimately writes in a value column: a type, a default marker, a description.
 # Shapes that are a credential wherever they appear. Kept in step with docs_evidence.redact().
 REDACTABLE = re.compile(r"\b(?:sk|pk|rk)[-_][A-Za-z0-9_-]{16,}|\bAIza[A-Za-z0-9_-]{20,}"
@@ -478,7 +481,12 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # a section still holding only its template italic line is a skeleton, not a draft
         if len(body) == 1 and body[0].strip().startswith("*") and body[0].strip().endswith("*") and body[0].strip() != DRAFT_MARK:
             continue
-        if body[-1].strip() != DRAFT_MARK:
+        # The lead carries its marker inline on the owner line - the shape every template
+        # produces and SKILL.md prescribes - so its last line is prose, the section was skipped,
+        # and the report printed OK. A drafted document's lead is drafted.
+        if heading == "(lead)" and DRAFT_MARK in text:
+            pass
+        elif body[-1].strip() != DRAFT_MARK:
             # Not a drafted section, so a person's prose is left alone - but a section inside a
             # drafted document that carries no marker of its own was silently unjudged, and the
             # report then read OK for the whole file.
@@ -500,22 +508,22 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             clean report inside table cells.
             """
             bare = CODESPAN.sub("", joined)
+            # Code spans out, then quotations out. A file named fast.js or a dependency called
+            # simple-git is a name, not a claim about quality; and a quoted README sentence is the
+            # repository's words, which G5 and G6 have always respected. G4 did not, so an
+            # attributed quotation - the evidence the fill rules require for PRODUCT.md's first
+            # section - was blocked, and the only way past it was to drop the quote.
+            unquoted = QUOTED.sub(" ", bare)
             if True:
-                # `bare` has code spans removed: a file named fast.js or a dependency called
-                # simple-git is a name, not a claim about quality.
                 # A capitalised word followed by another capitalised word is a name - Modern
                 # Treasury, Simple Storage Service, Fast Refresh - and a repo that integrates
                 # one could not write a true sentence about it.
-                for m_ in BANNED.finditer(bare):
-                    after = bare[m_.end():m_.end() + 40].lstrip()
+                for m_ in BANNED.finditer(unquoted):
+                    after = unquoted[m_.end():m_.end() + 40].lstrip()
                     if m_.group(0)[0].isupper() and after[:1].isupper():
                         continue
                     add("G4", first, f"evaluative word: {m_.group(0)}")
                     break
-                # Quoted spans are the repo's words, not the draft's, so they are removed before
-                # G5 and G6 rather than switching both off for the paragraph that contains them.
-                # The fill rules encourage quoting the README, so that hole sat on the happy path.
-                unquoted = QUOTED.sub(" ", bare)
                 if MODAL.search(unquoted):
                     add("G5", first, f"modal verb: {MODAL.search(unquoted).group(0)}")
                 intent_hit = INTENT.search(QUOTED.sub(" ", joined))
@@ -592,6 +600,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             joined = " ".join(t for _, t in para)
             last = para[-1][1]
             bare = CODESPAN.sub("", joined)
+            if OWNER_LINE.match(joined.strip()):
+                para.clear()
+                return
             if not joined.lower().startswith("open question:"):
                 if not BRACKET_END.search(last):
                     add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")

@@ -1151,7 +1151,7 @@ def det_git(ctx: Ctx, inv: dict) -> None:
     remote = run_git(ctx.repo, ["remote", "get-url", "origin"]) or ""
     inv["decisions"] = {"commits_scanned": len(commits), "first": commits[-1][1] if commits else "", "last": commits[0][1] if commits else "",
                         "decision_like": cap(decisions, ctx.cap, "decisions", inv), "tags": [redact(t) for t in tags[:20]], "tag_count": len(tags),
-                        "public_remote": bool(re.search(r"github\.com|gitlab\.com|bitbucket\.org", remote)), "remote_host": re.sub(r"^.*?([A-Za-z0-9.-]+\.(com|org|io)).*$", r"\1", remote.strip()) if remote.strip() else ""}
+                        "public_host": bool(re.search(r"github\.com|gitlab\.com|bitbucket\.org", remote)), "remote_host": re.sub(r"^.*?([A-Za-z0-9.-]+\.(com|org|io)).*$", r"\1", remote.strip()) if remote.strip() else ""}
 
 
 DETECTORS = [
