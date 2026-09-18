@@ -288,16 +288,39 @@ _listing: dict[Path, set[str]] = {}
 
 
 def exists_exact(path: Path) -> bool:
-    """Case-exact existence check, so a Windows run agrees with Linux and GitHub."""
+    """Case-exact existence check, so a Windows run agrees with Linux and GitHub.
+
+    Every component, not only the last: ../Docs/GUIDE.md resolved here and was dead on Linux
+    and on github.com, which is the divergence this function exists to prevent.
+    """
     if not path.exists():
         return False
-    parent = path.parent
-    if parent not in _listing:
-        try:
-            _listing[parent] = set(os.listdir(parent))
-        except OSError:
-            _listing[parent] = set()
-    return path.name in _listing[parent]
+    for parent, name in _components(path):
+        if parent not in _listing:
+            try:
+                _listing[parent] = set(os.listdir(parent))
+            except OSError:
+                return True
+        if name not in _listing[parent]:
+            return False
+    return True
+
+
+def _components(path: Path):
+    """(parent, name) for each component that lies inside a directory we can list.
+
+    The path is collapsed first: `docs/../CLAUDE.md` has a `..` component that no directory
+    listing contains, and checking it made every relative link out of a docs folder read as dead.
+    normpath, not resolve(), because resolve() also normalises case on Windows - which is the
+    difference this whole function exists to catch.
+    """
+    out = []
+    cur = Path(os.path.normpath(str(path)))
+    while cur.parent != cur and cur.parent.exists():
+        out.append((cur.parent, cur.name))
+        cur = cur.parent
+    return out[:12]
+
 
 
 def posix(p: Path, repo: Path) -> str:
@@ -982,6 +1005,18 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 covered_by = d.rel
                 if len(scored) > 1 and scored[1][0][0] >= 3 and scored[1][0][0] >= sc - 1:
                     runner_up = scored[1][1].rel
+        # A doc whose filename already carries this concern's stem - DESIGN.md for
+        # DESIGN_GUIDELINES.md, ARQUITECTURA.md scored zero because the keywords are English -
+        # is a near-certain home, and proposing a skeleton beside it is the worst outcome
+        # apply can produce. Report it as the likely cover and create nothing.
+        near = None
+        if not covered_by:
+            stem = Path(dfile).stem.split("_")[0].lower()
+            for d in candidates:
+                dn = d.path.stem.lower()
+                if len(stem) > 3 and (stem in dn or dn in stem):
+                    near = d.rel
+                    break
         weak = bool(covered_by) and how.startswith("README sections") and how.count(",") == 0
         # The heading text behind a front-door match, so the Start here block can link it.
         matched_heading = None
@@ -992,7 +1027,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3)
                                         and any(f" {tokens(k).strip()} " in tokens(t) for k in kws)), None)
         rows.append({"concern": cid, "applies": reason, "default_path": default_path, "weak": weak,
-                     "matched_heading": matched_heading, "template": template(inv) if callable(template) else template,
+                     "matched_heading": matched_heading, "near_name": near, "template": template(inv) if callable(template) else template,
                      "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up, "seed": seed,
                      "universal": cid in UNIVERSAL})
     return rows
@@ -1452,6 +1487,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     # to report them and ask; writing skeletons into a third place, having read none of the
     # candidates' docs, is the guess it forbids - so R12 stays quiet and apply writes nothing.
     ambiguous = bool(discovery and discovery.get("status") == "ambiguous")
+    # Set once coverage exists, below: every concern scoring zero means the heading keywords
+    # did not fit this repository - a Spanish docs set, a README written in HTML - not that the
+    # documents are absent. Proposing the English skeleton set beside them is the confident
+    # wrong answer, and "I could not tell" is the honest one.
+    unreadable = False
     convention = manifest.get("indexConvention") or detect_convention(folders, repo)
     central_rel = manifest.get("centralIndex")
     if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2:
@@ -1509,6 +1549,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     cite = re.compile(r"[\w./\[\]-]{1,200}\.(?:%s):\d+(?:-\d+)?" % exts)
 
     for d in docs:
+        # strip_fences blanks everything after an unclosed fence, so R5 and R7 stop finding
+        # anything below it - and "Failures: 2" then reads exactly like a complete result.
+        if not d.skipped and not d.balanced:
+            add("R3", d.rel, 1, "a code fence is never closed; links and citations below it were not checked", "warn")
         rec = in_record(d.rel)
         if d.skipped:
             warnings.append(f"{d.rel} is over {MAX_READ} bytes and was not analysed")
@@ -1761,6 +1805,12 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     docs_root = pick_docs_root(repo, roots)
     inv = repo_inventory(repo)
     coverage = concern_coverage(inv, manifest, docs, repo, roots, root_docs, central_rel, front_rel, convention, record_folders) if generator is None else []
+    # Nothing scored AND there are documents to score. A greenfield repo also scores zero,
+    # and there the right answer is the skeleton set - so the test is "docs exist that the
+    # keywords could not read", not "coverage is empty".
+    scorable = [d for d in docs if d.rel != front_rel and not d.skipped]
+    unreadable = (bool(coverage) and len(scorable) >= 2
+                  and not any(c.get("covered_by") or c.get("near_name") for c in coverage))
     if front_doc is not None:
         for gap in front_door_gaps(front_doc, repo, coverage, inv):
             add("R11", front_rel, 1, f"front door does not answer {gap} - advice, apply writes none of it", "warn")
@@ -1779,6 +1829,12 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             # A team that wants the gate sets requireConcerns in the manifest.
             if ambiguous:
                 continue  # two candidate docs folders went unread; their docs may cover this
+            if unreadable:
+                continue  # nothing scored anywhere; the report says coverage was not determined
+            if c.get("near_name"):
+                add("R12", anchor_path, 1,
+                    f"no doc scored for '{c['concern']}' ({why}), but {c['near_name']} is named for it - confirm before creating {c['default_path']}", "warn")
+                continue
             add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}{seed}) - apply creates {c['default_path']} from the template",
                 "fail" if manifest.get("requireConcerns") else "warn")
     states: dict[str, dict] = {}
@@ -1801,7 +1857,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         target = central_rel or "docs/INDEX.md"
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
     front_has = has_start_here(by_rel.get(front_rel) or Doc(front, repo)) if front.is_file() else False
-    init = None if (generator is not None or ambiguous) else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
+    init = None if (generator is not None or ambiguous or unreadable) else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
                                                           discovery.get("package_docs", []) if discovery else [], front_has)
 
     # ---- placeholders

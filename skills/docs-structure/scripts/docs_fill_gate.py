@@ -281,6 +281,17 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             if not sha_known(SHA_REPO or repo, part.split()[0]):
                 return f"commit not in this repository: {part}"
             continue
+        # A [path: key] bracket asserts the key is in that file. Accepting it unread let
+        # "[src/api/admin.js: guard]" clear G10 on the very sentence SKILL.md names as the
+        # reason G10 exists, with no guard anywhere in the file.
+        if ": " in part and " § " not in part:
+            p_, k_ = part.split(": ", 1)
+            p_, k_ = p_.strip(), k_.strip()
+            if p_ and not p_.startswith(("http://", "https://")) and exists_exact(repo, p_):
+                body = read(repo / p_)
+                leaf = k_.split(".")[-1].split("[")[0].strip()
+                if body and leaf and leaf not in body:
+                    return f"{p_} does not contain '{k_}'"
         path = re.split(r" § |: ", part, maxsplit=1)[0].strip()
         if not path or path.startswith(("http://", "https://", "^", "!")):
             continue
@@ -445,6 +456,14 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                  "message": f"no {DRAFT_MARK} marker; this document was not judged"}]
     lines = text.splitlines()
     found: list[dict] = []
+    # An unclosed fence makes everything after it look fenced, and every shape rule is then
+    # skipped while the report still says OK. That is not covered by the "Not checked" block:
+    # it disclaims truth, not the rules the gate does enforce.
+    if sum(1 for l in lines if FENCE.match(l)) % 2:
+        found.append({"doc": rel, "line": 1, "rule": "G0", "level": "fail",
+                      "message": "a code fence is never closed, so the rules below it were not "
+                                 "applied; balance the fences and run this again"})
+        return found
 
     def add(rule: str, line: int, message: str) -> None:
         found.append({"doc": rel, "line": line, "rule": rule, "message": message})
@@ -525,8 +544,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # the repo-wide total, and the API template asks for exactly that shape, one H3
                 # per path prefix.
                 scoped_count = re.search(r"\b(?:under|within|in|for|beneath)\s+[`/\w.*-]+", joined)
-                if (numbers and not historical and not SCAN_CMD.search(joined)
-                        and not INV_BRACKET.search(joined)):
+                # Citing the inventory key means "the inventory says so", so the number has to
+                # be the inventory's. It used to switch the rule off without comparing anything,
+                # which made [inventory: routes] a licence to write 400.
+                inv_cite = INV_BRACKET.search(joined)
+                if numbers and not historical and not SCAN_CMD.search(joined):
                     prose = BRACKET_ANY.sub(" ", bare)
                     for m in NUMBER.finditer(prose):
                         raw = m.group(1).replace(",", "")
@@ -541,7 +563,12 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                         # A sentence naming a subset is claiming a subtotal, and a subtotal is
                         # smaller than the total. Larger than the total, it is not a subtotal at
                         # all - naming a folder does not make an impossible number possible.
-                        if scoped_count and int(raw) < max(int(k) for k in known):
+                        ceiling = max(int(k) for k in known)
+                        # A sentence naming a subset, or citing the inventory key it counted, is
+                        # claiming a subtotal - and a subtotal is smaller than the total. Above the
+                        # total it is not a subtotal at all, which is how [inventory: routes] used
+                        # to wave 400 through in a four-route repository.
+                        if (scoped_count or inv_cite) and int(raw) <= ceiling:
                             continue
                         add("G9", first,
                             f'the count "{m.group(1)} {noun}" disagrees with the inventory, which reports '
