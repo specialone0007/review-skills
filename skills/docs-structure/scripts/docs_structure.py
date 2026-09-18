@@ -377,6 +377,8 @@ def _contribute(inv):
 #   keywords (for finding a misplaced doc by its headings), companions (relative to the doc's folder)
 # The template is <bucket>/<file> under references/templates.
 CONCERNS = [
+    ("readme", None, lambda inv: "always", lambda inv: "README.md",
+     set(), []),
     ("agent", None, lambda inv: "always", lambda inv: AGENT_FILE,
      set(), ["CLAUDE.md"]),
     ("setup", "getting-started", lambda inv: "always", lambda inv: "SETUP.md",
@@ -1820,9 +1822,10 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str) -> str:
             if t in ("test", "lint", "build", "run", "dev", "check", "fmt"):
                 add(t, f"make {t}" if tr["file"].endswith("Makefile") else f"just {t}", tr["file"])
     lines = [f"# {name} - for agents", "",
-             f"> **This document owns:** the commands that build, test, run and lint {name}, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the docs index holds everything else. *(skeleton, write me)*",
-             "", "## Commands", ""]
-    lines += cmds or ["- open question: no manifest scripts or task-runner targets were found; write the commands by hand"]
+             f"> **This document owns:** the conventions an agent cannot infer from the code of {name}, and the gotchas. Forty lines at most; the README owns the commands and the docs index owns everything else. *(skeleton, write me)*",
+             "", "## Commands", "", "- [README.md#commands](README.md#commands) - every command as the manifests name it, with its source; nothing is repeated here."]
+    if cmds:
+        lines += ["- the ones an agent runs most, as a check on the README's table: " + "; ".join(c.split(": ", 1)[1].split(" [")[0] for c in cmds[:4])]
     lines += ["", "## Conventions", "", "- open question: branch, commit and PR rules an agent would get wrong without being told",
               "", "## Gotchas", "", "- open question: the thing that costs an afternoon here",
               "", "## Docs", "", f"- [{central_rel}]({central_rel}) - the map; read it before the folder."]
@@ -1879,6 +1882,13 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     for c in uncovered:
         t = template_for(c["template"])
         if t is None:
+            continue
+        if c["concern"] == "readme":
+            content = read(t).replace("<project>", project_name(repo), 1)
+            block = start_here_block(repo, front_rel, docs_root, central_out, coverage)
+            content = content.replace(START_HERE_OPEN + "\n" + START_HERE_CLOSE, block.rstrip("\n"), 1)
+            files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(content.splitlines()),
+                                        "why": "readme (always) - the front door, with the Start-here block in its slot", "concern": "readme", "content": content}
             continue
         if c["concern"] == "agent":
             content = agent_skeleton(repo, inv, central_out)
@@ -1974,10 +1984,18 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                               "why": "rewrite in the list grammar" if index_is_table else "the central index"}
     if not files and not moves and front_links_index and (front_has_start_here or root_docs):
         return None
+    readme_row = next((c for c in coverage if c["concern"] == "readme" and c["covered_by"]), None)
+    readme_append = []
+    if readme_row and readme_row.get("missing_sections"):
+        rt = template_for("README.md")
+        guides = dict(template_sections(rt)) if rt else {}
+        readme_append = [{"heading": h, "content": f"## {h}\n\n{guides.get(h, '')}\n"} for h in readme_row["missing_sections"]]
     out: dict = {"files": files, "moves": moves, "index_lines": lines_out, "index_groups": groups,
+                 # sections the README template has and this README lacks; `apply readme` appends them, in this order, after the existing text
+                 "readme_append": readme_append,
                  "agent_file": agent,
                  "then": "run the checker again; skeletons show up in the section states until written or filled"}
-    if not root_docs and (not front_links_index or not front_has_start_here):
+    if not root_docs and (not front_links_index or not front_has_start_here) and front_rel not in files:
         out["front_door"] = {"path": front_rel,
                              "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
                              "content": start_here_block(repo, front_rel, docs_root, central_out, coverage),
@@ -2780,6 +2798,12 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     unreadable = (bool(coverage) and len(scorable) >= 2
                   and not any(c.get("covered_by") or c.get("near_name") for c in coverage)
                   and bool(heads) and foreign * 5 > len(heads))
+    for c in coverage:
+        if c["concern"] == "readme" and c["covered_by"]:
+            rt_ = template_for("README.md")
+            if rt_ is not None:
+                st_ = section_states(by_rel.get(c["covered_by"]) or Doc(repo / c["covered_by"], repo), rt_)
+                c["state"], c["missing_sections"] = st_["owner"], st_["missing"]
     if front_doc is not None:
         for gap in front_door_gaps(front_doc, repo, coverage, inv):
             add("R11", front_rel, 1, f"front door does not answer {gap} - advice, apply writes none of it", "warn")
@@ -2787,6 +2811,12 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         # file every reader lands on: a README kept its own deployment section while
         # DEPLOYMENT.md sat beside it. A README H2 whose words match a concern another doc owns
         # is that drift in the making; the README keeps a line and a link.
+        rt = template_for("README.md")
+        readme_h2 = {slug(h) for h, _ in template_sections(rt)} if rt else set()
+        readme_row = next((r for r in coverage if r["concern"] == "readme"), None)
+        if readme_row and readme_row.get("covered_by") and readme_row.get("missing_sections"):
+            add("R11", front_rel, 1, "front door lacks the template's sections " + ", ".join(readme_row["missing_sections"])
+                + " - advice; `apply readme` appends them as skeletons after the existing text", "warn")
         for cid, bucket, applies, default_file, keywords, companions in CONCERNS:
             row = next((r for r in coverage if r["concern"] == cid and not r.get("unit")), None)
             if not row or not row.get("covered_by") or row["covered_by"] == front_rel or not keywords:
@@ -2796,6 +2826,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 if lvl != 2:
                     continue
                 t = tokens(text)
+                if slug(text) in readme_h2:
+                    continue  # the README template's own section; what it holds is the front door's by design
                 if sum(1 for k in kw if f" {k} " in t) >= 1 and not is_start_here_heading(text):
                     # the section's own lines: stop at the next heading, or the next section's
                     # content made a one-line pointer look like forty lines
@@ -3110,6 +3142,8 @@ def render(d: dict, top: int) -> str:
             L.append(f"  {path}  ({info['lines']} lines, {info['template']}){why}")
         for m in d["init"].get("moves", []):
             L.append(f"  move: {m['from']} -> {m['to']}  ({m['concern']})")
+        for ra in d["init"].get("readme_append", []):
+            L.append(f"  readme: append '## {ra['heading']}' (apply readme)")
         for row in d["init"].get("index_lines", []):
             L.append(f"  index line: {row}")
         fd = d["init"].get("front_door")

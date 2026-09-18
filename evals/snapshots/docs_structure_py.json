@@ -4,6 +4,33 @@
     {
       "applies": "always",
       "bucket": null,
+      "companions": [],
+      "concern": "readme",
+      "covered_by": "README.md",
+      "default_path": "README.md",
+      "matched_by": "canonical path",
+      "matched_heading": null,
+      "misplaced": null,
+      "missing_sections": [
+        "What it is",
+        "Quickstart",
+        "Repository layout",
+        "Commands",
+        "Configuration",
+        "Status"
+      ],
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "state": "reviewed",
+      "template": "README.md",
+      "unit": null,
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "always",
+      "bucket": null,
       "companions": [
         "CLAUDE.md"
       ],
@@ -259,8 +286,8 @@
     "files": {
       "AGENTS.md": {
         "concern": "agent",
-        "content": "# mini-py - for agents\n\n> **This document owns:** the commands that build, test, run and lint mini-py, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the docs index holds everything else. *(skeleton, write me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
-        "lines": 19,
+        "content": "# mini-py - for agents\n\n> **This document owns:** the conventions an agent cannot infer from the code of mini-py, and the gotchas. Forty lines at most; the README owns the commands and the docs index owns everything else. *(skeleton, write me)*\n\n## Commands\n\n- [README.md#commands](README.md#commands) - every command as the manifests name it, with its source; nothing is repeated here.\n- the ones an agent runs most, as a check on the README's table: `pip install -e .`\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
+        "lines": 20,
         "template": "references/templates/AGENTS.md",
         "why": "agent (always)"
       },
@@ -372,6 +399,32 @@
       "- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton"
     ],
     "moves": [],
+    "readme_append": [
+      {
+        "content": "## What it is\n\n*Three sentences at most: what it does, for whom, and the one idea it hangs on. The long form is PRODUCT's; link it.*\n",
+        "heading": "What it is"
+      },
+      {
+        "content": "## Quickstart\n\n*Numbered: prerequisites with pinned versions, install, run, the URL or command that proves it works. Every command copied verbatim from the manifest with its source in brackets. SETUP owns the full path; this is the sixty-second version.*\n",
+        "heading": "Quickstart"
+      },
+      {
+        "content": "## Repository layout\n\n*A table, one row per top-level folder or unit: folder, what lives there, its own README when it has one. From the tree, never invented.*\n",
+        "heading": "Repository layout"
+      },
+      {
+        "content": "## Commands\n\n*A table: task, command, source - install, run, test, lint, build, deploy. The command as it is typed, the file it comes from. AGENTS.md links here and repeats none of it.*\n",
+        "heading": "Commands"
+      },
+      {
+        "content": "## Configuration\n\n*One line and a link to CONFIGURATION.md (or the example env file). Never an environment table here: names have one home.*\n",
+        "heading": "Configuration"
+      },
+      {
+        "content": "## Status\n\n*Version from the manifest, the licence file by name, the CI workflow by name. One line each.*\n",
+        "heading": "Status"
+      }
+    ],
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
   "kinds": [
@@ -500,10 +553,26 @@
       "warnings": 0
     }
   },
-  "sections": {},
+  "sections": {
+    "README.md": {
+      "concern": "readme",
+      "missing": [
+        "What it is",
+        "Quickstart",
+        "Repository layout",
+        "Commands",
+        "Configuration",
+        "Status"
+      ],
+      "owner": "reviewed",
+      "sections": {
+        "Getting started": "reviewed"
+      }
+    }
+  },
   "split_candidates": [],
   "totals": {
-    "concerns_covered": 0,
+    "concerns_covered": 1,
     "concerns_missing": 9,
     "docs_checked": 1,
     "failures": 0,
@@ -513,8 +582,8 @@
     "split_candidates": 0,
     "states": {
       "draft": 0,
-      "missing": 0,
-      "reviewed": 0,
+      "missing": 6,
+      "reviewed": 1,
       "skeleton": 0
     },
     "warnings": 9

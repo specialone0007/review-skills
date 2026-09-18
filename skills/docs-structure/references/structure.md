@@ -256,8 +256,17 @@ High. Coverage gaps are questions.
 **operate**: health routes and probes, cron schedules, alert rule files; each with its file.
 "When something is wrong" is one open question until a person who has run the system writes one; fix commits are DEPLOYMENT's Known traps, not a runbook. "On call" is a `verified against` line or a question. Partial.
 
-**agent**: the commands from the manifests' script names and task-runner targets, each with its
-source; conventions and gotchas are open questions. Built by the checker, forty lines at most.
+**readme**: the one-sentence line from the manifest description or the README's own first
+paragraph; What it is from the same plus PRODUCT's link; Quickstart from pinned versions, the
+install and start script names verbatim and the health route or port; Repository layout as a table
+from the top-level folders and the units, each with its README; Commands as a table of the manifest
+scripts and task-runner targets with their source; Configuration as one line and a link; Status
+from the version field, the licence file name and the CI workflow name. High on the tables,
+question on the prose. Only a README that does not exist is drafted whole; an existing one gets
+appended skeleton sections on `apply readme` and nothing else.
+
+**agent**: a link to the README's Commands table; conventions and gotchas are open questions.
+Built by the checker, forty lines at most.
 
 **contribute**: governance files present, PR template, CI checks that must pass, commit convention
 if a config declares it. Review process is a question.

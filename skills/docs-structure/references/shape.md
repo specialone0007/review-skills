@@ -14,8 +14,8 @@ shaped like an `llms.txt` file so an agent can parse it without reading the fold
 ## The tree
 
 ```
-README.md                       front door: what it is, a sixty-second quickstart, "Start here"
-AGENTS.md                       for coding agents: commands, conventions, gotchas; forty lines at most
+README.md                       front door, fixed sections: what it is, quickstart, Start here, layout, commands, config link, status
+AGENTS.md                       for coding agents: conventions, gotchas, a link to the README's commands; forty lines at most
 CLAUDE.md                       one line, "@AGENTS.md", when Claude Code is in use
 docs/
   INDEX.md                      the map: every doc, one line each, one section per bucket
@@ -101,8 +101,8 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 
 | doc | concern | read this if you | owns | earned by | sections |
 | --- | --- | --- | --- | --- | --- |
-| `README.md` | front door | arrived from anywhere | what it is, the quickstart, the licence, the Start-here block | always; never created, only the block is written | hand-written; the block is `## Start here` between the markers |
-| `AGENTS.md` | agent | are a coding agent or a new contributor with ten minutes | the commands that build, test, run and lint; the conventions an agent cannot infer; the gotchas | always: task runners, package scripts, CI jobs, test runners. Written as a skeleton with the commands filled in from the manifests; the gate never judges it as a draft, a person finishes it | Commands · Conventions · Gotchas · Docs (a link to the index, nothing else) |
+| `README.md` | readme | arrived from anywhere - a person skimming, an agent parsing | what it is, the quickstart, the hand-off, the layout, the commands, the licence; one line and a link for anything a doc owns | always. Missing: written from the template with the Start-here block in its slot. Existing: never rewritten; the sections it lacks are advice, and `apply readme` appends them as skeletons after the text | What it is · Quickstart · Start here (the block) · Repository layout (table) · Commands (table: task, command, source) · Configuration (one line + link) · Status · fill: readme, packages, tree, services, env, ci, tests |
+| `AGENTS.md` | agent | are a coding agent or a new contributor with ten minutes | the conventions an agent cannot infer; the gotchas; links to the README's commands and the index | always. A skeleton; the gate never judges it, a person finishes it | Commands (a link to README § Commands, nothing repeated) · Conventions · Gotchas · Docs (a link to the index) |
 | `CLAUDE.md` | agent | use Claude Code | nothing; it imports AGENTS.md | a `.claude/` folder or an existing CLAUDE.md | the single line `@AGENTS.md`; an existing CLAUDE.md with content is left alone and warned |
 
 ### getting-started
@@ -296,12 +296,32 @@ commit as the source; the record is a draft until a person confirms it. The fill
 line and the four sections (G13). `decisions/` is a live folder, not a record folder: its files are
 edited (status changes), so R6 and R7 apply in full.
 
-## The front door block
+## The README
 
-Unchanged in mechanism from `structure.md`: `## Start here` between the `<!-- docs-structure: start
-here -->` markers, three files in order (this README, `docs/INDEX.md`, `AGENTS.md`), then the usual
-first stops: SETUP, DEVELOPMENT, ARCHITECTURE when they exist. The README keeps what it is, the
-quickstart and the licence; anything a doc owns becomes one line and a link (R11 second-home check).
+One file, two readers. A person skims the headings; an agent jumps to a heading by name and reads a
+table. So the README has fixed H2s in a fixed order, facts in tables rather than prose, every
+command verbatim with its source, and one line plus a link for anything a doc owns:
+
+```markdown
+# <project>
+<one sentence - the index reuses it>
+
+## What it is            three sentences; PRODUCT has the long form
+## Quickstart            numbered: prerequisites, install, run, the URL or command that proves it
+## Start here            the block between the markers: this file, docs/INDEX.md, AGENTS.md, first stops
+## Repository layout     table: folder | what lives there | its README
+## Commands              table: task | command | source - install, run, test, lint, build, deploy
+## Configuration         one line and a link to CONFIGURATION.md; never an env table
+## Status                version, licence file, CI workflow
+```
+
+A README that does not exist is written from the template, filled from the manifests, marked a
+draft. A README that exists is never rewritten: R11 lists the template sections it lacks as advice,
+and `apply readme` appends those as skeleton sections after the existing text, nothing else moved
+or changed. A README that has the information under other headings is left alone. The template's own
+headings are never a second home, whatever they contain; any other README H2 that matches a concern
+a doc owns still gets the R11 warning. `AGENTS.md` links the README's Commands table and repeats
+none of it.
 
 ## Migration from the flat shape
 
