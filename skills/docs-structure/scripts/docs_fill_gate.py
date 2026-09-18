@@ -408,7 +408,7 @@ def quote_sources(repo: Path, refs: list[str]) -> list[str]:
     for ref in refs:
         for part in ref.split(";"):
             r = part.strip()
-            if not r or r.lower().startswith("inventory:"):
+            if not r or r.lower().startswith(("inventory:", "verified:")):
                 continue
             if SHA_REF.match(r):
                 sha = r.split()[0]
@@ -521,6 +521,10 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             key = part.split(":", 1)[1].strip().split("[")[0].split(".")[0].strip()
             if key and INVENTORY_KEYS and key not in INVENTORY_KEYS:
                 return f"no such inventory key: {key}"
+            continue
+        # [verified: Railway 2026-09-18]: a fact read from a platform, a dashboard or a person,
+        # said so. A platform-sourced sentence used to carry repo paths that did not hold it.
+        if re.match(r"^verified: .+ \d{4}-\d{2}-\d{2}$", part):
             continue
         if SHA_REF.match(part):
             sha, when = part.split()[0], part.split()[1]
@@ -767,6 +771,28 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
 
     if len(lines) > max_lines:
         add("G8", 1, f"{len(lines)} lines, over the {max_lines}-line draft cap; a draft must not become a split candidate")
+    # G12: a column that says the same thing in every row is not a column. 'meaning: not
+    # documented' was printed fifty times under a sentence that had already said it once.
+    i = 0
+    while i < len(lines):
+        if lines[i].lstrip().startswith("|"):
+            j = i
+            while j < len(lines) and lines[j].lstrip().startswith("|"):
+                j += 1
+            rows = [[c.strip() for c in l.strip().strip("|").split("|")] for l in lines[i:j]]
+            data = [r for r in rows[2:] if r and not set("".join(r)) <= set("-: ")] if len(rows) > 2 else []
+            if len(data) >= 3:
+                width = min(len(r) for r in data)
+                for col in range(width):
+                    vals = {r[col] for r in data}
+                    v = next(iter(vals))
+                    if len(vals) == 1 and v and not BRACKET_END.fullmatch(v) and not re.fullmatch(r"\[[^\]]+\]", v):
+                        head = rows[0][col] if col < len(rows[0]) else str(col)
+                        add("G12", i + 1, f"column '{head}' reads '{v[:40]}' in every one of {len(data)} rows; say it once above the table and drop the column")
+                        break
+            i = j
+        else:
+            i += 1
 
     # One marker per document: when the owner line carries it, every section is a draft and is
     # judged, whether or not it repeats the marker at its end.

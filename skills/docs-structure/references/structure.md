@@ -124,7 +124,7 @@ fixture carries a planted `.env.local` value; the snapshot test fails if any scr
 
 ## Fill: where each section's evidence comes from
 
-Bracket grammar, the only allowed forms: `[path]`, `[path § heading]`, `[path: key]`, `[sha date]`,
+Bracket grammar, the only allowed forms: `[path]`, `[path § heading]`, `[path: key]`, `[sha date]`, `[verified: <source> YYYY-MM-DD]`,
 `[inventory: services[n]]`. Completeness: **high** = the inventory answers it; **partial** = the
 inventory gives names and the agent adds one sentence per name from the named file; **question** =
 open question by default.

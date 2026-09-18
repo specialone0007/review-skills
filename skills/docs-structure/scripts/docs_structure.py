@@ -1041,7 +1041,7 @@ INDEX_TEMPLATE = """# Docs index
 
 > **This document owns:** the list of every doc in this repository, what each one owns, and its state.
 
-Pick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.
+Pick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.
 """
 
 # The index is grouped by what a reader came to do, not by concern id: a new engineer wants
@@ -1608,6 +1608,36 @@ def package_description(repo: Path, folder: Path) -> str:
     return ""
 
 
+def head_month(repo: Path) -> str:
+    """YYYY-MM of the head commit, else of today."""
+    git = shutil.which("git")
+    if git is not None:
+        try:
+            p = subprocess.run([git, "log", "-1", "--format=%cs"], cwd=str(repo), text=True, timeout=GIT_TIMEOUT,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="replace")
+            if p.returncode == 0 and re.match(r"\d{4}-\d{2}", p.stdout.strip()):
+                return p.stdout.strip()[:7]
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return datetime.date.today().strftime("%Y-%m")
+
+
+def index_tables(doc: "Doc") -> list[dict]:
+    """Every table in an index with its group heading and header cells, so apply appends to
+    the right one: a hand-grouped index ends with a `file | does` table, and 'the last table'
+    put a doc row there."""
+    out: list[dict] = []
+    heading = None
+    for i, line in enumerate(doc.clean, start=1):
+        s_ = line.strip()
+        if s_.startswith("## "):
+            heading = s_[3:].strip()
+        elif s_.startswith("|") and i < len(doc.clean) and set(doc.clean[i].replace("|", "").strip()) <= set("-: ") and doc.clean[i].strip().startswith("|"):
+            cells = [c.strip().lower() for c in s_.strip("|").split("|")]
+            out.append({"heading": heading, "header": cells, "line": i, "docs_table": cells[:3] == ["doc", "owns", "state"]})
+    return out
+
+
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
                front_links_index: bool, root_docs: bool, docs_root: str = "docs", package_docs: list[str] | None = None,
                front_has_start_here: bool = True, central_rel: str | None = None, manifest_groups: dict | None = None) -> dict | None:
@@ -1642,6 +1672,32 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     # Empty lists are the defaults; writing them out made the manifest look like eleven decisions
     # when it was four. {} is a valid manifest and the proposal reads like one.
     manifest = {k: v for k, v in manifest.items() if v not in ([], {}, None)}
+    for k in ("ownerLine", "splitAt", "maxParts", "minPart"):
+        if k in manifest and manifest[k] == DEFAULT_MANIFEST.get(k):
+            manifest.pop(k)
+    # An index a team already grouped by hand names its groups; the proposal carries them so a
+    # new row lands in the table they keep for it, and apply is told which tables are doc tables.
+    if have_index and central_rel and (repo / central_rel).is_file():
+        cdoc = Doc(repo / central_rel, repo)
+        tables = index_tables(cdoc)
+        groups_seen: dict[str, list[str]] = {}
+        heading = None
+        for i, line in enumerate(cdoc.clean, start=1):
+            s_ = line.strip()
+            if s_.startswith("## "):
+                heading = s_[3:].strip()
+            elif heading and s_.startswith("| [") and any(t["docs_table"] and t["heading"] == heading for t in tables):
+                m_ = re.search(r"\]\(([^)#]+)", s_)
+                if m_:
+                    target = posix((repo / central_rel).parent / m_.group(1), repo)
+                    groups_seen.setdefault(heading, []).append(target)
+        if groups_seen and not manifest_groups:
+            manifest["indexGroups"] = groups_seen
+        index_tables_out = tables
+        groups_existing = groups_seen
+    else:
+        index_tables_out = []
+        groups_existing = {}
     if not have_manifest:
         files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
     rows = []
@@ -1663,6 +1719,9 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         for comp in c["companions"]:
             ct = template_for(comp)
             if ct is not None:
+                # the research companion is named for a month; the template's YYYY-MM was
+                # copied into a repository as a file name
+                comp = comp.replace("YYYY-MM", head_month(repo)) if "YYYY-MM" in comp else comp
                 files[base + comp] = {"template": f"references/templates/{comp}", "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
         title = c["default_path"].rsplit("/", 1)[-1][:-3]
         link = c["default_path"].split("/", 1)[1] if (not root_docs and "/" in c["default_path"]) else c["default_path"]
@@ -1697,7 +1756,9 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(content.splitlines()), "content": content}
     if not files and front_links_index and (front_has_start_here or root_docs):
         return None
-    out: dict = {"files": files, "index_rows": rows, "index_groups": groups,
+    out: dict = {"files": files, "index_rows": rows, "index_groups": groups, "index_tables": index_tables_out,
+                 # the groups a hand-made index already has, for a manifest that lacks indexGroups
+                 "index_groups_existing": groups_existing,
                  "print_only": {(agent_file(repo) or "AGENTS.md"): routing_section(coverage, docs_root, manifest["centralIndex"])},
                  "agent_file": agent_file(repo),
                  "then": "run the checker again; skeletons show up in the section states until written or filled"}
