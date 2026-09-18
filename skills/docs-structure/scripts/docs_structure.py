@@ -99,12 +99,18 @@ def is_community_file(rel: str) -> bool:
         return False
     return rel.rsplit(".", 1)[0].lower().replace("-", "_") in COMMUNITY_STEMS
 # A docs site generator owns navigation and URLs; looked for at the repo root and in each docs root.
-GENERATOR_MARKERS = ("mkdocs.yml", "mkdocs.yaml", "SUMMARY.md", "_sidebar.md", ".vitepress", "hugo.toml", "book.toml")
+# GitHub Pages' one-click setup is _config.yml; Hugo used config.toml before v0.110. Missing
+# them meant a correct Jekyll or Hugo docs tree got P1 failures on links that resolve on the
+# published site.
+GENERATOR_MARKERS = ("mkdocs.yml", "mkdocs.yaml", "SUMMARY.md", "_sidebar.md", ".vitepress",
+                     "hugo.toml", "hugo.yaml", "hugo.json", "config.toml", "book.toml",
+                     "_config.yml", "antora.yml", ".readthedocs.yml", ".readthedocs.yaml")
 GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*", "astro.config.*", "conf.py")
 # Three of those names are ordinary words. A generator switches four rules off, so an ambiguous
 # marker has to corroborate itself before it is believed: conf.py must read like Sphinx, and a
 # SUMMARY or sidebar must be nav-shaped, a list of links and little else.
 AMBIGUOUS_MARKERS = {"conf.py": ("extensions", "master_doc", "html_theme", "sphinx"),
+                     "config.toml": ("baseurl", "basseurl", "theme", "languagecode", "params"),
                      "SUMMARY.md": None, "_sidebar.md": None}
 # Folders whose contents describe something other than this repo; ignored when deciding what the repo is.
 EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests", "__tests__", "spec", "specs"}
@@ -708,7 +714,16 @@ def corroborated(hit: Path) -> bool:
 
 
 def detect_generator(repo: Path, roots: list[Path]) -> str | None:
-    places = [repo] + [r for r in roots if r.is_dir()]
+    # One level down as well: a Docusaurus or Hugo site commonly lives in website/ or site/
+    # beside the docs it renders, and looking only at the repo root missed every one of them.
+    nested = []
+    try:
+        nested = [p for p in repo.iterdir()
+                  if p.is_dir() and not p.name.startswith(".") and p.name.lower() in
+                  ("website", "site", "www", "docs-site", "doc-site", "documentation", "docs", "doc")]
+    except OSError:
+        pass
+    places = [repo] + [r for r in roots if r.is_dir()] + nested
     for base in places:
         for m in GENERATOR_MARKERS:
             if (base / m).exists() and corroborated(base / m):
@@ -1227,7 +1242,9 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         "splitAt": 500,
         "pathPrefixes": top_level_dirs(repo),
         "recordFolders": [c["default_path"].rsplit("/", 1)[0] + "/log" for c in uncovered if c["concern"] == "research"],
-        "counts": [],  # filled below, once, for the plan concern
+        "counts": [{"index": c["default_path"],
+                    "folder": (c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else "") + "tasklist"}
+                   for c in uncovered if c["concern"] == "plan"],
         "frontDoor": front_rel,
         "ignore": [],
     }
@@ -1537,9 +1554,13 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 for name in names:
                     # is_file() is case-insensitive on Windows, so docs/index.md would be recorded
                     # as docs/INDEX.md and then fail to match any case-exact link target.
-                    # A candidate also has to index the folder: a stub that links nothing made
-                    # every doc in the root report itself unreachable, one P1 each.
-                    if exists_exact(r / name) and indexes_folder(r / name, r):
+                    # A file called INDEX.md is the index by name. Requiring it to link half the
+                    # folder made an index that had fallen behind vanish - the checker then said
+                    # the repo had no index at all, counted the index among the unreachable, and
+                    # reported fewer findings than a healthier repo. The half-link test stays for
+                    # a doc that merely shares a folder's name, which is what it was written for.
+                    conventional = name.lower() in ("index.md", "readme.md")
+                    if exists_exact(r / name) and (conventional or indexes_folder(r / name, r)):
                         central_rel = posix(r / name, repo)
                         break
             if central_rel:

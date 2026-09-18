@@ -943,7 +943,10 @@ def det_schema(ctx: Ctx, inv: dict) -> None:
 
 
 ROUTE_PATTERNS = [
-    ("express-like", re.compile(r"\b(?:app|router|server|api|r)\.(get|post|put|patch|delete|all)\(\s*['\"`]([^'\"`]+)['\"`]"), (".js", ".ts", ".mjs", ".cjs")),
+    # The path starts with a slash. Without that, r.get("session:1") on a redis client and
+    # api.get("new-checkout") on a feature-flag client were counted as HTTP routes, and the
+    # gate then told an author their correct route count disagreed with the inventory.
+    ("express-like", re.compile(r"\b(?:app|router|server|api|r)\.(get|post|put|patch|delete|all)\(\s*['\"`](/[^'\"`]*)['\"`]"), (".js", ".ts", ".mjs", ".cjs")),
     ("nestjs", re.compile(r"@(Get|Post|Put|Patch|Delete)\(\s*['\"]?([^'\")]*)['\"]?\s*\)"), (".ts",)),
     ("fastapi-flask", re.compile(r"@(?:app|router|api|bp|blueprint)\.(get|post|put|patch|delete|route)\(\s*['\"]([^'\"]+)['\"]"), (".py",)),
     ("django", re.compile(r"\b(?:path|re_path|url)\(\s*r?['\"]([^'\"]*)['\"]"), (".py",)),

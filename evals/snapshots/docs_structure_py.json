@@ -225,7 +225,12 @@
       "docs/structure.json": {
         "content": {
           "centralIndex": "docs/INDEX.md",
-          "counts": [],
+          "counts": [
+            {
+              "folder": "docs/tasklist",
+              "index": "docs/TASKLIST.md"
+            }
+          ],
           "frontDoor": "README.md",
           "ignore": [],
           "indexConvention": "sibling",
@@ -247,7 +252,7 @@
           ],
           "splitAt": 500
         },
-        "lines": 24,
+        "lines": 29,
         "template": "generated"
       },
       "docs/tasklist/phase-00-foundations.md": {

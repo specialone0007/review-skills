@@ -1,4 +1,14 @@
 {
+  "count_authorities": [
+    "dependencies",
+    "endpoints",
+    "handlers",
+    "keys",
+    "names",
+    "packages",
+    "routes",
+    "variables"
+  ],
   "docs": [
     "docs/drafted.md",
     "docs/gated.md",
@@ -68,7 +78,7 @@
     {
       "doc": "docs/drafted.md",
       "line": 75,
-      "message": "the count \"77 routes\" disagrees with the inventory, which reports 4; name the scan behind it, cite an [inventory: key], or use the inventory's number",
+      "message": "the count \"77 routes\" disagrees with the inventory, which reports 4. One of the two is wrong: name the scan behind your number, cite an [inventory: key], or check the inventory's before using it",
       "rule": "G9"
     },
     {

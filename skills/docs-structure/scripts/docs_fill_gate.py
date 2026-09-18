@@ -158,6 +158,8 @@ OWNER_LINE = re.compile(r"^>?\s*\*\*(?:This document owns|Part of)")
 REDACTABLE = re.compile(r"\b(?:sk|pk|rk)[-_][A-Za-z0-9_-]{16,}|\bAIza[A-Za-z0-9_-]{20,}"
                         r"|\bglpat-[A-Za-z0-9_-]{16,}|\b(?:hf|npm)_[A-Za-z0-9]{20,}"
                         r"|\bghp_[A-Za-z0-9]{20,}|\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}")
+# A URL, an assignment, a bare number, or a long opaque run. Prose after a colon is not a value.
+LOOKS_LIKE_VALUE = re.compile(r"://|=|^\d[\d._-]*$|^[A-Za-z0-9+/_-]{16,}$")
 PLACEHOLDER_VALUE = re.compile(r"^(?:-+|—|n/?a|none|unset|empty|required|optional|string|number|bool(?:ean)?|url|path|int|float|secret|token|\.\.\.|<[^>]*>|\{[^}]*\}|\[[^\]]*\])$", re.I)
 BULLET = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
 CODESPAN = re.compile(r"`[^`]*`")
@@ -511,7 +513,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # The lead carries its marker inline on the owner line - the shape every template
         # produces and SKILL.md prescribes - so its last line is prose, the section was skipped,
         # and the report printed OK. A drafted document's lead is drafted.
-        if heading == "(lead)" and DRAFT_MARK in text:
+        # Only when the lead's own owner line carries the marker. Judging it because some other
+        # section is still a draft graded prose a person had already reviewed - the one thing the
+        # skill promises never to do - and blocked refill on any part-reviewed document.
+        if heading == "(lead)" and any(DRAFT_MARK in l for l in lines[start:end]):
             pass
         elif body[-1].strip() != DRAFT_MARK:
             # Not a drafted section, so a person's prose is left alone - but a section inside a
@@ -553,14 +558,22 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     break
                 if MODAL.search(unquoted):
                     add("G5", first, f"modal verb: {MODAL.search(unquoted).group(0)}")
+                # A paragraph citing a commit is quoting its subject, which structure.md asks for
+                # verbatim - so "drop redis because the latency was unacceptable" is the repo's
+                # words, not the draft's reasoning.
                 intent_hit = INTENT.search(QUOTED.sub(" ", joined))
-                if intent_hit and not joined.lower().startswith("inferred:"):
+                cites_commit = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(joined))
+                if intent_hit and not cites_commit and not joined.lower().startswith("inferred:"):
                     add("G6", first, f"intent word outside a quotation or `inferred:`: {intent_hit.group(0)}")
                 # A table cell and a YAML-style colon are both "beside". Matching only NAME=value
                 # let a live secret through in the column layout DEPLOYMENT.md asks for.
                 for name in names:
                     hit = re.search(rf"\b{re.escape(name)}\b\s*(?:[=:]|\|)\s*([^\s|]+)", joined)
-                    if hit and not PLACEHOLDER_VALUE.match(hit.group(1)):
+                    # A value has the shape of one. "Not a placeholder word" made the env table
+                    # the DEPLOYMENT template asks for unwritable: a 200-row table produced 112
+                    # findings, none of them a value, and whether a row passed depended on
+                    # whether the name happened to be in backticks.
+                    if hit and not PLACEHOLDER_VALUE.match(hit.group(1)) and LOOKS_LIKE_VALUE.search(hit.group(1)):
                         add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
                 # A credential-shaped string is a credential whatever it sits beside: the name
                 # in front of it does not have to be one the inventory found.
@@ -578,7 +591,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # A sentence that names a subset - "3 endpoints under /admin" - is not claiming
                 # the repo-wide total, and the API template asks for exactly that shape, one H3
                 # per path prefix.
-                scoped_count = re.search(r"\b(?:under|within|in|for|beneath)\s+[`/\w.*-]+", joined)
+                # "in" alone accepted "in this repository", which is the whole thing rather
+                # than a subset. A subset names a path or a route prefix.
+                scoped_count = re.search(
+                    r"\b(?:under|within|beneath|across)\s+[`/\w.*-]+"
+                    r"|\bin\s+`?[\w.-]*[/.][\w./*-]+", joined)
                 # Citing the inventory key means "the inventory says so", so the number has to
                 # be the inventory's. It used to switch the rule off without comparing anything,
                 # which made [inventory: routes] a licence to write 400.
@@ -607,14 +624,21 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                             continue
                         add("G9", first,
                             f'the count "{m.group(1)} {noun}" disagrees with the inventory, which reports '
-                            f'{" or ".join(sorted(known, key=int))}; name the scan behind it, cite an '
-                            f"[inventory: key], or use the inventory's number")
+                            f'{" or ".join(sorted(known, key=int))}. One of the two is wrong: name '
+                            f'the scan behind your number, cite an [inventory: key], or check the '
+                            f"inventory's before using it")
                         break
                 # G10: a negative claim without a scope is an audit nobody ran.
                 # Scope means a search was run, or a named key was read. A path in backticks is
                 # neither: backticking the file in the sentence used to clear this rule without
                 # changing a thing about the evidence behind it.
-                neg = NEGATION.search(BRACKET_ANY.sub(" ", unquoted))
+                # Read with code spans still in: stripping them let one pair of backticks around
+                # "absent" clear the rule on an otherwise identical sentence. That is the same
+                # phrasing plus punctuation, not another phrasing.
+                # The backticks come out, the words inside stay. Stripping the whole code span
+                # let one pair around "absent" clear the rule on an otherwise identical
+                # sentence - the same phrasing plus punctuation, not another phrasing.
+                neg = NEGATION.search(BRACKET_ANY.sub(" ", QUOTED.sub(" ", joined)).replace("`", " "))
                 # The brackets are evidence, not scope: searching the text with them still in
                 # let a command name immediately before one count as a search that ran.
                 bracketless = BRACKET_ANY.sub(" ", joined)
@@ -775,6 +799,14 @@ def render(data: dict, cap: int) -> str:
         lines.append("The notes above say what was not judged. Nothing here blocks a write.")
     if data["docs"]:
         lines.append("")
+        unjudged = sorted(set(COUNT_NOUNS) - set(data.get("count_authorities") or []))
+        if unjudged:
+            shown = ", ".join(unjudged[:14])
+            more = "" if len(unjudged) <= 14 else " and %d more" % (len(unjudged) - 14)
+            lines.append("**Counts not judged.** The inventory has no number of its own for these nouns")
+            lines.append("in this repository, so a count in front of one of them was not checked: "
+                         + shown + more + ".")
+            lines.append("")
         lines.append("**Not checked.** G10 is a phrase test: it catches the common ways of writing that")
         lines.append("something is absent, and it will never catch all of them. A clean run is not evidence")
         lines.append("that no unscoped claim of absence got through - read every negative sentence yourself.")
@@ -853,6 +885,7 @@ def main() -> int:
         findings.extend(check_doc(repo, rel, names, args.max_lines, numbers))
 
     data = {"repo": str(repo), "docs": targets, "findings": findings,
+            "count_authorities": sorted(numbers or {}),
             "total": len(findings), "warnings": warnings}
     if args.format == "json":
         print(json.dumps(data, indent=2, sort_keys=True))
