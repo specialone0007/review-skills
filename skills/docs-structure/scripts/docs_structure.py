@@ -2508,8 +2508,15 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     continue
                 t = tokens(text)
                 if sum(1 for k in kw if f" {k} " in t) >= 1 and not is_start_here_heading(text):
-                    body = [l for l in front_doc.lines[ln:ln + 40] if l.strip() and not l.startswith("#")]
-                    if len(body) <= 2:
+                    # the section's own lines: stop at the next heading, or the next section's
+                    # content made a one-line pointer look like forty lines
+                    body = []
+                    for l in front_doc.lines[ln:ln + 60]:
+                        if l.startswith("#"):
+                            break
+                        if l.strip():
+                            body.append(l)
+                    if len(body) <= 1:
                         continue  # a line and a link is the shape asked for
                     # names inside links and code spans are pointers, not a second home
                     body_text = re.sub(r"\[[^\]]*\]\([^)]*\)|`[^`]*`", " ", " ".join(body))
