@@ -52,9 +52,9 @@ docs/
 <unit>/                         each package or service of a monorepo
   README.md                     what this unit is and how to run it alone
   AGENTS.md                     this unit's commands and conventions; the nearest file wins
-  docs/                         optional; only guides/ and reference/, only about this unit
-    guides/DEPLOYMENT.md
-    guides/OPERATIONS.md
+  docs/                         optional, flat (a unit earns two docs at most): only about this unit
+    DEPLOYMENT.md
+    OPERATIONS.md
 ```
 
 ### The buckets
@@ -170,7 +170,7 @@ what a typical repository of each kind ends up with, so a reader can sanity-chec
 | application | README block, AGENTS.md, SETUP, DEVELOPMENT, PRODUCT, ARCHITECTURE | ONBOARDING (seven or more docs), DEPLOYMENT, OPERATIONS, TESTING, CONTRIBUTING, CONFIGURATION, DATA_MODEL, API, INTEGRATIONS, SECURITY, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
 | library | README block, AGENTS.md, SETUP, DEVELOPMENT, OVERVIEW | TESTING, CONTRIBUTING, RELEASING, PUBLIC_API, ARCHITECTURE (more than one package), CONFIGURATION (a config file), CHANGELOG, decisions/ | PRODUCT, DEPLOYMENT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
 | cli | as library, with CLI instead of PUBLIC_API; both when both entries exist | | |
-| monorepo | the application set at the root as the map; per unit: README.md and AGENTS.md | per unit with a Dockerfile or deploy config: `<unit>/docs/guides/DEPLOYMENT.md`; per unit with health or cron: `<unit>/docs/guides/OPERATIONS.md`; the root DEPLOYMENT and OPERATIONS become the map variant (a table of units and links) | a unit never owns architecture, product, security or data; those stay at the root |
+| monorepo | the application set at the root as the map; per unit: README.md and AGENTS.md | per unit with a Dockerfile or deploy config: `<unit>/docs/DEPLOYMENT.md`; per unit with health or cron: `<unit>/docs/OPERATIONS.md`; the root DEPLOYMENT and OPERATIONS become the map variant (a table of units and links) | a unit never owns architecture, product, security or data; those stay at the root |
 | infrastructure | README block, AGENTS.md, SETUP, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONFIGURATION | SECURITY, decisions/, CHANGELOG, TESTING | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
 | docs-only | nothing | only what the manifest pins | everything else |
 
