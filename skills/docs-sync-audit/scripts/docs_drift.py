@@ -57,7 +57,9 @@ SKIP_DIRS = {
 DOC_EXTS = {".md", ".mdx", ".rst", ".txt"}
 # The languages where a module is imported by file name, which is the only case in which
 # "nothing imports this file" can be decided from the text.
-FILE_IMPORT_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".rb", ".php", ".vue", ".svelte"}
+# Ruby is out: Rails autoloads app/ and lib/ by convention, so a .rb file nothing requires is
+# the normal state of live code, not a module nothing imports.
+FILE_IMPORT_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".php", ".vue", ".svelte"}
 CODE_EXTS = {
     ".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte",
     ".go", ".rs", ".rb", ".php", ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh",
@@ -66,8 +68,14 @@ CODE_EXTS = {
 FENCE = re.compile(r"^(?:```|~~~)")
 # Commands worth checking. Anything else in a fenced block is left alone.
 CMD_NPM = re.compile(r"\b(?:npm|pnpm|yarn|bun)\s+run\s+([A-Za-z0-9:_.-]+)")
-CMD_MAKE = re.compile(r"\bmake\s+([A-Za-z0-9_.-]+)")
-CMD_SCRIPT = re.compile(r"(?:^|\s)(\./[A-Za-z0-9_./-]+|(?:python3?|node|bash|sh|ruby)\s+([A-Za-z0-9_./-]+\.[A-Za-z0-9]+))")
+# `make VAR=value target` and `make -j4 target`: the target is the first word that is neither
+# an assignment nor a flag.
+CMD_MAKE = re.compile(r"\bmake\s+(?:(?:[A-Za-z0-9_.-]+=\S*|-\S+)\s+)*([A-Za-z0-9_.-]+)(?![=A-Za-z0-9_.-])")
+CMD_SCRIPT = re.compile(r"(?:^|\s)(\./[A-Za-z0-9_./-]+|(?:python3?|node|bash|sh|ruby|elixir|php|perl|mix\s+run|deno\s+run|bun)\s+([A-Za-z0-9_./-]+\.[A-Za-z0-9]+))")
+# `dotnet run --project src/Api` names a folder or a project file; `cargo run --bin worker`
+# names a [[bin]] target or src/bin/worker.rs. Both are checkable, and both were silent.
+CMD_DOTNET = re.compile(r"\bdotnet\s+(?:run|test|build|publish)\s+(?:[^\s]+\s+)*?--project\s+([A-Za-z0-9_./-]+)")
+CMD_CARGO_BIN = re.compile(r"\bcargo\s+(?:run|build|install)\s+(?:[^\s]+\s+)*?--bin\s+([A-Za-z0-9_-]+)")
 
 MD_LINK = re.compile(r"!?\[[^\]]*\]\((?:<([^>\n]+)>|([^)\s]+))")
 BACKTICK = re.compile(r"`([^`\n]+)`")
@@ -84,6 +92,12 @@ ENV_IN_CODE = [
     re.compile(r"""os\.getenv\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
     re.compile(r"""getenv\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
     re.compile(r"""ENV\[\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
+    # ENV.fetch("X") is the Rails idiom, and it was invisible.
+    re.compile(r"""ENV\.fetch\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
+    re.compile(r"""\$_(?:SERVER|ENV)\[\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
+    re.compile(r"""\b(?:option_)?env!\(\s*"([A-Z][A-Z0-9_]*)\""""),
+    re.compile(r"""System\.getenv\(\)\.get\(\s*"([A-Z][A-Z0-9_]*)\""""),
+    re.compile(r"""\bConfiguration\[\s*"([A-Z][A-Z0-9_]*)"\s*\]"""),
     re.compile(r"""Deno\.env\.get\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
     # The languages CODE_EXTS lists and the patterns above did not read: Go, Rust, Elixir,
     # C#, Java, Vite/Astro, and a destructured process.env. Without these every documented
@@ -106,11 +120,12 @@ PLATFORM_ENV = {
     "GITHUB_ACTIONS", "GITHUB_TOKEN", "GITHUB_SHA", "GITHUB_REF", "GITHUB_REPOSITORY", "GITHUB_WORKSPACE",
     "GITHUB_OUTPUT", "GITHUB_ENV", "RUNNER_OS", "VERCEL", "VERCEL_ENV", "VERCEL_URL", "NEXT_RUNTIME",
     "RAILWAY_ENVIRONMENT", "RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL", "PYTHONPATH", "VIRTUAL_ENV",
-    "RUST_LOG", "RUST_BACKTRACE", "CARGO_MANIFEST_DIR", "GOPATH", "GOFLAGS", "JAVA_HOME", "MIX_ENV",
-    "DOCKER_HOST", "KUBERNETES_SERVICE_HOST", "AWS_REGION", "AWS_DEFAULT_REGION", "LOG_LEVEL",
+    "RUST_LOG", "RUST_BACKTRACE", "CARGO_MANIFEST_DIR", "JAVA_HOME", "MIX_ENV",
+    "DOCKER_HOST", "KUBERNETES_SERVICE_HOST", "LOG_LEVEL",
     "COLUMNS", "LINES", "NO_COLOR", "FORCE_COLOR", "EDITOR", "VISUAL", "XDG_CONFIG_HOME", "APPDATA",
     "LOCALAPPDATA", "USERPROFILE", "SYSTEMROOT", "COMSPEC", "OS", "PROCESSOR_ARCHITECTURE",
     "GOPATH", "GOROOT", "GOFLAGS", "GOOS", "GOARCH", "GOPROXY", "GOPRIVATE", "GOCACHE", "GOBIN", "CGO_ENABLED",
+    "GOGC", "GODEBUG", "GOMAXPROCS", "GOTRACEBACK", "GOMEMLIMIT",
     "AWS_REGION", "AWS_DEFAULT_REGION", "AWS_PROFILE", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
     "AWS_LAMBDA_FUNCTION_NAME", "AWS_EXECUTION_ENV", "SENTRY_DSN", "SENTRY_ENVIRONMENT", "SENTRY_RELEASE",
     "HF_HOME", "HF_TOKEN", "HF_HUB_OFFLINE", "TRANSFORMERS_CACHE", "TOKENIZERS_PARALLELISM", "CUDA_VISIBLE_DEVICES",
@@ -125,8 +140,9 @@ PLATFORM_PREFIXES = ("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_",
                      "PLAYWRIGHT_", "PYTEST_", "JEST_", "VITEST", "TERM_", "SSH_", "XDG_", "CARGO_", "RUSTUP_",
                      "JAVA_", "MAVEN_", "GRADLE_", "DOTNET_", "ASPNETCORE_", "KUBERNETES_", "LITELLM_", "TORCH_")
 ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
-DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid)\b", re.I)
-CONFIG_CONTEXT = re.compile(r"\b(env|environment|variable|export|secret|config|configur\w*|setting|\.env|dotenv|flag|knob)\b", re.I)
+DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid|its [^.]{0,30}variable)\b", re.I)
+# (?<![\w-]) not \b: "zero-config" is not a word about configuration.
+CONFIG_CONTEXT = re.compile(r"(?<![A-Za-z0-9_-])(env|environment|variable|export|secret|config|configur\w*|setting|\.env|dotenv|flag|knob)\b", re.I)
 CONFIG_SUFFIX = re.compile(r"_(?:URL|URI|DSN|KEY|TOKEN|SECRET|PASSWORD|PASS|HOST|PORT|PATH|DIR|FILE|MODE|ENABLED|DISABLED|TIMEOUT|LIMIT|MAX|MIN|ID|NAME|REGION|BUCKET|ENDPOINT|BASE|VERSION|LEVEL|INTERVAL|SECONDS|MS|TTL|SIZE|COUNT|RATE)$")
 
 # Import forms across the languages handled above. Four alternatives, so findall
@@ -286,6 +302,28 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
     return found
 
 
+def available_cargo_bins(repo: Path, files: list[str]) -> set[str]:
+    """Binary targets: [[bin]] name, src/bin/<name>.rs, src/bin/<name>/main.rs, and the package
+    name when src/main.rs exists. Empty when there is no Cargo.toml, and then nothing is checked."""
+    bins: set[str] = set()
+    for rel in files:
+        if Path(rel).name != "Cargo.toml" or any(p in SKIP_DIRS for p in Path(rel).parts):
+            continue
+        text = read(repo / rel) or ""
+        root = Path(rel).parent
+        pkg = re.search(r"^\[package\][^\[]*?^name\s*=\s*\"([^\"]+)\"", text, re.M | re.S)
+        if pkg and exists_exact(repo / root / "src" / "main.rs"):
+            bins.add(pkg.group(1))
+        for m in re.finditer(r"^\[\[bin\]\][^\[]*?^name\s*=\s*\"([^\"]+)\"", text, re.M | re.S):
+            bins.add(m.group(1))
+        prefix = (str(root).replace("\\", "/") + "/" if str(root) != "." else "") + "src/bin/"
+        for f in files:
+            if f.startswith(prefix):
+                rest = f[len(prefix):]
+                bins.add(rest[:-3] if rest.endswith(".rs") and "/" not in rest else rest.split("/")[0])
+    return bins
+
+
 def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
     """Code files that nothing imports, and that are not plausible entrypoints.
 
@@ -394,13 +432,18 @@ def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
     return out
 
 
-def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
+def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], dict[str, str]]:
     """Env var names named in docs or declared in an env sample file.
 
     Only the key to the left of `=` is ever read from an env file. The value is a
     credential by design and is never touched.
     """
     documented: dict[str, str] = {}
+    # Weak evidence: a name in a comment sentence of an env sample, or a short backticked
+    # token in prose (`CT0`). Enough to say "this is documented somewhere", never enough to
+    # say "this is a promised knob": a Railway reference token in a comment, or `MIN_VOLUME_24H`
+    # as shorthand for the real name, became "documented but nothing reads it".
+    weak: dict[str, str] = {}
     for rel in files:
         base = Path(rel).name
         is_env_sample = base.startswith(".env")
@@ -423,7 +466,7 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                     # ever suppresses a finding.
                     for name in ENV_NAME.findall(stripped):
                         if "_" in name and not name.endswith("_"):
-                            documented.setdefault(name, f"{rel}:{i}")
+                            weak.setdefault(name, f"{rel}:{i}")
                     continue
                 if not stripped or "=" not in stripped:
                     continue
@@ -454,6 +497,7 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                     if not m_:
                         continue
                     name = m_.group(1)
+                    weak.setdefault(name, f"{rel}:{i}")
                     if "_" not in name or name.endswith("_") or (name + "*") in line or (name + "_*") in line:
                         continue  # PODCAST_S3_* names a family of variables, not one
                     # And it reads as configuration: the line talks about it as such, or the
@@ -464,7 +508,7 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                     if not (CONFIG_CONTEXT.search(window) or CONFIG_SUFFIX.search(name)):
                         continue
                     documented.setdefault(name, f"{rel}:{i}")
-    return documented
+    return documented, weak
 
 
 def path_epochs(repo: Path) -> dict[str, int]:
@@ -504,6 +548,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
 
     file_set = set(files)
     npm_scripts, make_targets = available_commands(repo, files)
+    cargo_bins = available_cargo_bins(repo, files)
     all_npm = set().union(*npm_scripts.values()) if npm_scripts else set()
     # A dot-folder holds tooling - .claude/skills, .agents, .cursor - whose Markdown speaks to an
     # agent, not to a reader of this repository; .github is the one GitHub itself documents.
@@ -546,6 +591,19 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                         source="Makefile")
             if line.lstrip().startswith("#"):
                 continue  # a comment inside a fenced block: "# make sure the port is free"
+            for proj in set(CMD_DOTNET.findall(line)):
+                if PLACEHOLDER.search(proj):
+                    continue
+                p_ = proj.rstrip("/")
+                if not (exists_exact(repo / p_) or exists_exact(repo / Path(doc).parent / p_)
+                        or any(f == p_ or f.startswith(p_ + "/") for f in file_set)):
+                    add("missing-script-file", "high", doc, lineno,
+                        f"documents `dotnet run --project {proj}`, and no such project exists.")
+            for bin_ in set(CMD_CARGO_BIN.findall(line)):
+                if cargo_bins and bin_ not in cargo_bins and not PLACEHOLDER.search(bin_):
+                    add("missing-script-file", "high", doc, lineno,
+                        f"documents `cargo run --bin {bin_}`, which is not a binary target in any Cargo.toml.",
+                        source="Cargo.toml")
             for whole, inner in CMD_SCRIPT.findall(line):
                 candidate = (inner or whole).lstrip("./")
                 # ./prometheus and ./promtool are built binaries; without an extension a
@@ -586,7 +644,10 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 if t.startswith("/") and "." not in Path(t).name:
                     continue
                 base = repo if t.startswith("/") else repo / Path(doc).parent
-                if not exists_exact(base / t.lstrip("/")):
+                target = base / t.lstrip("/")
+                trimmed = t.rstrip("/").lstrip("/")
+                if not any(exists_exact(p) for p in (target, base / (trimmed + ".md"), base / trimmed / "index.md",
+                                                     base / trimmed / "README.md")):
                     add("broken-link", "high", doc, i,
                         f"relative link `{t}` does not resolve.")
             for chunk in (BACKTICK.findall(line) if check_paths else []):
@@ -625,7 +686,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
 
     # 4. env vars, both directions
     in_code = env_names_from_code(repo, files)
-    in_docs = env_names_documented(repo, files)
+    in_docs, weak_docs = env_names_documented(repo, files)
     dead = unreferenced_modules(repo, files)
     # A config module - a zod schema, a pydantic Settings class, a struct with env tags, a
     # compose file with ${NAME} - reads a variable without any of the patterns above. Before
@@ -694,7 +755,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         if name in PLATFORM_ENV or name.startswith(PLATFORM_PREFIXES):
             platform_skipped += 1
             continue
-        if name not in in_docs:
+        if name not in in_docs and name not in weak_docs:
             add("undocumented-env", "medium", "(docs)", None,
                 f"`{name}` is read by the code but is not documented anywhere, "
                 "and is not in an env sample file.",
@@ -754,8 +815,8 @@ def render(d: dict, top: int) -> str:
     if not d["findings"]:
         L.append("No machine-verifiable drift found. Prose accuracy is still unchecked.")
     else:
-        shown = d["findings"][:top]
-        if len(d["findings"]) > top:
+        shown = d["findings"][:top] if top > 0 else d["findings"]
+        if 0 < top < len(d["findings"]):
             L.append(f"TRUNCATED: showing {top} of {len(d['findings'])} findings")
             L.append("")
         for f in shown:
@@ -779,7 +840,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Check documentation claims against the repo. Read-only.")
     ap.add_argument("--repo", default=".", help="Path inside the repository.")
     ap.add_argument("--format", choices=["text", "json"], default="text", help="Output format.")
-    ap.add_argument("--top", type=int, default=30, help="Findings to show. Default 30.")
+    ap.add_argument("--top", type=int, default=30, help="Findings to show in text output. Default 30; 0 shows all.")
     ap.add_argument("--check-paths", action="store_true",
                     help=("Also check backticked paths against the filesystem. Off by default: on "
                           "real repos most such references are ambiguous -- a path a doc tells you "
