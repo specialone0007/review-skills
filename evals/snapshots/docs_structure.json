@@ -55,23 +55,6 @@
       "weak": false
     },
     {
-      "applies": "always",
-      "companions": [
-        "tasklist/phase-00-foundations.md"
-      ],
-      "concern": "plan",
-      "covered_by": null,
-      "default_path": "docs/TASKLIST.md",
-      "matched_by": "",
-      "matched_heading": null,
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "template": "TASKLIST.md",
-      "universal": true,
-      "weak": false
-    },
-    {
       "applies": "Dockerfile: Dockerfile",
       "companions": [],
       "concern": "deploy",
@@ -206,14 +189,6 @@
       "level": "warn",
       "line": 1,
       "message": "no doc covers 'architecture' (always) - apply creates docs/ARCHITECTURE.md from the template",
-      "path": "docs/structure.json",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "no doc covers 'plan' (always) - apply creates docs/TASKLIST.md from the template",
       "path": "docs/structure.json",
       "rule": "R12",
       "severity": "P2"
@@ -370,27 +345,15 @@
         "template": "references/templates/RUNBOOK.md",
         "why": "operate (ops: src/routes/health.js)"
       },
-      "docs/TASKLIST.md": {
-        "concern": "plan",
-        "lines": 20,
-        "template": "references/templates/TASKLIST.md",
-        "why": "plan (always)"
-      },
       "docs/TESTING.md": {
         "concern": "testing",
         "lines": 21,
         "template": "references/templates/TESTING.md",
         "why": "testing (tests: package.json)"
-      },
-      "docs/tasklist/phase-00-foundations.md": {
-        "concern": "plan",
-        "lines": 6,
-        "template": "references/templates/tasklist/phase-00-foundations.md",
-        "why": "companion of plan"
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what exporter is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](docs/setup.md), [the architecture](docs/ARCHITECTURE.md) (skeleton), [the plan](docs/TASKLIST.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what exporter is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](docs/setup.md), [the architecture](docs/ARCHITECTURE.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
@@ -398,7 +361,6 @@
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
       "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
-      "| [TASKLIST](TASKLIST.md) | the index of the plan \u2014 one file per phase under `tasklist/`, and the count of todo / doing / done in each. | skeleton |",
       "| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |",
       "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
       "| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |",
@@ -406,7 +368,7 @@
       "| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |"
     ],
     "print_only": {
-      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a task starting, finishing or being dropped | `docs/TASKLIST.md` *(apply creates this)* |\n| a service, an environment variable, a build or start command, a deploy step | `docs/DEPLOYMENT.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a test runner, where tests live, how to run them, or what gates a merge | `docs/TESTING.md` *(apply creates this)* |\n| a health check, a scheduled job, an alert, or what to do when one fires | `docs/RUNBOOK.md` *(apply creates this)* |\n| how a change gets proposed, reviewed or merged | `docs/CONTRIBUTING.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [docs/setup.md](docs/setup.md) |\n| a service, an environment variable, a build or start command, a deploy step | `docs/DEPLOYMENT.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a test runner, where tests live, how to run them, or what gates a merge | `docs/TESTING.md` *(apply creates this)* |\n| a health check, a scheduled job, an alert, or what to do when one fires | `docs/RUNBOOK.md` *(apply creates this)* |\n| how a change gets proposed, reviewed or merged | `docs/CONTRIBUTING.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
@@ -458,7 +420,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 8
+      "warnings": 7
     },
     "R13": {
       "failures": 0,
@@ -594,7 +556,7 @@
   ],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 8,
+    "concerns_missing": 7,
     "docs_checked": 10,
     "failures": 5,
     "non_doc_files": 0,
@@ -606,7 +568,7 @@
       "reviewed": 2,
       "skeleton": 0
     },
-    "warnings": 16
+    "warnings": 15
   },
   "unreachable": [
     "docs/crlf-sample.md",

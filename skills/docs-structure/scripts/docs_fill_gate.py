@@ -127,8 +127,11 @@ NEGATION = re.compile(
     r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\s+(?!a\b|an\b|the\b)(?!recorded|documented|stated|named|written|commented|described|mentioned)[a-z`\"']\w*"
     r"|\b(?:is|are|was|were)\s+(?:\w+\s+){0,2}(?:missing|nonexistent|non-existent|unauthenticated|unprotected|unvalidated|unchecked|unenforced)\b"
     r"|\bnowhere to be (?:found|seen)\b"
-    r"|(?:^|\|\s*)(?:none found|not found|none|n/?a)\s*(?:\||$)"
-    r"|\b(?:omits?|omitted|skips?|bypasses)\s+(?:any|all|every)?\s*\w+"
+    # "none found" in a table cell is the wording structure.md and the API template hand fill for
+# the guard column. It is a finding in prose, where it is a claim; in a cell it is the column's
+# own vocabulary, and blocking it made the prescribed table unwritable row by row.
+                                  r"|(?<!\| )(?<!\|)\b(?:nothing found|not found anywhere)\b"
+    r"|\b(?:omits?|omitted|skips?|bypass(?:es|ed)?)\s+(?:any|all|every)?\s*\w+"
     r"|\bnever\s+\w+|\bnothing\s+\w+|\bnone of\s+\w+|\bno such\s+\w+", re.I)
 # A scope is evidence that a search happened: a command, or a named place with a path in it.
 # A bare path is not a scope - citing a file says it was read, never that anything was looked
@@ -323,9 +326,18 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             p_, k_ = p_.strip(), k_.strip()
             if p_ and not p_.startswith(("http://", "https://")) and exists_exact(repo, p_):
                 body = read(repo / p_)
+                # A whole token, not a substring: scripts.build matched the word "esbuild" in a
+                # dependency list, so a key that does not exist passed on a common word.
                 leaf = k_.split(".")[-1].split("[")[0].strip()
-                if body and leaf and leaf not in body:
+                if body and leaf and not re.search(rf"\b{re.escape(leaf)}\b", body):
                     return f"{p_} does not contain '{k_}'"
+                if body and p_.lower().endswith(".json") and "." in k_:
+                    try:
+                        node = json.loads(body)
+                        for part_ in k_.split("."):
+                            node = node[part_.split("[")[0]]
+                    except Exception:
+                        return f"{p_} has no key '{k_}'"
         path = re.split(r" § |: ", part, maxsplit=1)[0].strip()
         if path.startswith(("http://", "https://")):
             # SKILL.md calls the bracket grammar closed. A link to a dashboard is not evidence
@@ -547,6 +559,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # report then read OK for the whole file.
             if heading != "(lead)" and any(DRAFT_MARK in l for l in lines):
                 found.append({"doc": rel, "line": start, "rule": "G0", "level": "skipped",
+                              # The heading goes in a field of its own. Parsing it back out of
+                              # the message broke on any heading with an apostrophe - "Who it's
+                              # for" became "Who it" - so --wrote never matched and a dropped
+                              # marker passed under --strict.
+                              "section": heading,
                               "message": f"section '{safe(heading)}' carries no {DRAFT_MARK} marker, "
                                          f"so it was not judged"})
             continue
@@ -952,7 +969,7 @@ def main() -> int:
             return False
         if not wrote:
             return True
-        head = f["message"].split("'")[1] if "'" in f["message"] else ""
+        head = f.get("section", "")
         # --wrote names what this run drafted. A skipped section the run did not write is a
         # person's prose and must not block; one it did write and left unmarked must.
         return f"{f['doc']}#{head}" in wrote

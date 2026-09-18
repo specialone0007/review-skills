@@ -207,6 +207,25 @@ def _first(items, label):
     return f"{label}: {items[0].get('evidence')}" if items else None
 
 
+def _plan_evidence(inv: dict) -> str | None:
+    """A repository that plans in files, rather than in an issue tracker.
+
+    Every other concern is earned from evidence; plan was "always", so ripgrep, prometheus and
+    plausible were each told to create a TASKLIST.md and a phase-00 companion they have no use
+    for. A repository that plans in files says so by having one.
+    """
+    tree = inv.get("tree") or {}
+    planish = list(tree.get("plan_like_docs") or [])
+    folders = [f for f in (tree.get("top_level") or [])
+               if str(f).lower() in ("adr", "adrs", "rfcs", "rfc", "decisions", "plans",
+                                     "roadmap", "tasklist", "tasks")]
+    if planish:
+        return "plan-like docs: " + ", ".join(str(p) for p in planish[:3])
+    if folders:
+        return "folder: " + ", ".join(folders[:3])
+    return None
+
+
 def _lib_or_cli(inv):
     k = set(inv.get("kinds") or [])
     return bool(k & {"library", "cli"}) and "application" not in k
@@ -220,7 +239,10 @@ CONCERNS = [
      {"architecture", "components", "services", "system", "data flow", "how it works", "design decisions", "modules", "structure"}, "ARCHITECTURE.md", []),
     ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
      {"development", "developing", "getting started", "quickstart", "quick start", "local", "locally", "setup", "install", "installation", "prerequisites", "running", "run it", "run locally", "building", "environment setup", "hacking"}, "DEVELOPMENT.md", []),
-    ("plan", lambda inv: "always", lambda inv: "TASKLIST.md",
+    # Evidence, not habit. Every other concern is earned; plan was "always", so ripgrep,
+    # prometheus and plausible - which track work in issues - were each told to create a
+    # TASKLIST.md and a phase-00 companion. A repo that plans in files says so by having one.
+    ("plan", lambda inv: _plan_evidence(inv), lambda inv: "TASKLIST.md",
      # "roadmap" belongs to purpose alone. In both sets, plausible's single "## Feedback &
      # Roadmap" heading marked purpose AND plan covered, and PFP2E's real ROADMAP.md was
      # assigned to purpose while a stack-cleanup doc was reported as the plan.
@@ -888,7 +910,6 @@ one of these, update the owner in the same change.
 Rules that keep this true:
 
 - Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.
-- Strike superseded figures (`~~old~~ -> new`), do not delete them.
 - Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.
 - `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.
 """
@@ -1184,7 +1205,8 @@ def tracked_file(repo: Path, name: str) -> bool:
 
 
 RUN_WORDS = ("install", "installation", "getting started", "quickstart", "quick start", "setup", "usage", "running", "development")
-LICENCE_FILES = ("LICENSE", "LICENSE.md", "LICENCE", "LICENCE.md", "COPYING")
+LICENCE_FILES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "LICENCE", "LICENCE.md", "LICENCE.txt",
+                 "COPYING", "COPYING.txt", "LICENSE-MIT", "LICENSE-APACHE")
 
 
 def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> list[str]:
@@ -1538,9 +1560,18 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         roots_rel += [p for p in discovery.get("package_docs", []) if p not in roots_rel]  # a monorepo's per-package READMEs
     expanded: list[str] = []
     for r in roots_rel:
-        if r.endswith("*.md") or r.endswith("*.mdx"):
-            folder = repo / r.rsplit("/", 1)[0] if "/" in r else repo
-            expanded += sorted(posix(p, repo) for p in folder.glob(r.rsplit("/", 1)[-1]) if p.is_file())
+        if any(ch in r for ch in "*?["):
+            if r.endswith("*.md") or r.endswith("*.mdx"):
+                folder = repo / r.rsplit("/", 1)[0] if "/" in r else repo
+                hits = sorted(posix(p, repo) for p in folder.glob(r.rsplit("/", 1)[-1]) if p.is_file())
+            else:
+                hits = sorted(posix(p, repo) for p in repo.glob(r) if p.is_file())
+            if not hits:
+                # A pattern matching nothing used to leave the "root does not exist" loop with an
+                # empty list, so a manifest glob that matched no files produced "Docs checked: 0"
+                # and a green run. A checker silently checking nothing is what it exists to stop.
+                warnings.append(f"root pattern {r} matches no files; nothing under it was checked")
+            expanded += hits
         else:
             expanded.append(r)
     roots_rel = list(dict.fromkeys(expanded))
@@ -1667,7 +1698,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             if not t or t.startswith(("http://", "https://", "mailto:", "<")):
                 continue
             try:
-                out.add(posix(resolve_target(doc.path, repo, t).resolve(), repo))
+                # normpath, not resolve(): resolve() returns the on-disk spelling on Windows, so
+                # a link to guide.md pointing at Guide.md satisfied R1 here and failed it on the
+                # Linux runner. exists_exact exists to stop exactly that divergence.
+                tgt = resolve_target(doc.path, repo, t)
+                out.add(posix(Path(os.path.normpath(str(tgt))), repo))
             except (ValueError, OSError):
                 continue
         return out

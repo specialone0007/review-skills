@@ -55,23 +55,6 @@
       "weak": true
     },
     {
-      "applies": "always",
-      "companions": [
-        "tasklist/phase-00-foundations.md"
-      ],
-      "concern": "plan",
-      "covered_by": null,
-      "default_path": "docs/TASKLIST.md",
-      "matched_by": "",
-      "matched_heading": null,
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "template": "TASKLIST.md",
-      "universal": true,
-      "weak": false
-    },
-    {
       "applies": "schema: alembic/versions/0001_initial.py",
       "companions": [],
       "concern": "data",
@@ -148,14 +131,6 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'plan' (always) - apply creates docs/TASKLIST.md from the template",
-      "path": "README.md",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
       "message": "no doc covers 'data' (the repo has schema: alembic/versions/0001_initial.py) - apply creates docs/DATA_MODEL.md from the template",
       "path": "README.md",
       "rule": "R12",
@@ -219,21 +194,10 @@
         "template": "references/templates/PRODUCT.md",
         "why": "purpose (always)"
       },
-      "docs/TASKLIST.md": {
-        "concern": "plan",
-        "lines": 20,
-        "template": "references/templates/TASKLIST.md",
-        "why": "plan (always)"
-      },
       "docs/structure.json": {
         "content": {
           "centralIndex": "docs/INDEX.md",
-          "counts": [
-            {
-              "folder": "docs/tasklist",
-              "index": "docs/TASKLIST.md"
-            }
-          ],
+          "counts": [],
           "frontDoor": "README.md",
           "ignore": [],
           "indexConvention": "sibling",
@@ -255,18 +219,12 @@
           ],
           "splitAt": 500
         },
-        "lines": 29,
+        "lines": 24,
         "template": "generated"
-      },
-      "docs/tasklist/phase-00-foundations.md": {
-        "concern": "plan",
-        "lines": 6,
-        "template": "references/templates/tasklist/phase-00-foundations.md",
-        "why": "companion of plan"
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](#getting-started), [the architecture](docs/ARCHITECTURE.md) (skeleton), [the plan](docs/TASKLIST.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](#getting-started), [the architecture](docs/ARCHITECTURE.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
@@ -274,13 +232,12 @@
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
       "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
-      "| [TASKLIST](TASKLIST.md) | the index of the plan \u2014 one file per phase under `tasklist/`, and the count of todo / doing / done in each. | skeleton |",
       "| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |",
       "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
       "| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |"
     ],
     "print_only": {
-      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [README.md](README.md) *(one heading only - confirm this is the right home)* |\n| a task starting, finishing or being dropped | `docs/TASKLIST.md` *(apply creates this)* |\n| a table, a column, a migration, or what a row means | `docs/DATA_MODEL.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a command, a subcommand or a flag | `docs/CLI_REFERENCE.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Strike superseded figures (`~~old~~ -> new`), do not delete them.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
+      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [README.md](README.md) *(one heading only - confirm this is the right home)* |\n| a table, a column, a migration, or what a row means | `docs/DATA_MODEL.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a command, a subcommand or a flag | `docs/CLI_REFERENCE.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
     },
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
@@ -330,7 +287,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 6
+      "warnings": 5
     },
     "R13": {
       "failures": 0,
@@ -415,7 +372,7 @@
   "split_candidates": [],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 6,
+    "concerns_missing": 5,
     "docs_checked": 1,
     "failures": 0,
     "non_doc_files": 0,
@@ -427,7 +384,7 @@
       "reviewed": 1,
       "skeleton": 0
     },
-    "warnings": 6
+    "warnings": 5
   },
   "unreachable": [],
   "warnings": []
