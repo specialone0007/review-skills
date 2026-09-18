@@ -166,6 +166,7 @@ SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+(?:-\S+\s+)*(?:[\"'`][^\"'
 # and ran nothing, and G9 stopped looking at the number.
 SCAN_CMD = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|wc|ls)\b\s+(?:-\S+\s+)*"
                       r"(?:[\"'`][^\"'`]+[\"'`]|[\w.*-]*[/.][\w./*-]+)", re.I)
+SCAN_PATTERN_BEFORE = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|ag|ack)\s+(?:-\S+\s+)*$", re.I)
 INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 # The keys docs_evidence actually emits.
 INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exports", "frontend",
@@ -326,6 +327,62 @@ def sha_known(repo: Path, sha: str) -> bool:
         return True
 
 
+def _norm(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
+_QUOTE_SRC: dict[str, str] = {}
+
+
+def quote_sources(repo: Path, refs: list[str]) -> list[str]:
+    """The text a paragraph's brackets point at: cited files, and the messages of cited commits.
+
+    A quotation used to switch G4, G5, G6, G9 and G10 off on the theory that quoted words are
+    the repository's own - and nothing ever checked that they were. Wrapped in quotes, the
+    exact sentence SKILL.md names as the reason G10 exists passed under the prescribed command,
+    beside two invented counts, in a repo with zero routes. A quote is the repository's words
+    only when the repository can be shown to contain them.
+    """
+    out: list[str] = []
+    for ref in refs:
+        r = ref.strip()
+        if r.lower().startswith("inventory:"):
+            continue
+        if SHA_REF.match(r):
+            sha = r.split()[0]
+            key = "sha:" + sha
+            if key not in _QUOTE_SRC:
+                git = shutil.which("git")
+                body = ""
+                if git is not None and is_git_repo(SHA_REPO or repo):
+                    try:
+                        p = subprocess.run([git, "show", "-s", "--format=%B", sha], cwd=str(SHA_REPO or repo),
+                                           text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                           timeout=GIT_TIMEOUT, encoding="utf-8", errors="replace")
+                        body = p.stdout if p.returncode == 0 else ""
+                    except (OSError, subprocess.SubprocessError):
+                        body = ""
+                _QUOTE_SRC[key] = _norm(body)
+            out.append(_QUOTE_SRC[key])
+            continue
+        for sep in (" § ", "§", ": "):
+            if sep in r:
+                r = r.split(sep, 1)[0].strip()
+                break
+        for part in r.split(";"):
+            path = part.strip().strip("`")
+            if not path:
+                continue
+            key = "file:" + path
+            if key not in _QUOTE_SRC:
+                try:
+                    _QUOTE_SRC[key] = _norm(read(repo / path)) if (repo / path).is_file() else ""
+                except OSError:
+                    _QUOTE_SRC[key] = ""
+            out.append(_QUOTE_SRC[key])
+    return [o for o in out if o]
+
+
 _GATE_LISTING: dict[str, set[str]] = {}
 # Asked once per tree: sha_known calls this for every [sha date] bracket, so a decisions
 # section citing twenty commits was spawning forty git processes.
@@ -421,6 +478,8 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             return f"cited path does not exist: {path}"
         if " § " in part:
             heading = part.split(" § ", 1)[1].strip().lower()
+            if Path(path).suffix.lower() not in DOC_EXTS:
+                return f"a § heading can only point into a Markdown file, not {path}"
             if heading not in headings_of(repo / path):
                 return f"{path} has no heading '{part.split(' § ', 1)[1].strip()}'"
     return None
@@ -698,7 +757,19 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # repository's words, which G5 and G6 have always respected. G4 did not, so an
             # attributed quotation - the evidence the fill rules require for PRODUCT.md's first
             # section - was blocked, and the only way past it was to drop the quote.
-            unquoted = QUOTED.sub(" ", bare)
+            # Only a quotation the cited sources contain is stripped. One they do not is reported
+            # and then judged as ordinary prose, so the rules below see it.
+            # The argument of a scan command - grep "rate" src/ - is a pattern, not a quotation:
+            # it names what was searched for and is not expected to appear anywhere.
+            quotes = [m.group(0)[1:-1] for m in QUOTED.finditer(nospan)
+                      if m.group(0)[1:-1].strip() and not SCAN_PATTERN_BEFORE.search(nospan[:m.start()])]
+            sources = quote_sources(repo, BRACKET_ANY.findall(nospan)) if quotes else []
+            unsourced = [q for q in quotes if not any(_norm(q) in src for src in sources)]
+            for q in unsourced[:2]:
+                add("G2", first, f'quoted text is not in any cited source: "{safe(q[:50])}" - a quotation '
+                                 "has to appear verbatim in a cited file or commit message")
+            qsub = (lambda t: QUOTED.sub(" ", t)) if quotes and not unsourced else (lambda t: t)
+            unquoted = qsub(bare)
             # A capitalised word followed by another capitalised word is a name - Modern
             # Treasury, Simple Storage Service, Fast Refresh - and a repo that integrates
             # one could not write a true sentence about it.
@@ -713,7 +784,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # A paragraph citing a commit is quoting its subject, which structure.md asks for
             # verbatim - so "drop redis because the latency was unacceptable" is the repo's
             # words, not the draft's reasoning.
-            intent_hit = INTENT.search(QUOTED.sub(" ", joined))
+            intent_hit = INTENT.search(qsub(joined))
             cites_commit = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(nospan))
             if intent_hit and not cites_commit and not joined.lower().startswith("inferred:"):
                 add("G6", first, f"intent word outside a quotation or `inferred:`: {intent_hit.group(0)}")
@@ -783,7 +854,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # What the commit licenses is its own words, so the quotation is what is
             # exempt, not the paragraph around it.
             if numbers and not SCAN_CMD.search(joined):
-                prose = QUOTED.sub(" ", BRACKET_ANY.sub(" ", bare))
+                prose = qsub(BRACKET_ANY.sub(" ", bare))
                 for m in NUMBER.finditer(prose):
                     raw = m.group(1).replace(",", "")
                     noun = m.group(2).lower()
@@ -833,7 +904,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # The backticks come out, the words inside stay. Stripping the whole code span
             # let one pair around "absent" clear the rule on an otherwise identical
             # sentence - the same phrasing plus punctuation, not another phrasing.
-            neg = NEGATION.search(BRACKET_ANY.sub(" ", QUOTED.sub(" ", joined)).replace("`", " "))
+            neg = NEGATION.search(BRACKET_ANY.sub(" ", qsub(joined)).replace("`", " "))
             # The brackets are evidence, not scope: searching the text with them still in
             # let a command name immediately before one count as a search that ran.
             bracketless = BRACKET_ANY.sub(" ", joined)
@@ -1009,7 +1080,8 @@ def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = No
     # one. The boilerplate below is context for the verdict, so it comes first.
     verdict = ("Nothing should be written while any finding stands: fix the draft, then run this again."
                if blocking else
-               "The notes above say what was not judged. Nothing here blocks a write." if data["total"] else "")
+               "The notes above say what was not judged. Nothing here blocks a write." if data["total"] else
+               "No finding. Nothing here blocks a write.")
     if data["docs"]:
         lines.append("")
         unjudged = sorted(set(COUNT_NOUNS) - set(data.get("count_authorities") or []))
@@ -1020,6 +1092,11 @@ def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = No
             lines.append("in this repository, so a count in front of one of them was not checked: "
                          + shown + more + ".")
             lines.append("")
+        lines.append("**Quotations.** Text in quotation marks is exempt from G4, G5, G6, G9 and G10 only")
+        lines.append("when it appears verbatim in a file or commit the same paragraph cites; otherwise it is")
+        lines.append("reported and then judged as ordinary prose. Whether the quote is fairly chosen is not")
+        lines.append("checked.")
+        lines.append("")
         lines.append("**Not checked.** G10 is a phrase test: it catches the common ways of writing that")
         lines.append("something is absent, and it will never catch all of them. A clean run is not evidence")
         lines.append("that no unscoped claim of absence got through - read every negative sentence yourself.")

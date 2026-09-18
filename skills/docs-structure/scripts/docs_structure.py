@@ -267,7 +267,7 @@ CONCERN_ALIASES = {
 CONCERNS = [
     # id, applies(inv) -> reason | None, default_file(inv) -> str, keywords, template, companions
     ("purpose", lambda inv: "always", lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md",
-     {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission"}, lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md", []),
+     {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission", "why", "motivation", "what is"}, lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md", []),
     ("architecture", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
      {"architecture", "components", "services", "system", "data flow", "how it works", "design decisions", "modules", "structure"}, "ARCHITECTURE.md", []),
     ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
@@ -292,13 +292,17 @@ CONCERNS = [
      {"cli", "command", "commands", "command line", "usage", "flags", "options"}, "CLI_REFERENCE.md", []),
     ("exports", lambda inv: (_first(inv.get("exports") or [], "exports") if "library" in (inv.get("kinds") or []) else None), lambda inv: "PUBLIC_API.md",
      {"public api", "exports", "api reference", "usage", "import", "sdk"}, "PUBLIC_API.md", []),
-    ("design", lambda inv: _first(inv.get("frontend") or [], "frontend"), lambda inv: "DESIGN_GUIDELINES.md",
+    # One vendored stylesheet is not a design system: spring-petclinic was asked for a tokens-and-
+    # components document on the strength of bootstrap's custom properties in one CSS file.
+    ("design", lambda inv: (_first(inv.get("frontend") or [], "frontend")
+                            if any(f.get("detector") != "css-custom-properties" for f in inv.get("frontend") or [])
+                            or len(inv.get("frontend") or []) >= 3 else None), lambda inv: "DESIGN_GUIDELINES.md",
      {"design", "design system", "design guidelines", "styling", "style guide", "theme", "tokens", "components", "ui", "brand"}, "DESIGN_GUIDELINES.md", []),
     ("testing", lambda inv: _first(inv.get("tests") or [], "tests"), lambda inv: "TESTING.md",
      {"testing", "tests", "test", "qa", "coverage", "e2e"}, "TESTING.md", []),
     ("operate", lambda inv: _first([o for o in inv.get("ops") or [] if not o.get("hint")], "ops"), lambda inv: "RUNBOOK.md",
      {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, "RUNBOOK.md", []),
-    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("a remote on a public forge" if (inv.get("decisions") or {}).get("public_host") else None)), lambda inv: "CONTRIBUTING.md",
+    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("a github.com or gitlab.com remote" if (inv.get("decisions") or {}).get("public_host") else None)), lambda inv: "CONTRIBUTING.md",
      {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, "CONTRIBUTING.md", []),
     ("research", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
@@ -1135,6 +1139,10 @@ def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door:
         # PRODUCT.md, and reporting purpose uncovered beside it is how a second copy gets created.
         stem = doc.path.stem.lower().replace("_", " ").replace("-", " ")
         name_hit = stem in {k.lower() for k in keywords}
+        # A single-file user guide is the CLI reference of a command-line tool: ripgrep's
+        # 1,025-line GUIDE.md was reported as "no CLI doc" and build offered a skeleton beside it.
+        if not name_hit and default_file.startswith("CLI_REFERENCE") and stem in ("guide", "manual", "usage", "handbook", "user guide"):
+            name_hit = True
     if name_hit:
         score += 6
         how.append("file name")
@@ -1424,7 +1432,7 @@ def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> 
         # message says what was seen so nobody goes looking for a file the checker missed.
         seen = [n for n in root_names_lower(repo) | root_names_lower(repo / "docs") if "licen" in n]
         extra = f" ({', '.join(sorted(seen)[:3])} exists, which describes licensing but is not a licence file)" if seen else ""
-        gaps.append("its licence - the remote is on a public forge and no LICENSE file exists" + extra
+        gaps.append("its licence - the remote points at github.com or gitlab.com and no LICENSE file exists" + extra
                     + "; if the repository itself is private, say so or set a licence")
     return gaps
 
