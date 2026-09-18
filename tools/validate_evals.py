@@ -60,6 +60,10 @@ SNAPSHOT_SCRIPTS = {
     "docs_fill_gate": {"path": "skills/docs-structure/scripts/docs_fill_gate.py", "drop": []},
     "docs_evidence_py": {"path": "skills/docs-structure/scripts/docs_evidence.py", "drop": [], "fixture": "mini-py"},
     "docs_structure_py": {"path": "skills/docs-structure/scripts/docs_structure.py", "drop": [], "fixture": "mini-py"},
+    # The split proposal on the fixture's longest doc, cut low so it has parts to propose; the
+    # proof block is part of the snapshot, so a reversal that stops being line-identical shows.
+    "docs_split": {"path": "skills/docs-structure/scripts/docs_split.py", "drop": [],
+                   "args": ["--doc", "docs/drafted.md", "--split-at", "30"]},
 }
 # The mini-app fixture carries a planted .env.local canary. No script may ever print it.
 CANARY = "canary-7f3a9c1e2b4d5f6a-do-not-print"
@@ -152,11 +156,11 @@ def validate_cases(docs: dict[str, dict], skill_names: set[str]) -> int:
     return total
 
 
-def run_script(rel: str, drop: list[str], fixture_name: str = "mini-app") -> dict | None:
+def run_script(rel: str, drop: list[str], fixture_name: str = "mini-app", args: list[str] | None = None) -> dict | None:
     """Run one bundled script against a fixture and return its normalised JSON."""
     fixture = EVALS / "fixtures" / fixture_name
     proc = subprocess.run(
-        [sys.executable, str(REPO / rel), "--repo", str(fixture), "--no-git-root", "--format", "json"],
+        [sys.executable, str(REPO / rel), "--repo", str(fixture), "--no-git-root", "--format", "json", *(args or [])],
         cwd=str(REPO), text=True, timeout=180,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         encoding="utf-8", errors="replace",
@@ -185,7 +189,7 @@ def check_snapshots(update: bool) -> None:
     SNAPSHOTS.mkdir(parents=True, exist_ok=True)
     for key, spec in SNAPSHOT_SCRIPTS.items():
         rel = spec["path"]
-        actual = run_script(rel, spec["drop"], spec.get("fixture", "mini-app"))
+        actual = run_script(rel, spec["drop"], spec.get("fixture", "mini-app"), spec.get("args"))
         if actual is None:
             continue
         snap = SNAPSHOTS / f"{key}.json"
