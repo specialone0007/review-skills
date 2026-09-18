@@ -137,6 +137,8 @@ NEGATION = re.compile(
     # "Without" is a claim of absence until proven otherwise. A false hit costs one rewrite;
     # a miss puts an audited-sounding security claim in a document nobody audited.
     r"|(?:^|[.!?]\s+)(?:no|without)\s+(?!one\b|longer\b|doubt\b|matter\b|more\b)\w+"
+    # "run with no guard", "ships without a check": the mid-sentence forms of the same claim.
+    r"|\bwith no\s+\w+|\bwithout\s+(?:a|an|any|the)\s+\w+"
     r"|\bnowhere to be (?:found|seen)\b"
     # "none found" in a table cell is the wording structure.md and the API template hand fill for
 # the guard column. It is a finding in prose, where it is a claim; in a cell it is the column's
@@ -891,7 +893,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     if hit and not PLACEHOLDER_VALUE.match(hit.group(1)):
                         add("G7", idx + 1, f"a value is written beside {name} inside a fenced block; "
                                            f"drafts carry names, never values")
-                if REDACTABLE and REDACTABLE.search(s_):
+                if REDACTABLE.search(s_):
                     add("G7", idx + 1, "a token-shaped string is written inside a fenced block")
                 continue
             n = idx + 1
@@ -1121,7 +1123,12 @@ def main() -> int:
     # heading "Setup" matched nothing, the unmarked section read as a person's prose, and the
     # run exited 0 saying nothing blocked a write.
     def slug(s: str) -> str:
-        return " ".join(s.strip().lower().replace("\\", "/").split())
+        # The message promises that case and punctuation do not matter, so "who its for" has
+        # to reach "Who it's for": everything that is not a word character, a slash, a dot,
+        # a dash or the "#" comes out, then spacing is collapsed.
+        doc, _, head = s.strip().replace("\\", "/").partition("#")
+        head = re.sub(r"[^\w\s/.-]", "", head)
+        return doc.lower() + "#" + " ".join(head.lower().split())
 
     wrote = {slug(w) for w in args.wrote}
     # And an entry that names no section this run saw is reported. Two agents can spell a

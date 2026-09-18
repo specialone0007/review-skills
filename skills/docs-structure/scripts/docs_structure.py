@@ -307,7 +307,10 @@ UNIVERSAL = {"purpose", "architecture", "develop", "plan"}
 
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
-LINK_RE = re.compile(r"(!?)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+# The angle-bracket form is how GitHub writes a target with a space in it. Without it the
+# link was invisible: the indexed doc read as unreachable (a false P1) and a dead target
+# behind the brackets was reported nowhere.
+LINK_RE = re.compile(r"(!?)\[[^\]]*\]\((?:<([^>\n]+)>|([^)\s]+))(?:\s+\"[^\"]*\")?\)")
 REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+\S")
 REF_DEF_TARGET = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 HTML_HREF = re.compile(r"""<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']""", re.I)
@@ -768,7 +771,8 @@ def linked_folders(repo: Path, skills: set[Path], ignore: list[str]) -> dict[str
         f = repo / name
         if not f.is_file():
             continue
-        for _, target in LINK_RE.findall("\n".join(strip_fences(read(f).splitlines()))):
+        for _, angled, plain in LINK_RE.findall("\n".join(strip_fences(read(f).splitlines()))):
+            target = (angled or plain).strip()
             t = target.split("#")[0].strip()
             if not t or t.startswith(("http://", "https://", "mailto:", "<")):
                 continue
@@ -808,7 +812,8 @@ def linked_package_docs(repo: Path, skills: set[Path], ignore: list[str]) -> lis
         f = repo / name
         if not f.is_file():
             continue
-        for _, target in LINK_RE.findall("\n".join(strip_fences(read(f).splitlines()))):
+        for _, angled, plain in LINK_RE.findall("\n".join(strip_fences(read(f).splitlines()))):
+            target = (angled or plain).strip()
             t = target.split("#")[0].strip()
             if not t or t.startswith(("http://", "https://", "mailto:", "<", "/")):
                 continue
@@ -974,8 +979,13 @@ def detect_generator(repo: Path, roots: list[Path]) -> str | None:
     return None
 
 
-def is_record_folder(folder: Path, repo: Path, docs: list[Path]) -> bool:
+def is_record_folder(folder: Path, docs: list[Path]) -> bool:
     name = folder.name
+    # The plan concern's own companion folder: phase-00-foundations.md carries the prefix the
+    # heuristic reads as a record, so the skill tripped over the layout it lays down and the
+    # proposed manifest froze that in. A tasklist is the living plan, not a record of one.
+    if name.lower() in ("tasklist", "tasks"):
+        return False
     if name in RECORD_NAMES or fnmatch.fnmatchcase(name, "audit-*") or DATE_RE.search(name):
         return True
     here = [d for d in docs if d.parent == folder]
@@ -1410,7 +1420,12 @@ def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> 
             # two different ones are not.
             and not any(n.lower() in root_names_lower(repo) for n in LICENCE_FILES)
             and " licence " not in text and " license " not in text):
-        gaps.append("its licence - the remote is on a public forge and no LICENSE file exists; if the repository itself is private, say so or set a licence")
+        # A LICENSING.md is a document about licensing, not a licence; the gap stands, but the
+        # message says what was seen so nobody goes looking for a file the checker missed.
+        seen = [n for n in root_names_lower(repo) | root_names_lower(repo / "docs") if "licen" in n]
+        extra = f" ({', '.join(sorted(seen)[:3])} exists, which describes licensing but is not a licence file)" if seen else ""
+        gaps.append("its licence - the remote is on a public forge and no LICENSE file exists" + extra
+                    + "; if the repository itself is private, say so or set a licence")
     return gaps
 
 
@@ -1587,8 +1602,8 @@ class Doc:
     def links(self):
         """(line_no, is_image, target) for every link outside fences."""
         for i, line in enumerate(self.nocode, start=1):
-            for img, target in LINK_RE.findall(line):
-                yield i, bool(img), target
+            for img, angled, plain in LINK_RE.findall(line):
+                yield i, bool(img), (angled or plain).strip()
 
 
 def resolve_target(doc_path: Path, repo: Path, file_part: str) -> Path:
@@ -1822,7 +1837,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     by_rel = {d.rel: d for d in docs}
 
     folders = sorted({d.path.parent for d in docs if d.path.parent not in roots and d.path.parent != repo})
-    detected_records = sorted(posix(f, repo) for f in folders if is_record_folder(f, repo, paths))
+    detected_records = sorted(posix(f, repo) for f in folders if is_record_folder(f, paths))
     # A manifest that names recordFolders is authoritative; the heuristic only runs when it is
     # silent, so committing the proposed manifest freezes the result instead of re-guessing.
     explicit_records = manifest.get("recordFolders")
