@@ -269,6 +269,8 @@ first` or `Documentation` section is left alone.
 
 ## The split, exactly
 
+`scripts/docs_split.py` performs every step below and runs the proof in step 7 itself; the agent writes the files it returns, and only when its `proof.ok` is true.
+
 Input: one doc the user confirmed. Every step is mechanical and every step can refuse; a refusal is
 a finding ("needs a human restructure"), not a failure.
 

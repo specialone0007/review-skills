@@ -678,7 +678,9 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
 
         # 2 and 3. links and backticked paths
         for i, line in enumerate(text.splitlines(), start=1):
-            for angled, plain in MD_LINK.findall(line):
+            # ~~[old](gone.md)~~ is the doc recording that a target went away, the same
+            # convention the env check already honours; it was still a broken link here.
+            for angled, plain in MD_LINK.findall(re.sub(r"~~[^~\n]*~~", " ", line)):
                 t = (angled or plain).split("#")[0].split("?")[0].strip()
                 if not t or t.startswith(("http://", "https://", "mailto:", "#", "tel:", "data:")):
                     continue

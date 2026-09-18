@@ -172,7 +172,10 @@ SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+(?:-\S+\s+)*(?:[\"'`][^\"'
                    r"|\b(?:searched|scanned|scan(?:ned)?)\s+(?:every |all |the )?`?[\w.-]*[/.][\w/*-][\w./*-]*"
                    # The trailing segment is optional: `src/` names a folder, and refusing it asked the author to
 # write a less precise scope than the one they had.
-                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]*", re.I)
+                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]*"
+                   # "(scan: `.github/`, README headings)" and "(scan: `git ls-files` at depth 1)" name the
+                   # search in the draft's own words; the colon form was not read and the claim was refused.
+                   r"|\bscan(?:ned)?\s*:\s*(?:`[^`\n]+`|[\w.-]*[/.][\w./*-]*)", re.I)
 # The same argument test SCOPE already makes. "[-\w`\"']" after the verb meant the English
 # word find cleared the count rule: "Developers find 400 routes in this service" named no scan
 # and ran nothing, and G9 stopped looking at the number.
@@ -827,10 +830,17 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # and then judged as ordinary prose, so the rules below see it.
             # The argument of a scan command - grep "rate" src/ - is a pattern, not a quotation:
             # it names what was searched for and is not expected to appear anywhere.
-            quotes = [m.group(0)[1:-1] for m in QUOTED.finditer(nospan)
-                      if m.group(0)[1:-1].strip() and not SCAN_PATTERN_BEFORE.search(nospan[:m.start()])]
+            # Quotes are read from the text with its code spans still in: "Branch off `main`" is
+            # the sentence CLAUDE.md holds, and reading it from `nospan` compared "Branch off  "
+            # against the file, so a verbatim quote with a code span in it never matched. A quote
+            # that starts or ends inside a code span is code - os.environ["X"] - not a quotation.
+            spans = [(m.start(), m.end()) for m in CODESPAN.finditer(joined)]
+            in_span = lambda pos: any(a <= pos < b for a, b in spans)
+            quotes = [m.group(0)[1:-1].replace("`", "") for m in QUOTED.finditer(joined)
+                      if m.group(0)[1:-1].strip() and not in_span(m.start()) and not in_span(m.end() - 1)
+                      and not SCAN_PATTERN_BEFORE.search(CODESPAN.sub(" ", joined[:m.start()]))]
             sources = quote_sources(repo, BRACKET_ANY.findall(nospan)) if quotes else []
-            unsourced = [q for q in quotes if not any(_norm(q) in src for src in sources)]
+            unsourced = [q for q in quotes if not any(_norm(q) in src.replace("`", "") for src in sources)]
             for q in unsourced[:2]:
                 add("G2", first, f'quoted text is not in any cited source: "{safe(q[:50])}" - a quotation '
                                  "has to appear verbatim in a cited file or commit message")
