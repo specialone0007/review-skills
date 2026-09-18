@@ -433,7 +433,12 @@ def git_root(start: Path) -> Path | None:
 # example. The advice is not the offence.
 # Phrases, not the bare word "not": "the handler does not validate its input, see src/a.ts:88"
 # is an ordinary sentence carrying a real citation, and it was silently excused.
-CITE_ADVICE = re.compile(r"\bnever (?:cite|write|use)\b|\binstead of\b|\brather than\b"
+# "instead of" and "rather than" alone excused any sentence containing them - "use the queue
+# rather than polling, see src/poll.ts:40" carried a real citation and was skipped. The
+# excuse now needs the sentence to be about line numbers, which is what it was for.
+CITE_ADVICE = re.compile(r"\bnever (?:cite|write|use)\b"
+                         r"|(?:\binstead of\b|\brather than\b)(?=.*\bline[- ]?numbers?\b)"
+                         r"|\bline[- ]?numbers?\b.*(?:\binstead of\b|\brather than\b)"
                          r"|\bdo ?n.t (?:cite|write|use)\b|\bavoid (?:citing|writing|using)\b"
                          r"|\bcite (?:a )?symbols?\b|\bnot line numbers\b", re.I)
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
@@ -767,12 +772,16 @@ def linked_folders(repo: Path, skills: set[Path], ignore: list[str]) -> dict[str
             t = target.split("#")[0].strip()
             if not t or t.startswith(("http://", "https://", "mailto:", "<")):
                 continue
-            p = (repo / t).resolve() if not t.startswith("/") else None
-            if p is None:
+            # normpath and exists_exact, not resolve(): resolve() returns the on-disk spelling
+            # on Windows, so a README linking Docs/ found docs/ here and nothing on Linux.
+            if t.startswith("/"):
+                continue
+            p = Path(os.path.normpath(str(repo / t)))
+            if not exists_exact(p):
                 continue
             if p.is_file():
                 p = p.parent
-            if p == repo or not p.is_dir():
+            if os.path.normpath(str(p)) == os.path.normpath(str(repo)) or not p.is_dir():
                 continue
             try:
                 rel = p.relative_to(repo).as_posix()
@@ -803,7 +812,9 @@ def linked_package_docs(repo: Path, skills: set[Path], ignore: list[str]) -> lis
             t = target.split("#")[0].strip()
             if not t or t.startswith(("http://", "https://", "mailto:", "<", "/")):
                 continue
-            p = (repo / t).resolve()
+            p = Path(os.path.normpath(str(repo / t)))
+            if not exists_exact(p):
+                continue  # same reason as linked_folders: the spelling in the link is the test
             if p.is_dir():
                 p = p / "README.md"
             # A root-level doc the front door links (a DEPLOY.md beside the README) is reachable

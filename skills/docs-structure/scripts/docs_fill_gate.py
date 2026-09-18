@@ -33,7 +33,6 @@ G1 to G8 check the shape of a sentence. G9 and G10 are the two shapes that were 
 wrong when drafts were read by hand: a number a second scanner disagrees with, and an
 absence nobody looked for. Neither can tell whether a sentence is true - no script can -
 but both refuse the sentence that cannot be checked at all.
-      so that a draft can never become a split candidate
 
 A section still holding its template line is a skeleton, not a draft, and is skipped. A doc
 with no draft marker anywhere is skipped: this script judges drafts, not people's prose.
@@ -134,6 +133,10 @@ NEGATION = re.compile(
     r"|\bno\s+\w+\s+(?:checks?|verif(?:y|ies)|validates?|guards?|protects?|enforces?|requires?|inspects?)\b"
     r"|\b(?:guarded|protected|checked|validated|covered|backed)\s+by\s+(?:nothing|no one|nobody|none)\b"
     r"|\bleft out\b|\bopted out\b|\bturned off\b|\bdisabled\b(?!\s+by)"
+    # The broad shape, after four rounds of narrow ones: a sentence that opens with "No" or
+    # "Without" is a claim of absence until proven otherwise. A false hit costs one rewrite;
+    # a miss puts an audited-sounding security claim in a document nobody audited.
+    r"|(?:^|[.!?]\s+)(?:no|without)\s+(?!one\b|longer\b|doubt\b|matter\b|more\b)\w+"
     r"|\bnowhere to be (?:found|seen)\b"
     # "none found" in a table cell is the wording structure.md and the API template hand fill for
 # the guard column. It is a finding in prose, where it is a claim; in a cell it is the column's
@@ -220,6 +223,8 @@ def safe(text: str) -> str:
     return docs_evidence.redact(text) if docs_evidence is not None else text
 
 
+# Every heading each gated document has, filled by check_doc, read when --wrote is compared.
+_HEADINGS_SEEN: dict[str, list[str]] = {}
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "references" / "templates"
 _TEMPLATE_LINES: set[str] | None = None
 
@@ -606,12 +611,21 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
     if len(lines) > max_lines:
         add("G8", 1, f"{len(lines)} lines, over the {max_lines}-line draft cap; a draft must not become a split candidate")
 
+    _HEADINGS_SEEN[rel] = [h for h, _, _ in sections(lines)]
     for heading, start, end in sections(lines):
         body = [l for l in lines[start:end] if l.strip()]
         if not body:
             continue
         # a section still holding only its template italic line is a skeleton, not a draft
-        if len(body) == 1 and body[0].strip().startswith("*") and body[0].strip().endswith("*") and body[0].strip() != DRAFT_MARK:
+        # The template's guide line, and only that. The shape test - starts and ends with "*" -
+        # also matched **No authentication guard is applied to any handler.**, so a section
+        # holding one bold sentence was skipped as a skeleton: no marker, no bracket, an
+        # unscoped absence, and no G0 for --strict to see. The gate's own docstring calls
+        # silent approval the one failure it must not have.
+        one = body[0].strip() if len(body) == 1 else ""
+        italic_only = (one.startswith("*") and one.endswith("*") and not one.startswith("**")
+                       and not one.endswith("**") and one != DRAFT_MARK)
+        if one and one != DRAFT_MARK and (is_template_text([one]) or italic_only):
             continue
         # A section holding the marker and nothing else said "drafted" and carried no draft.
         # SKILL.md asks for a sentence or an `open question:` line; silence is neither.
@@ -1102,7 +1116,23 @@ def main() -> int:
     # --strict blocks on unjudged sections, but only the ones this run drafted when --wrote
     # names them. Without that, a document with one reviewed section could never be refilled -
     # the messy-middle workflow the design exists for.
-    wrote = {w.strip() for w in args.wrote}
+    # Compared on a slug: lower-case, one space, no punctuation at the ends. The exact-string
+    # test made the prescribed command one typo away from the unsafe state - "#setup" for a
+    # heading "Setup" matched nothing, the unmarked section read as a person's prose, and the
+    # run exited 0 saying nothing blocked a write.
+    def slug(s: str) -> str:
+        return " ".join(s.strip().lower().replace("\\", "/").split())
+
+    wrote = {slug(w) for w in args.wrote}
+    # And an entry that names no section this run saw is reported. Two agents can spell a
+    # heading two ways; the gate says which one the document actually has.
+    seen = {slug(f"{f['doc']}#{f['section']}") for f in findings if f.get("section")}
+    seen |= {slug(f"{rel}#{h}") for rel in targets for h in _HEADINGS_SEEN.get(rel, ())}
+    for w in sorted(wrote - seen):
+        doc = w.split("#", 1)[0]
+        findings.append({"doc": doc, "line": 1, "rule": "G0", "level": "fail",
+                         "message": f"--wrote {w} names no section in that document; the heading has to "
+                                    "match the H2 text (case and punctuation do not matter)"})
     def blocks(f: dict) -> bool:
         if f.get("level") != "skipped":
             return True
@@ -1119,7 +1149,7 @@ def main() -> int:
 
         # --wrote names what this run drafted. A skipped section the run did not write is a
         # person's prose and must not block; one it did write and left unmarked must.
-        return f"{f['doc']}#{head}" in wrote
+        return slug(f"{f['doc']}#{head}") in wrote
     blocking = [f for f in findings if blocks(f)]
 
     data = {"repo": str(repo), "docs": targets, "findings": findings,
