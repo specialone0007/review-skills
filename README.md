@@ -17,7 +17,7 @@ Then just ask:
 
 ```text
 audit my repo for launch risks
-security audit this repo
+check the docs against the code
 what tests am I missing
 ```
 
@@ -144,13 +144,13 @@ agent can route itself if you pick the wrong one.
 
 | | First-party (Claude Code) | Review Skills |
 | --- | --- | --- |
-| Bug and security detection | `/security-review`, the official `code-review` plugin, security-review Action. Use them. | Not a replacement. Same class of finding. |
+| Bug and security detection | `/security-review`, the official `code-review` plugin, security-review Action. Use them. | Not a replacement; security is left to them entirely. `feature-audit` covers correctness and auth/data risks on a named surface. |
 | Report shape | Varies by tool and run | One contract: P0–P3 severity plus `path:line` evidence, no finding without both |
-| Dimensions covered | Security, correctness, performance, maintainability | Those, plus test-coverage gaps, documentation drift, repo structure and duplication, improvement ideation, and PR communication |
+| Dimensions covered | Security, correctness, performance, maintainability | Correctness on a named surface, plus test-coverage gaps, documentation drift, documentation structure, repo structure and duplication, improvement ideation, and PR communication |
 | Runs in Codex, Cursor, Copilot CLI | No | Yes, unchanged, with Codex interface metadata |
 | Cost | Built in on paid plans | MIT, no server, no account |
 
-If you only use Claude Code and only want security and correctness findings, use the first-party tools. This exists for the other five dimensions, and for teams whose agents are not all Claude Code.
+If you only use Claude Code and only want security and correctness findings, use the first-party tools. This exists for the other six dimensions, and for teams whose agents are not all Claude Code.
 
 ## Install
 
