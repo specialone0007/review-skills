@@ -20,7 +20,6 @@ git clone https://github.com/specialone0007/review-skills && cd review-skills
 | `feature-brainstorm` | what could we improve here | [feature-brainstorm.md](feature-brainstorm.md) |
 | `pr-branch-summary` | summarise what shipped since v0.1.0 as a release note and a team update | [pr-branch-summary.md](pr-branch-summary.md) |
 | `repo-health-audit` | is this codebase getting messy | [repo-health-audit.md](repo-health-audit.md) |
-| `security-audit` | security audit this repo | [security-audit.md](security-audit.md) |
 | `test-gap-audit` | what tests am I missing | [test-gap-audit.md](test-gap-audit.md) |
 
 ## A note on what these show

@@ -49,7 +49,7 @@ Please hold these by hand.
 5. Point at most three nearest-confusion neighbours from `## Related Skills`. Do not cross-reference all of them; that bloats every request.
 6. Run the validator.
 
-Before proposing a new skill, check whether it overlaps an existing one. Eight overlapping review skills already make routing hard; a ninth needs to earn its place by covering something none of the others do.
+Before proposing a new skill, check whether it overlaps an existing one. Seven overlapping review skills already make routing hard; an eighth needs to earn its place by covering something none of the others do.
 
 ## Evals
 
@@ -91,7 +91,7 @@ Whether a description triggers, and whether a report obeys its contract, cannot 
 
 ```bash
 python tools/validate_evals.py --checklist
-python tools/validate_evals.py --checklist security-audit
+python tools/validate_evals.py --checklist docs-sync-audit
 ```
 
 Do this whenever you touch a `description`, since that is what decides routing. There is deliberately no LLM judge in CI: it costs money on every push, is flaky, needs an API key in a public repo, and would rot.

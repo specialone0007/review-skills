@@ -30,8 +30,8 @@ Sources: [skills] [tools] [evals] [.github/workflows/ci.yml].
 
 | part | what it holds | file or folder |
 | --- | --- | --- |
-| skills | eight folders, each a `SKILL.md` with optional `references/` and `scripts/` | [skills] |
-| bundled scripts | seven Python files across five skills; docs-structure carries two, four skills carry one, two carry none | [skills/docs-structure/scripts] [skills/security-audit/scripts] |
+| skills | seven folders, each a `SKILL.md` with optional `references/` and `scripts/` | [skills] |
+| bundled scripts | eight Python files across five skills; docs-structure carries four, four skills carry one, two carry none (scan: `ls skills/*/scripts/*.py`) | [skills/docs-structure/scripts] |
 | skill validator | frontmatter, metadata and this repo's own conventions, printed as `path:line` | [tools/validate_skills.py] |
 | eval validator | the eval cases, plus a snapshot run of every bundled script against a fixture | [tools/validate_evals.py] |
 | social preview | generates the repository's preview image | [tools/make_social_preview.py] |
@@ -42,7 +42,7 @@ Sources: [skills] [tools] [evals] [.github/workflows/ci.yml].
 
 ## How a skill is checked
 
-Forty-two eval cases across eight files: 21 triggers, 13 anti-triggers and 8 behavior cases [evals]. A trigger names a prompt that selects the skill, an anti-trigger a prompt that selects a different one, and a behavior case asserts something about a run [evals/docs-structure.json].
+Thirty-eight eval cases across seven files: 19 triggers, 12 anti-triggers and 7 behavior cases (scan: the `kind` field of every case under evals/*.json) [evals]. A trigger names a prompt that selects the skill, an anti-trigger a prompt that selects a different one, and a behavior case asserts something about a run [evals/docs-structure.json].
 
 Bundled scripts are held by snapshot. `SNAPSHOT_SCRIPTS` maps each script to a fixture repository, runs it, and compares the JSON with the file under `evals/snapshots/` [tools/validate_evals.py]. The fixtures are small repositories with planted defects, including an env file whose value is a canary the runner asserts never appears in any output [evals/fixtures/README.md].
 
@@ -62,7 +62,7 @@ Bundled scripts use the Python standard library only and never write, so they ru
 - Skill descriptions share a budget the validator enforces, so a new skill costs the others room [tools/validate_skills.py].
 - Script behaviour is pinned by snapshot rather than by unit test, so a change to a heuristic shows up as a diff a maintainer reads [tools/validate_evals.py].
 
-open question: why eight skills rather than fewer with more modes - the split is not recorded anywhere in the repository.
+open question: why seven skills rather than fewer with more modes - the split is not recorded anywhere in the repository.
 
 *(draft, review me)*
 

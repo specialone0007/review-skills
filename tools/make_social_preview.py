@@ -41,7 +41,7 @@ TITLE = "Review Skills"
 SUBTITLE = "Evidence-first code audits for any SKILL.md agent"
 
 SKILLS = [
-    "feature-audit", "security-audit", "test-gap-audit", "docs-sync-audit",
+    "feature-audit", "test-gap-audit", "docs-sync-audit",
     "repo-health-audit", "feature-brainstorm", "pr-branch-summary",
 ]
 

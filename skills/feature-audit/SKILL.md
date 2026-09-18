@@ -1,6 +1,6 @@
 ---
 name: feature-audit
-description: Read-only, repository-agnostic feature readiness audit for finding bugs, launch blockers, regressions, UI/UX flow errors, accessibility issues, auth/data risks, missing critical tests/docs, and production readiness gaps in a named feature, route, URL, workflow, product surface, or PR, or across the whole repository when no scope is named. Use when the user explicitly asks for a feature/product-surface audit, scan, launch-readiness check, production-readiness review, or bug-risk report. If the primary ask is security, test coverage, docs drift, repo organization, feature ideas, or PR communication, use security-audit, test-gap-audit, docs-sync-audit, repo-health-audit, feature-brainstorm, or pr-branch-summary instead.
+description: Read-only, repository-agnostic feature readiness audit for finding bugs, launch blockers, regressions, UI/UX flow errors, accessibility issues, auth/data risks, missing critical tests/docs, and production readiness gaps in a named feature, route, URL, workflow, product surface, or PR, or across the whole repository when no scope is named. Use when the user explicitly asks for a feature/product-surface audit, scan, launch-readiness check, production-readiness review, or bug-risk report. If the primary ask is security, test coverage, docs drift, repo organization, feature ideas, or PR communication, use test-gap-audit, docs-sync-audit, repo-health-audit, feature-brainstorm, or pr-branch-summary instead.
 license: MIT
 ---
 
@@ -19,7 +19,7 @@ Run a deep readiness audit for one feature or product surface in any repository.
 - Keep scope feature-focused. Report global architecture issues only when they affect this feature's user journey, launch safety, maintainability, or operations.
 - Aim for exhaustive coverage inside the chosen scope. Do not stop after finding the first few issues or a representative sample; continue tracing adjacent code paths, states, and tests until the feature surface has been checked as completely as practical for the turn.
 - List every distinct, actionable finding you can substantiate within the scope, including lower-severity `P3` findings when they represent real readiness, UX, maintainability, resilience, or test risk. Do not impose an arbitrary top-N cap unless the user explicitly asks for one.
-- Use the specialist skills when the user's primary goal is narrower: `security-audit` for AppSec, `test-gap-audit` for coverage gaps, `docs-sync-audit` for documentation drift, `repo-health-audit` for structure/reuse, `feature-brainstorm` for improvement ideas, and `pr-branch-summary` for PR communication.
+- Use the specialist skills when the user's primary goal is narrower: `test-gap-audit` for coverage gaps, `docs-sync-audit` for documentation drift, `repo-health-audit` for structure/reuse, `feature-brainstorm` for improvement ideas, and `pr-branch-summary` for PR communication.
 - Separate confirmed bugs from inferred risks. Label product decisions, missing context, or assumptions clearly.
 - Avoid duplicate findings. When one root cause creates several symptoms, report the root cause once and list the affected symptoms or surfaces in that finding.
 - Treat UI/UX flow errors as audit findings when they can confuse users, block completion, hide recovery paths, cause wrong actions, or make important states hard to understand.
@@ -163,7 +163,6 @@ Use this after the audit phase is complete and the user has explicitly asked to 
 
 ## Related Skills
 
-- Use `security-audit` when the ask is auth, authorization, injection, secrets, data exposure, or abuse paths.
 - Use `test-gap-audit` when the ask is which tests are missing rather than which behaviour is broken.
 - Use `docs-sync-audit` when the ask is whether the documentation still matches the code.
 
