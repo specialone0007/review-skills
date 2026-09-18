@@ -359,7 +359,7 @@
       },
       "docs/TASKLIST.md": {
         "concern": "plan",
-        "lines": 19,
+        "lines": 20,
         "template": "references/templates/TASKLIST.md",
         "why": "plan (always)"
       },

@@ -119,6 +119,9 @@ NEGATION = re.compile(
     r"|\bno\s+\w+(?:\s+\w+){0,2}\s+(?:is|are|was|were)\s+(?:present|configured|defined|set|applied|used|implemented|enabled)\b"
     r"|\bno (?:\w+ ){0,3}(?:exists?|existed|is|are|was|were|found|applies|applied)\s+\w+"
     r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\s+(?!a\b|an\b|the\b)(?!recorded|documented|stated|named|written|commented|described|mentioned)[a-z`\"']\w*"
+    r"|\b(?:is|are|was|were)\s+(?:\w+\s+){0,2}(?:missing|nonexistent|non-existent|unauthenticated|unprotected|unvalidated|unchecked|unenforced)\b"
+    r"|\bnowhere to be (?:found|seen)\b"
+    r"|\b(?:omits?|omitted|skips?|bypasses)\s+(?:any|all|every)?\s*\w+"
     r"|\bnever\s+\w+|\bnothing\s+\w+|\bnone of\s+\w+|\bno such\s+\w+", re.I)
 # A scope is evidence that a search happened: a command, or a named place with a path in it.
 # A bare path is not a scope - citing a file says it was read, never that anything was looked
@@ -151,6 +154,10 @@ TABLE_RULE = re.compile(r"^\|[\s:|-]+\|?$")
 HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 DOC_EXTS = {".md", ".mdx"}
 # Pruned before descending, never after: rglob over a repo with node_modules costs half a minute.
+# Where [sha date] brackets are resolved. The tree being gated may be a copy without .git,
+# so the operator can point this at the original with --git-repo.
+SHA_REPO: Path | None = None
+
 SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "dist", "build", "__pycache__", ".next",
              "vendor", "target", "coverage", ".tox", ".mypy_cache", ".pytest_cache", "tmp"}
 MAX_WALK_DEPTH = 12
@@ -217,6 +224,9 @@ def sha_known(repo: Path, sha: str) -> bool:
         return True
 
 
+_GATE_LISTING: dict[str, set[str]] = {}
+
+
 def exists_exact(repo: Path, rel: str) -> bool:
     """Case-exact existence, so a draft that works on Windows still works on Linux."""
     target = repo / rel
@@ -226,7 +236,14 @@ def exists_exact(repo: Path, rel: str) -> bool:
         parts = Path(rel).parts
         here = repo
         for part in parts:
-            names = {p.name for p in here.iterdir()}
+            # One listing per directory, cached, as the checker already does. Without it a
+            # 400-row endpoint table in a large folder took eleven seconds.
+            key = str(here)
+            if key in _GATE_LISTING:
+                names = _GATE_LISTING[key]
+            else:
+                names = {p.name for p in here.iterdir()}
+                _GATE_LISTING[key] = names
             if part not in names:
                 return False
             here = here / part
@@ -261,7 +278,7 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
                 return f"no such inventory key: {key}"
             continue
         if SHA_REF.match(part):
-            if not sha_known(repo, part.split()[0]):
+            if not sha_known(SHA_REPO or repo, part.split()[0]):
                 return f"commit not in this repository: {part}"
             continue
         path = re.split(r" § |: ", part, maxsplit=1)[0].strip()
@@ -390,7 +407,17 @@ def sections(lines: list[str]) -> list[tuple[str, int, int]]:
     document and was not gated at all, so an unscoped negative and two modals in it passed
     while the same sentences inside a section were caught.
     """
-    marks = [(i, HEADING.match(l)) for i, l in enumerate(lines)]
+    # Fence-aware: a shell comment starting ## used to split the section here, and the rest of
+    # the document then ran with in_fence flipped the wrong way - every semantic rule skipped,
+    # and the report said nothing blocks a write. The templates ask fill for exact commands,
+    # and # comments are ordinary in shell.
+    marks = []
+    fenced = False
+    for i, l in enumerate(lines):
+        if FENCE.match(l):
+            fenced = not fenced
+            continue
+        marks.append((i, None if fenced else HEADING.match(l)))
     h1 = next((i for i, m in marks if m and len(m.group(1)) == 1), None)
     h2 = [(i, m.group(2).strip()) for i, m in marks if m and len(m.group(1)) == 2]
     out = []
@@ -457,8 +484,15 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             if True:
                 # `bare` has code spans removed: a file named fast.js or a dependency called
                 # simple-git is a name, not a claim about quality.
-                if BANNED.search(bare):
-                    add("G4", first, f"evaluative word: {BANNED.search(bare).group(0)}")
+                # A capitalised word followed by another capitalised word is a name - Modern
+                # Treasury, Simple Storage Service, Fast Refresh - and a repo that integrates
+                # one could not write a true sentence about it.
+                for m_ in BANNED.finditer(bare):
+                    after = bare[m_.end():m_.end() + 40].lstrip()
+                    if m_.group(0)[0].isupper() and after[:1].isupper():
+                        continue
+                    add("G4", first, f"evaluative word: {m_.group(0)}")
+                    break
                 # Quoted spans are the repo's words, not the draft's, so they are removed before
                 # G5 and G6 rather than switching both off for the paragraph that contains them.
                 # The fill rules encourage quoting the README, so that hole sat on the happy path.
@@ -672,7 +706,11 @@ def render(data: dict, cap: int) -> str:
         lines.append("The notes above say what was not judged. Nothing here blocks a write.")
     if data["docs"]:
         lines.append("")
-        lines.append("**Not checked.** Every rule here reads the shape of a sentence. None opens the file in")
+        lines.append("**Not checked.** G10 is a phrase test: it catches the common ways of writing that")
+        lines.append("something is absent, and it will never catch all of them. A clean run is not evidence")
+        lines.append("that no unscoped claim of absence got through - read every negative sentence yourself.")
+        lines.append("")
+        lines.append("Every rule here reads the shape of a sentence. None opens the file in")
         lines.append("the bracket to see whether the sentence about it is true, so a clean run means the draft")
         lines.append("is checkable, not that it is correct. What still needs a person: that each sentence")
         lines.append("matches the code it cites, that a table is complete and not just well formed, and that")
@@ -685,6 +723,7 @@ def main() -> int:
     ap.add_argument("docs", nargs="*", help="docs to gate, relative to the repo")
     ap.add_argument("--repo", default=".", help="repository path (default: current directory)")
     ap.add_argument("--all", action="store_true", help="gate every doc carrying the draft marker")
+    ap.add_argument("--git-repo", help="repository to resolve [sha date] brackets against, when the\n                         tree being gated is a copy without .git")
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
     ap.add_argument("--max-lines", type=int, default=0, help="draft line cap (default: half the manifest's splitAt, else 250)")
     ap.add_argument("--cap", type=int, default=40, help="findings printed per doc in text mode (default 40)")
@@ -726,6 +765,13 @@ def main() -> int:
             targets.append(rel)
 
     names, numbers = gate_inventory(repo) if targets else (set(), {})
+    # The documented apply path gates a scratch copy built from `git ls-files`, which has no
+    # .git - so every [sha date] bracket passed unchecked and silently. Say it out loud, and
+    # let --git-repo point at the original when the operator has one.
+    global SHA_REPO
+    SHA_REPO = Path(args.git_repo).expanduser().resolve() if args.git_repo else repo
+    if targets and not is_git_repo(SHA_REPO):
+        warnings.append("commits were not verified: no git repository here. Pass --git-repo <the real repo> to check [sha date] brackets.")
     findings: list[dict] = []
     for rel in near_misses:
         findings.append({"doc": rel, "line": 1, "rule": "G0", "level": "skipped",

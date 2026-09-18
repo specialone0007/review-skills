@@ -197,7 +197,10 @@ CONCERNS = [
     ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
      {"development", "developing", "getting started", "quickstart", "quick start", "local", "locally", "setup", "install", "installation", "prerequisites", "running", "run it", "run locally", "building", "environment setup", "hacking"}, "DEVELOPMENT.md", []),
     ("plan", lambda inv: "always", lambda inv: "TASKLIST.md",
-     {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "roadmap", "checklist"}, "TASKLIST.md", ["tasklist/phase-00-foundations.md"]),
+     # "roadmap" belongs to purpose alone. In both sets, plausible's single "## Feedback &
+     # Roadmap" heading marked purpose AND plan covered, and PFP2E's real ROADMAP.md was
+     # assigned to purpose while a stack-cleanup doc was reported as the plan.
+     {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist"}, "TASKLIST.md", ["tasklist/phase-00-foundations.md"]),
     ("deploy", _svc, lambda inv: "DEPLOYMENT.md",
      {"deploy", "deployment", "deploying", "production", "hosting", "infrastructure", "railway", "kubernetes", "helm", "docker", "release to"}, "DEPLOYMENT.md", []),
     ("release", lambda inv: (_first(inv.get("release") or [], "release") if _lib_or_cli(inv) else None), lambda inv: "RELEASING.md",
@@ -1497,7 +1500,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     prefixes = list(manifest.get("pathPrefixes") or []) or top_level_dirs(repo)
     path_pat = re.compile(r"`((?:%s)/[^`\s]+?\.[a-z]{1,5})`" % "|".join(re.escape(p) for p in prefixes)) if prefixes else None
-    exts = "|".join(manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"])
+    # Escaped like pathPrefixes two lines up. Unescaped, a manifest holding "(" or "*" raised
+    # re.PatternError and exited 1 - the same code --fail-on-findings uses, which is exactly the
+    # confusion the validation above exists to prevent.
+    exts = "|".join(re.escape(e) for e in (manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"]))
     # The quantifier is bounded: unbounded, it backtracks quadratically over one long token
     # (16 KB took a second, and MAX_READ allows 2 MB), which hangs a CI run rather than failing it.
     cite = re.compile(r"[\w./\[\]-]{1,200}\.(?:%s):\d+(?:-\d+)?" % exts)
