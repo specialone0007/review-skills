@@ -1,4 +1,14 @@
 {
+  "auth": {
+    "evidence": ".env.example",
+    "libraries": [],
+    "middleware_files": [],
+    "roles_in_schema": [],
+    "secret_env_names": [
+      "API_TOKEN"
+    ]
+  },
+  "changelog": null,
   "ci": [],
   "cli": [
     {
@@ -42,9 +52,12 @@
       "source": "code"
     }
   ],
+  "env_count": 3,
   "exports": [],
   "files_scanned": 7,
   "frontend": [],
+  "integrations": null,
+  "jobs": null,
   "kinds": [
     "application"
   ],
