@@ -145,7 +145,7 @@ def validate_cases(docs: dict[str, dict], skill_names: set[str]) -> int:
                 error(f"{where}: `fixture` {fixture!r} does not exist under evals/")
             total += 1
 
-        # Anti-trigger cases are the whole point with seven overlapping skills.
+        # Anti-trigger cases are the whole point with five overlapping skills.
         if "anti-trigger" not in kinds_present:
             error(f"{name}: no anti-trigger case; routing away from this skill is untested")
         if "behavior" not in kinds_present:

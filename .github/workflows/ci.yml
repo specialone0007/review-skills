@@ -97,6 +97,9 @@ jobs:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      # Full history on purpose: docs_evidence.py reads `git log` and docs_drift.py's
+      # stale-doc check walks every commit. On a depth-1 clone both return nothing and
+      # this job would smoke-test them without ever entering their history path.
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
@@ -105,19 +108,24 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: collect_pr_context.py runs and leaves the repo untouched
+      - name: Bundled scripts run on a real repo and leave it untouched
         shell: bash
         run: |
           set -euo pipefail
-          # Use a base with real commits behind it. HEAD as its own base gives an
-          # empty diff, so the commit-and-diff printing path is never exercised --
-          # which is how a missing UTF-8 stdout guard survived here unnoticed.
-          BASE=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
-          python skills/pr-branch-summary/scripts/collect_pr_context.py \
-            --base "$BASE" --max-diff-lines 200 > /dev/null
-          # The skill promises it never writes to the working tree.
+          # Point every bundled script at this checkout, not at the tiny fixture. A
+          # real tree is where console encoding and path handling actually break, and
+          # both output formats get exercised because only one of them is snapshotted.
+          for s in skills/*/scripts/*.py; do
+            # docs_split.py is the one that needs a target doc rather than a repo.
+            case "$s" in *docs_split.py) continue;; esac
+            python "$s" --repo . --format text > /dev/null
+            python "$s" --repo . --format json > /dev/null
+          done
+          python skills/docs-structure/scripts/docs_split.py \
+            --repo . --doc CONTRIBUTING.md --format json > /dev/null
+          # Every skill here promises it never writes to the working tree.
           test -z "$(git status --porcelain)" || {
-            echo "script modified the working tree:"; git status --porcelain; exit 1;
+            echo "a script modified the working tree:"; git status --porcelain; exit 1;
           }
 
       # Deliberately not py_compile: it writes .pyc into the checkout, the exact

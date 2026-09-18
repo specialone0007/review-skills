@@ -213,7 +213,7 @@ What a person does with a draft, so the doc they end up with is plain prose:
 
 - Use `docs-sync-audit` when the ask is whether the docs still match the code, commands, config or API. Fill drafts from code once, marked; whether a draft is still true later is that skill's job.
 - Use `repo-health-audit` when the ask is source-code structure, naming, duplication or dead code.
-- Use `pr-branch-summary` when the ask is to describe what changed under docs/ for a PR.
+- Use `feature-audit` when the ask is whether a documented feature is actually ready to ship, not how its docs are laid out.
 
 ## Agent Portability Notes
 
