@@ -55,6 +55,7 @@ import argparse
 import fnmatch
 import json
 import os
+import datetime
 import re
 import shutil
 import subprocess
@@ -265,7 +266,7 @@ CONCERNS = [
      {"testing", "tests", "test", "qa", "coverage", "e2e"}, "TESTING.md", []),
     ("operate", lambda inv: _first([o for o in inv.get("ops") or [] if not o.get("hint")], "ops"), lambda inv: "RUNBOOK.md",
      {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, "RUNBOOK.md", []),
-    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("the remote is on a public forge" if (inv.get("decisions") or {}).get("public_host") else None)), lambda inv: "CONTRIBUTING.md",
+    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("a remote on a public forge" if (inv.get("decisions") or {}).get("public_host") else None)), lambda inv: "CONTRIBUTING.md",
      {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, "CONTRIBUTING.md", []),
     ("research", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
@@ -762,7 +763,11 @@ def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
     if len(linked) > 1:
         return {"rule": "b", "status": "ambiguous", "roots": [], "candidates": linked, "package_docs": pkg}
     top_md = sorted(p.name for p in repo.iterdir() if p.is_file() and p.suffix.lower() in DOC_EXTS)
-    extra = [n for n in top_md if n not in ROOT_FILES]
+    # Community-health files are not documents: root_extras has always excluded them and this
+    # rule did not, so a README beside CHANGELOG.md and SECURITY.md - the commonest shape on
+    # a public repository - read as "the docs live at the root". Every skeleton then landed
+    # beside the code instead of in docs/, and the index was dropped for the README.
+    extra = [n for n in top_md if n not in ROOT_FILES and not is_community_file(n)]
     if len(extra) >= 2 and (repo / "README.md").is_file():
         # The repository's docs live at its root (an ops-notes repo, say). The README is the index.
         return {"rule": "c", "status": "root-docs", "roots": top_md, "candidates": {}, "package_docs": pkg}
@@ -805,8 +810,20 @@ def infer_generator(docs: list) -> str | None:
         return None
     fm = 0
     for d in considered:
-        head = d.raw[:600].lower()
-        if d.raw.startswith("---") and "title:" in head and any(k in head for k in NAV_KEYS):
+        # The frontmatter block, and top-level keys in it. Searching the first 600 characters
+        # for the substrings "title:" and "layout" matched ordinary prose - "the layout of the
+        # button follows the 8px grid" - so a design-system docs folder with title frontmatter
+        # switched R1, R4, R11 and R12 off for the whole repository and reported nothing.
+        if not d.raw.startswith("---"):
+            continue
+        end = d.raw.find("\n---", 3)
+        if end == -1:
+            continue
+        keys = set()
+        for ln in d.raw[3:end].lower().splitlines():
+            if ":" in ln and ln[:1] not in (" ", "\t", "-", "#"):
+                keys.add(ln.split(":", 1)[0].strip())
+        if "title" in keys and any(k in keys for k in NAV_KEYS):
             fm += 1
     return "external (inferred from frontmatter)" if fm * 2 > len(considered) else None
 
@@ -1015,7 +1032,16 @@ def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door:
     return score, "; ".join(how)
 
 
+_INV_CACHE: dict[tuple, dict] = {}
+
+
 def repo_inventory(repo: Path, cap_n: int = 100) -> dict:
+    # One pass, kept. R7's citation extensions and the concern table each asked for the
+    # inventory, so every run walked the repository twice: 2.5 s of a 3.0 s run on a large
+    # monorepo, for the same answer.
+    key = (str(repo), cap_n)
+    if key in _INV_CACHE:
+        return _INV_CACHE[key]
     if docs_evidence is None:
         warnings.append("docs_evidence.py not found beside this script; only the universal concerns apply")
         return {"kinds": [], "ecosystems": [], "unknown": True, "packages": [], "services": [], "env": [], "schema": None,
@@ -1029,6 +1055,7 @@ def repo_inventory(repo: Path, cap_n: int = 100) -> dict:
     for w in inv.get("warnings", []):
         if w not in saved:
             warnings.append(f"evidence: {w}")
+    _INV_CACHE[key] = inv
     return inv
 
 
@@ -1356,8 +1383,6 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         "frontDoor": front_rel,
         "ignore": [],
     }
-    if manifest["counts"]:
-        manifest["counts"] = [{"index": c["default_path"], "folder": (c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else "") + "tasklist"} for c in uncovered if c["concern"] == "plan"]
     if not have_manifest:
         files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
     rows = []
@@ -1842,7 +1867,13 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 continue  # a site route, resolved by the generator, not a file
             if not file_part:
                 if anchor and anchor not in d.anchors:
-                    add("R5", d.rel, i, f"dead anchor #{anchor} (no such heading in this file)")
+                    # Under a generator the slug is the generator's, not GitHub's: prometheus
+                    # writes #modifier for a heading GitHub slugs as #-modifier, so the link is
+                    # dead on github.com and live on the published site. Both readings are true;
+                    # the checker does not know which one the team reads, so it advises.
+                    add("R5", d.rel, i, f"dead anchor #{anchor} (no such heading in this file)"
+                        + (" - GitHub's slug rules; the generator may resolve it" if generator else ""),
+                        "warn" if generator else "fail")
                 continue
             tgt = resolve_target(d.path, repo, file_part)
             if not exists_exact(tgt):
@@ -1861,7 +1892,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 tdoc = by_rel.get(trel) if trel else None
                 tanchors = tdoc.anchors if tdoc else anchors(strip_fences(read(tgt).splitlines()))
                 if anchor not in tanchors:
-                    add("R5", d.rel, i, f"dead anchor {file_part}#{anchor}")
+                    # Same reasoning as the same-file anchor above: under a generator the slug
+                    # rules are the generator's, and the link may be live on the published site.
+                    add("R5", d.rel, i, f"dead anchor {file_part}#{anchor}"
+                        + (" - GitHub's slug rules; the generator may resolve it" if generator else ""),
+                        "warn" if generator else "fail")
         # `[text][id]` is a reference-style link only in a doc that defines at least one
         # reference; elsewhere adjacent brackets are tags like `[R7][R8]`.
         if defs and not d.skipped and generator is None:  # a site generator resolves shared reference definitions
@@ -1892,20 +1927,26 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     if "://" in tok or len(tok) > MAX_TOKEN:
                         continue
                     for m in cite.findall(tok):
+                        # A citation names a file in this repository. "node.js:18" in a version
+                        # table is not one, and neither is "Python:3.11". With no folder in the
+                        # path the file has to actually be there before this reads as a line
+                        # reference that has rotted.
+                        stem = m.rsplit(":", 1)[0]
+                        if "/" not in stem and not (d.path.parent / stem).is_file() and not (repo / stem).is_file():
+                            continue
                         add("R7", d.rel, i, f'line-number citation "{m}" - cite a symbol or a log tag',
                             "warn" if rec else "fail")
 
     # ---- R13 a fact checked outside the repo carries a date; stale dates warn
     stale_days = int(manifest.get("verifiedStaleDays") or 90)
-    import datetime as _dt
-    today = _dt.date.today()
+    today = datetime.date.today()
     for d in docs:
         if d.skipped or exempt("R13", d.rel):
             continue
         for i, line in enumerate(d.clean, start=1):
             for src, ymd in VERIFIED_RE.findall(line):
                 try:
-                    when = _dt.date.fromisoformat(ymd)
+                    when = datetime.date.fromisoformat(ymd)
                 except ValueError:
                     continue
                 age = (today - when).days
@@ -2050,8 +2091,16 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     # and there the right answer is the skeleton set - so the test is "docs exist that the
     # keywords could not read", not "coverage is empty".
     scorable = [d for d in docs if d.rel != front_rel and not d.skipped]
+    # ...and a reason to believe the keywords could not read them. Without that test any small
+    # English repository whose headings simply do not match - a README, an index and two notes -
+    # was told "coverage could not be determined" and got no R12 findings and no skeletons,
+    # which is the case build exists for. A script that cannot read the headings is looking at
+    # another writing system; that is measurable, so measure it instead of guessing.
+    heads = "".join(t for d in scorable for _, _, t in d.headings)
+    foreign = sum(1 for ch in heads if ord(ch) > 127)
     unreadable = (bool(coverage) and len(scorable) >= 2
-                  and not any(c.get("covered_by") or c.get("near_name") for c in coverage))
+                  and not any(c.get("covered_by") or c.get("near_name") for c in coverage)
+                  and bool(heads) and foreign * 5 > len(heads))
     if front_doc is not None:
         for gap in front_door_gaps(front_doc, repo, coverage, inv):
             add("R11", front_rel, 1, f"front door does not answer {gap} - advice, apply writes none of it", "warn")
@@ -2246,8 +2295,14 @@ def render(d: dict, top: int) -> str:
         L.append(f"{d['generated_docs']} Markdown files under a generated site were not checked: "
                  f"{d['generator']} owns their navigation and URLs.")
     L.append(f"Docs checked: {t['docs_checked']}   non-doc files in docs folders: {t['non_doc_files']}")
+    # Naming the generator without saying what it turns off read as a note. It decides whether
+    # four of the thirteen rules ran at all, and a reader who is not told that reads "Failures: 0"
+    # as a clean bill of health.
+    gen = d["generator"] or "none"
+    if d["generator"]:
+        gen += " - R1, R4, R11 and R12 were not checked; dead anchors warn"
     L.append(f"Central index: {d['central_index'] or 'none'}   Index convention: {d.get('index_convention') or 'sibling'}"
-             f"   Generator: {d['generator'] or 'none'}")
+             f"   Generator: {gen}")
     if d["record_folders"]:
         L.append(f"Record folders (R6/R7 warn, R8 skipped): {', '.join(d['record_folders'])}")
     L.append(f"Failures: {t['failures']}   Warnings: {t['warnings']}   Placeholders awaiting review: {t['placeholders']}")

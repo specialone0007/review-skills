@@ -130,7 +130,7 @@ NEGATION = re.compile(
     # "none found" in a table cell is the wording structure.md and the API template hand fill for
 # the guard column. It is a finding in prose, where it is a claim; in a cell it is the column's
 # own vocabulary, and blocking it made the prescribed table unwritable row by row.
-                                  r"|(?<!\| )(?<!\|)\b(?:nothing found|not found anywhere)\b"
+                                  r"|(?<!\| )(?<!\|)\b(?:nothing found|none found|not found anywhere)\b"
     r"|\b(?:omits?|omitted|skips?|bypass(?:es|ed)?)\s+(?:any|all|every)?\s*\w+"
     r"|\bnever\s+\w+|\bnothing\s+\w+|\bnone of\s+\w+|\bno such\s+\w+", re.I)
 # A scope is evidence that a search happened: a command, or a named place with a path in it.
@@ -148,7 +148,11 @@ SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+(?:-\S+\s+)*(?:[\"'`][^\"'
                    # The trailing segment is optional: `src/` names a folder, and refusing it asked the author to
 # write a less precise scope than the one they had.
                    r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]*", re.I)
-SCAN_CMD = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|wc|ls)\b\s*[-\w`\"']", re.I)
+# The same argument test SCOPE already makes. "[-\w`\"']" after the verb meant the English
+# word find cleared the count rule: "Developers find 400 routes in this service" named no scan
+# and ran nothing, and G9 stopped looking at the number.
+SCAN_CMD = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|wc|ls)\b\s+(?:-\S+\s+)*"
+                      r"(?:[\"'`][^\"'`]+[\"'`]|[\w.*-]*[/.][\w./*-]+)", re.I)
 INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 # The keys docs_evidence actually emits.
 INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exports", "frontend",
@@ -171,6 +175,12 @@ REDACTABLE = re.compile(r"\b(?:sk|pk|rk)[-_][A-Za-z0-9_-]{16,}|\bAIza[A-Za-z0-9_
                         r"|\b[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@")
 # A URL, an assignment, a bare number, or a long opaque run. Prose after a colon is not a value.
 LOOKS_LIKE_VALUE = re.compile(r"://|=|^\d[\d._-]*$|^[A-Za-z0-9+/_-]{16,}$")
+# Names that say the value beside them is a credential. Kept in step with
+# docs_evidence.SECRET_NAME, which is what the inventory flags as secret_like.
+SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
+# What a secret_like column holds instead of a value: structure.md asks for that flag, and it
+# is a yes or a no, not a password.
+FLAG_VALUE = re.compile(r"^(?:yes|no|y|n|true|false|server|client|build|runtime|redacted|hidden|masked)$", re.I)
 PLACEHOLDER_VALUE = re.compile(r"^(?:-+|—|n/?a|none|unset|empty|required|optional|string|number|bool(?:ean)?|url|path|int|float|secret|token|\.\.\.|<[^>]*>|\{[^}]*\}|\[[^\]]*\])$", re.I)
 BULLET = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
 CODESPAN = re.compile(r"`[^`]*`")
@@ -425,6 +435,18 @@ def inventory_counts(inv: dict) -> dict[str, set[str]]:
     if isinstance(routes, dict) and isinstance(routes.get("items"), list):
         for noun in ("routes", "endpoints", "handlers"):
             out.setdefault(noun, set()).add(str(len(routes["items"])))
+        # One subtotal per path prefix, one and two segments deep: the shape a drafted
+        # API_REFERENCE is asked to write, under an "@" key no noun can collide with.
+        per: dict[str, int] = {}
+        for it in routes["items"]:
+            parts = [x for x in str(it.get("path") or "").split("/") if x]
+            for depth in (1, 2):
+                if len(parts) >= depth:
+                    key = "/" + "/".join(parts[:depth])
+                    per[key] = per.get(key, 0) + 1
+        for pre, n in per.items():
+            for noun in ("routes", "endpoints", "handlers"):
+                out.setdefault(f"{noun}@{pre}", set()).add(str(n))
     # One schema read by two tools is one set of tables counted twice: a Prisma schema and the
     # SQL baseline generated from it describe the same database. Every per-tool count is a valid
     # answer, so "22 models" and "50 tables" are both true of the same repository.
@@ -594,114 +616,147 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # attributed quotation - the evidence the fill rules require for PRODUCT.md's first
             # section - was blocked, and the only way past it was to drop the quote.
             unquoted = QUOTED.sub(" ", bare)
-            if True:  # noqa: SIM103 - kept to preserve the block's indentation
-                # A capitalised word followed by another capitalised word is a name - Modern
-                # Treasury, Simple Storage Service, Fast Refresh - and a repo that integrates
-                # one could not write a true sentence about it.
-                for m_ in BANNED.finditer(unquoted):
-                    after = unquoted[m_.end():m_.end() + 40].lstrip()
-                    if m_.group(0)[0].isupper() and after[:1].isupper():
+            # A capitalised word followed by another capitalised word is a name - Modern
+            # Treasury, Simple Storage Service, Fast Refresh - and a repo that integrates
+            # one could not write a true sentence about it.
+            for m_ in BANNED.finditer(unquoted):
+                after = unquoted[m_.end():m_.end() + 40].lstrip()
+                if m_.group(0)[0].isupper() and after[:1].isupper():
+                    continue
+                add("G4", first, f"evaluative word: {m_.group(0)}")
+                break
+            if MODAL.search(unquoted):
+                add("G5", first, f"modal verb: {MODAL.search(unquoted).group(0)}")
+            # A paragraph citing a commit is quoting its subject, which structure.md asks for
+            # verbatim - so "drop redis because the latency was unacceptable" is the repo's
+            # words, not the draft's reasoning.
+            intent_hit = INTENT.search(QUOTED.sub(" ", joined))
+            cites_commit = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(joined))
+            if intent_hit and not cites_commit and not joined.lower().startswith("inferred:"):
+                add("G6", first, f"intent word outside a quotation or `inferred:`: {intent_hit.group(0)}")
+            # A table cell and a YAML-style colon are both "beside". Matching only NAME=value
+            # let a live secret through in the column layout DEPLOYMENT.md asks for.
+            for name in names:
+                # `` `? `` after the name: every Markdown table writes identifiers in code
+                # spans, and the closing backtick sat between the name and the separator, so
+                # the one rule that keeps values out of drafts was defeated by ordinary
+                # formatting - in the very table the DEPLOYMENT template asks for.
+                # The whole field after the separator, not its first token: whether a table
+                # cell is a value or a description is the difference between one word and a
+                # sentence, and the rule has to be able to tell them apart.
+                hit = re.search(rf"\b{re.escape(name)}\b`?\s*([=:]|\|)\s*([^|\[\n]*)", joined)
+                if not hit:
+                    continue
+                sep = hit.group(1)
+                words = hit.group(2).replace("`", " ").split()
+                if not words:
+                    continue
+                val = words[0].rstrip(".,;")
+                if PLACEHOLDER_VALUE.match(val):
+                    continue
+                # A value has the shape of one. "Not a placeholder word" made the env table
+                # the DEPLOYMENT template asks for unwritable: a 200-row table produced 112
+                # findings, none of them a value, and whether a row passed depended on
+                # whether the name happened to be in backticks.
+                # But shape alone only catches a long opaque run, a URL or a second "=", and
+                # a dev credential is a short ordinary word: postgres, changeme, admin,
+                # hunter2 all passed, in the very table this rule exists for. Beside a name
+                # that says secret, token, password or key, anything that is not a
+                # placeholder is a value. An "=" assigns whatever follows it; after a colon
+                # or in a table cell the field has to be that one word alone, or it is prose
+                # about the variable rather than its value.
+                secretish = (bool(SECRET_NAME.search(name)) and (sep == "=" or len(words) == 1)
+                             and not FLAG_VALUE.match(val))
+                if secretish or LOOKS_LIKE_VALUE.search(val):
+                    add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
+            # A credential-shaped string is a credential whatever it sits beside: the name
+            # in front of it does not have to be one the inventory found.
+            tok = REDACTABLE.search(joined)
+            if tok:
+                add("G7", first, f"a token-shaped string is written here ({tok.group(0)[:8]}...); drafts carry names, never values")
+            # G9: a number the inventory does not report. Brackets carry paths and keys, and
+            # code spans carry commands and identifiers, so both are removed first.
+            # A draft that names its own scan, or cites the inventory key it counted, has
+            # already answered this rule; the message says so and now it is true.
+            # G9 takes a narrower exemption than G10: naming a folder is a scope for a
+            # claim of absence, but it is not a reason to contradict the inventory about a
+            # count. Only a scan command or the inventory key itself will do.
+            # A sentence that names a subset - "3 endpoints under /admin" - is not claiming
+            # the repo-wide total, and the API template asks for exactly that shape, one H3
+            # per path prefix.
+            # "in" alone accepted "in this repository", which is the whole thing rather
+            # than a subset. A subset names a path or a route prefix.
+            scoped_count = re.search(
+                r"\b(?:under|within|beneath|across)\s+[`/\w.*-]+"
+                r"|\bin\s+`?[\w.-]*[/.][\w./*-]+", joined)
+            # Citing the inventory key means "the inventory says so", so the number has to
+            # be the inventory's. It used to switch the rule off without comparing anything,
+            # which made [inventory: routes] a licence to write 400.
+            inv_cite = INV_BRACKET.search(joined)
+            # A commit citation used to switch this rule off entirely, and ARCHITECTURE and
+            # DEPLOYMENT drafts cite commits by design - so every count in them went
+            # unchecked, and "400 routes [1b6fea9 2026-09-18]" passed in a five-route repo.
+            # What the commit licenses is its own words, so the quotation is what is
+            # exempt, not the paragraph around it.
+            if numbers and not SCAN_CMD.search(joined):
+                prose = QUOTED.sub(" ", BRACKET_ANY.sub(" ", bare))
+                for m in NUMBER.finditer(prose):
+                    raw = m.group(1).replace(",", "")
+                    noun = m.group(2).lower()
+                    known = numbers.get(noun)
+                    # More than three candidate values means the inventory counts this noun
+                    # several ways - per file, per tool, and in total - so it cannot say the
+                    # draft is wrong. "36 names" against "1 or 2 or 4 or 8 or 34 or 97" is a
+                    # rule talking past the sentence.
+                    if not known or len(known) > 3 or YEARISH.match(raw) or raw in known:
                         continue
-                    add("G4", first, f"evaluative word: {m_.group(0)}")
+                    # A sentence naming a subset is claiming a subtotal, and a subtotal is
+                    # smaller than the total. Larger than the total, it is not a subtotal at
+                    # all - naming a folder does not make an impossible number possible.
+                    ceiling = max(int(k) for k in known)
+                    # A sentence naming a subset, or citing the inventory key it counted, is
+                    # claiming a subtotal - and a subtotal is smaller than the total. Above the
+                    # total it is not a subtotal at all, which is how [inventory: routes] used
+                    # to wave 400 through in a four-route repository.
+                    # A path alone is not a scan: "2 routes in `src/api/guard.js`" passed
+                    # on a file with none, because the number was under the repo-wide
+                    # total. A scoped subtotal needs the scan that produced it; citing the
+                    # inventory key is the other way to answer.
+                    if ((scoped_count and SCAN_CMD.search(joined)) or inv_cite) and int(raw) <= ceiling:
+                        continue
+                    # The API template asks for one H3 per path prefix, so "2 routes under
+                    # `/admin`" is the prescribed sentence - and it was blocked against the
+                    # repo-wide total on every prefix of every drafted API doc. The inventory
+                    # knows each route's path, so it can answer the question actually asked.
+                    if scoped_count:
+                        pre = re.search(r"(/[\w./*-]+)", scoped_count.group(0))
+                        sub = numbers.get(f"{noun}@{pre.group(1).rstrip('/')}") if pre else None
+                        if sub and raw in sub:
+                            continue
+                    add("G9", first,
+                        f'the count "{m.group(1)} {noun}" disagrees with the inventory, which reports '
+                        f'{" or ".join(sorted(known, key=int))}. One of the two is wrong: name '
+                        f'the scan behind your number, cite an [inventory: key], or check the '
+                        f"inventory's before using it")
                     break
-                if MODAL.search(unquoted):
-                    add("G5", first, f"modal verb: {MODAL.search(unquoted).group(0)}")
-                # A paragraph citing a commit is quoting its subject, which structure.md asks for
-                # verbatim - so "drop redis because the latency was unacceptable" is the repo's
-                # words, not the draft's reasoning.
-                intent_hit = INTENT.search(QUOTED.sub(" ", joined))
-                cites_commit = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(joined))
-                if intent_hit and not cites_commit and not joined.lower().startswith("inferred:"):
-                    add("G6", first, f"intent word outside a quotation or `inferred:`: {intent_hit.group(0)}")
-                # A table cell and a YAML-style colon are both "beside". Matching only NAME=value
-                # let a live secret through in the column layout DEPLOYMENT.md asks for.
-                for name in names:
-                    # `` `? `` after the name: every Markdown table writes identifiers in code
-                    # spans, and the closing backtick sat between the name and the separator, so
-                    # the one rule that keeps values out of drafts was defeated by ordinary
-                    # formatting - in the very table the DEPLOYMENT template asks for.
-                    hit = re.search(rf"\b{re.escape(name)}\b`?\s*(?:[=:]|\|)\s*`?([^\s|`]+)", joined)
-                    # A value has the shape of one. "Not a placeholder word" made the env table
-                    # the DEPLOYMENT template asks for unwritable: a 200-row table produced 112
-                    # findings, none of them a value, and whether a row passed depended on
-                    # whether the name happened to be in backticks.
-                    if hit and not PLACEHOLDER_VALUE.match(hit.group(1)) and LOOKS_LIKE_VALUE.search(hit.group(1)):
-                        add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
-                # A credential-shaped string is a credential whatever it sits beside: the name
-                # in front of it does not have to be one the inventory found.
-                tok = REDACTABLE.search(joined)
-                if tok:
-                    add("G7", first, f"a token-shaped string is written here ({tok.group(0)[:8]}...); drafts carry names, never values")
-                # G9: a number the inventory does not report. Brackets carry paths and keys, and
-                # code spans carry commands and identifiers, so both are removed first.
-                # A draft that names its own scan, or cites the inventory key it counted, has
-                # already answered this rule; the message says so and now it is true.
-                historical = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(joined))
-                # G9 takes a narrower exemption than G10: naming a folder is a scope for a
-                # claim of absence, but it is not a reason to contradict the inventory about a
-                # count. Only a scan command or the inventory key itself will do.
-                # A sentence that names a subset - "3 endpoints under /admin" - is not claiming
-                # the repo-wide total, and the API template asks for exactly that shape, one H3
-                # per path prefix.
-                # "in" alone accepted "in this repository", which is the whole thing rather
-                # than a subset. A subset names a path or a route prefix.
-                scoped_count = re.search(
-                    r"\b(?:under|within|beneath|across)\s+[`/\w.*-]+"
-                    r"|\bin\s+`?[\w.-]*[/.][\w./*-]+", joined)
-                # Citing the inventory key means "the inventory says so", so the number has to
-                # be the inventory's. It used to switch the rule off without comparing anything,
-                # which made [inventory: routes] a licence to write 400.
-                inv_cite = INV_BRACKET.search(joined)
-                if numbers and not historical and not SCAN_CMD.search(joined):
-                    prose = BRACKET_ANY.sub(" ", bare)
-                    for m in NUMBER.finditer(prose):
-                        raw = m.group(1).replace(",", "")
-                        noun = m.group(2).lower()
-                        known = numbers.get(noun)
-                        # More than three candidate values means the inventory counts this noun
-                        # several ways - per file, per tool, and in total - so it cannot say the
-                        # draft is wrong. "36 names" against "1 or 2 or 4 or 8 or 34 or 97" is a
-                        # rule talking past the sentence.
-                        if not known or len(known) > 3 or YEARISH.match(raw) or raw in known:
-                            continue
-                        # A sentence naming a subset is claiming a subtotal, and a subtotal is
-                        # smaller than the total. Larger than the total, it is not a subtotal at
-                        # all - naming a folder does not make an impossible number possible.
-                        ceiling = max(int(k) for k in known)
-                        # A sentence naming a subset, or citing the inventory key it counted, is
-                        # claiming a subtotal - and a subtotal is smaller than the total. Above the
-                        # total it is not a subtotal at all, which is how [inventory: routes] used
-                        # to wave 400 through in a four-route repository.
-                        # A path alone is not a scan: "2 routes in `src/api/guard.js`" passed
-                        # on a file with none, because the number was under the repo-wide
-                        # total. A scoped subtotal needs the scan that produced it; citing the
-                        # inventory key is the other way to answer.
-                        if ((scoped_count and SCAN_CMD.search(joined)) or inv_cite) and int(raw) <= ceiling:
-                            continue
-                        add("G9", first,
-                            f'the count "{m.group(1)} {noun}" disagrees with the inventory, which reports '
-                            f'{" or ".join(sorted(known, key=int))}. One of the two is wrong: name '
-                            f'the scan behind your number, cite an [inventory: key], or check the '
-                            f"inventory's before using it")
-                        break
-                # G10: a negative claim without a scope is an audit nobody ran.
-                # Scope means a search was run, or a named key was read. A path in backticks is
-                # neither: backticking the file in the sentence used to clear this rule without
-                # changing a thing about the evidence behind it.
-                # Read with code spans still in: stripping them let one pair of backticks around
-                # "absent" clear the rule on an otherwise identical sentence. That is the same
-                # phrasing plus punctuation, not another phrasing.
-                # The backticks come out, the words inside stay. Stripping the whole code span
-                # let one pair around "absent" clear the rule on an otherwise identical
-                # sentence - the same phrasing plus punctuation, not another phrasing.
-                neg = NEGATION.search(BRACKET_ANY.sub(" ", QUOTED.sub(" ", joined)).replace("`", " "))
-                # The brackets are evidence, not scope: searching the text with them still in
-                # let a command name immediately before one count as a search that ran.
-                bracketless = BRACKET_ANY.sub(" ", joined)
-                scoped = (SCOPE.search(bracketless) or INV_BRACKET.search(joined)
-                          or KEY_BRACKET.search(joined))
-                if neg and not scoped:
-                    add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")
+            # G10: a negative claim without a scope is an audit nobody ran.
+            # Scope means a search was run, or a named key was read. A path in backticks is
+            # neither: backticking the file in the sentence used to clear this rule without
+            # changing a thing about the evidence behind it.
+            # Read with code spans still in: stripping them let one pair of backticks around
+            # "absent" clear the rule on an otherwise identical sentence. That is the same
+            # phrasing plus punctuation, not another phrasing.
+            # The backticks come out, the words inside stay. Stripping the whole code span
+            # let one pair around "absent" clear the rule on an otherwise identical
+            # sentence - the same phrasing plus punctuation, not another phrasing.
+            neg = NEGATION.search(BRACKET_ANY.sub(" ", QUOTED.sub(" ", joined)).replace("`", " "))
+            # The brackets are evidence, not scope: searching the text with them still in
+            # let a command name immediately before one count as a search that ran.
+            bracketless = BRACKET_ANY.sub(" ", joined)
+            scoped = (SCOPE.search(bracketless) or INV_BRACKET.search(joined)
+                      or KEY_BRACKET.search(joined))
+            if neg and not scoped:
+                add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")
 
         def flush() -> None:
             if not para:
@@ -988,7 +1043,9 @@ def main() -> int:
     blocking = [f for f in findings if blocks(f)]
 
     data = {"repo": str(repo), "docs": targets, "findings": findings,
-            "count_authorities": sorted(numbers or {}),
+            # The per-prefix subtotals are an internal answer to one question, not a noun a
+            # draft can write, so they do not belong in the list of what the gate can judge.
+            "count_authorities": sorted(k for k in (numbers or {}) if "@" not in k),
             "total": len(findings), "warnings": warnings}
     if args.format == "json":
         print(json.dumps(data, indent=2, sort_keys=True))
