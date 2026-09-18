@@ -100,6 +100,7 @@ ENV_IN_CODE = [
     re.compile(r"""System\.getenv\(\)\.get\(\s*"([A-Z][A-Z0-9_]*)\""""),
     re.compile(r"""\bConfiguration\[\s*"([A-Z][A-Z0-9_]*)"\s*\]"""),
     re.compile(r"""Deno\.env\.get\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
+    re.compile(r"""\.environment\[\s*"([A-Z][A-Z0-9_]*)"\s*\]"""),  # Swift ProcessInfo
     # The languages CODE_EXTS lists and the patterns above did not read: Go, Rust, Elixir,
     # C#, Java, Vite/Astro, and a destructured process.env. Without these every documented
     # variable in a Go or Rust repository was "a knob that does not exist".
@@ -134,7 +135,7 @@ PLATFORM_ENV = {
     "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES", "NEXT_PHASE",
     "DJANGO_SETTINGS_MODULE", "FLASK_APP", "FLASK_ENV", "FLASK_DEBUG", "DISPLAY", "WAYLAND_DISPLAY",
     # import.meta.env built-ins, set by Vite, not by an operator.
-    "DEV", "PROD", "MODE", "SSR", "BASE_URL", "LANGUAGE",
+    "DEV", "PROD", "MODE", "SSR", "BASE_URL", "LANGUAGE", "WSL_DISTRO_NAME", "WSL_INTEROP", "MSYSTEM",
     "JAVA_HOME", "JAVA_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS",
 }
 # Prefixes that belong to a tool or a CI system wholesale; nothing an application names starts
@@ -147,6 +148,10 @@ ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
 DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid|its [^.]{0,30}variable)\b", re.I)
 # (?<![\w-]) not \b: "zero-config" is not a word about configuration.
 CONFIG_CONTEXT = re.compile(r"(?<![A-Za-z0-9_-])(env|environment|variable|export|secret|config|configur\w*|setting|\.env|dotenv|flag|knob)\b", re.I)
+# For a bare name in prose only: "Set UPLOAD_SIGNING_KEY to the signing key" has none of the
+# words above, and it is still telling the operator about a variable.
+PROSE_CONTEXT = re.compile(r"(?<![A-Za-z0-9_-])(set|sets|define|provide|supply|pass|key|token|credential|password|secret|"
+                           r"env|environment|variable|export|config|configur\w*|setting|flag|knob)\b", re.I)
 CONFIG_SUFFIX = re.compile(r"_(?:URL|URI|DSN|KEY|TOKEN|SECRET|PASSWORD|PASS|HOST|PORT|PATH|DIR|FILE|MODE|ENABLED|DISABLED|TIMEOUT|LIMIT|MAX|MIN|ID|NAME|REGION|BUCKET|ENDPOINT|BASE|VERSION|LEVEL|INTERVAL|SECONDS|MS|TTL|SIZE|COUNT|RATE)$")
 
 # Import forms across the languages handled above. Four alternatives, so findall
@@ -226,6 +231,13 @@ def read(path: Path) -> str:
             return ""
         raw = path.read_bytes()
         if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+            body = raw[2:]
+            # UTF-16 text is half zero bytes for Latin content and never nearly none; a byte-order
+            # mark on bytes with no zeros is a stray mark on UTF-8 text. Read it as such and say so:
+            # decoded as UTF-16 it was printable CJK, every link in it vanished, and the file counted.
+            if len(body) >= 8 and body.count(0) < len(body) // 10:
+                warnings.append(f"{path.name}: a UTF-16 byte-order mark on bytes that are not UTF-16; read as UTF-8")
+                return body.decode("utf-8", errors="replace")
             return raw.decode("utf-16", errors="replace")
         return raw.decode("utf-8-sig", errors="replace")
     except OSError:
@@ -309,13 +321,15 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
     return found
 
 
-def available_cargo_bins(repo: Path, files: list[str]) -> set[str]:
+def available_cargo_bins(repo: Path, files: list[str]) -> set[str] | None:
     """Binary targets: [[bin]] name, src/bin/<name>.rs, src/bin/<name>/main.rs, and the package
     name when src/main.rs exists. Empty when there is no Cargo.toml, and then nothing is checked."""
     bins: set[str] = set()
+    seen = False
     for rel in files:
         if Path(rel).name != "Cargo.toml" or any(p in SKIP_DIRS for p in Path(rel).parts):
             continue
+        seen = True
         text = read(repo / rel) or ""
         root = Path(rel).parent
         pkg = re.search(r"^\[package\][^\[]*?^name\s*=\s*\"([^\"]+)\"", text, re.M | re.S)
@@ -328,7 +342,9 @@ def available_cargo_bins(repo: Path, files: list[str]) -> set[str]:
             if f.startswith(prefix):
                 rest = f[len(prefix):]
                 bins.add(rest[:-3] if rest.endswith(".rs") and "/" not in rest else rest.split("/")[0])
-    return bins
+    # None: no Cargo.toml, nothing to check. An empty set is a crate with no binary, where
+    # every documented --bin is missing; guarding on a non-empty set hid exactly that case.
+    return bins if seen else None
 
 
 def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
@@ -504,6 +520,13 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
                     cells = [c.strip().strip("`") for c in line_live.strip().strip("|").split("|")]
                     if cells and re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", cells[0]) and "_" in cells[0] and not cells[0].endswith("_"):
                         documented.setdefault(cells[0], f"{rel}:{i}")
+                # No backticks at all: "Set UPLOAD_SIGNING_KEY to the signing key before starting."
+                # An older README or an exported wiki writes it that way. Weak evidence, so the
+                # row "not documented anywhere" cannot be flatly false.
+                if PROSE_CONTEXT.search(line_live):
+                    for bare in ENV_NAME.findall(re.sub(r"`[^`]*`", " ", line_live)):
+                        if "_" in bare and not bare.endswith("_"):
+                            weak.setdefault(bare, f"{rel}:{i}")
                 for chunk in BACKTICK.findall(line_live):
                     c = chunk.strip()
                     if "." in c or "/" in c:
@@ -626,7 +649,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                     add("missing-script-file", "high", doc, lineno,
                         f"documents `go run {pkg}`, and no such package directory exists.")
             for bin_ in set(CMD_CARGO_BIN.findall(line)):
-                if cargo_bins and bin_ not in cargo_bins and not PLACEHOLDER.search(bin_):
+                if cargo_bins is not None and bin_ not in cargo_bins and not PLACEHOLDER.search(bin_):
                     add("missing-script-file", "high", doc, lineno,
                         f"documents `cargo run --bin {bin_}`, which is not a binary target in any Cargo.toml.",
                         source="Cargo.toml")
@@ -716,6 +739,10 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
 
     # 4. env vars, both directions
     in_code = env_names_from_code(repo, files)
+    for rel in files:
+        if Path(rel).name == "build.rs":
+            for built in re.findall(r"cargo:rustc-env=([A-Z][A-Z0-9_]*)=", read(repo / rel) or ""):
+                in_code.pop(built, None)  # set by the build script, read by the crate: not a knob
     in_docs, weak_docs = env_names_documented(repo, files)
     dead = unreferenced_modules(repo, files)
     # A config module - a zod schema, a pydantic Settings class, a struct with env tags, a
