@@ -74,7 +74,7 @@
     {
       "doc": "docs/drafted.md",
       "line": 81,
-      "message": "negative claim (\"No authorization guard is applied to\") names no scope; say what was searched, or cite an [inventory: key]",
+      "message": "negative claim (\"No authorization guard is applied\") names no scope; say what was searched, or cite an [inventory: key]",
       "rule": "G10"
     },
     {
@@ -139,6 +139,12 @@
     },
     {
       "doc": "docs/quoted.md",
+      "line": 15,
+      "message": "a token-shaped string is written here (pk-51H8x...); drafts carry names, never values",
+      "rule": "G7"
+    },
+    {
+      "doc": "docs/quoted.md",
       "line": 23,
       "message": "a value is written beside API_TOKEN inside a fenced block; drafts carry names, never values",
       "rule": "G7"
@@ -157,6 +163,6 @@
     }
   ],
   "repo": "<fixture>",
-  "total": 25,
+  "total": 26,
   "warnings": []
 }

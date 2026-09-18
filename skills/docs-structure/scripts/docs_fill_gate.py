@@ -106,8 +106,17 @@ YEARISH = re.compile(r"^(19|20)\d{2}$")
 # gate cannot open the file, so the draft has to say what was looked at instead.
 # "continues when it is not." is a clause ending, not a claim of absence, so a negation has to
 # be followed by something it denies.
+# Five ways to say a thing is absent, not one. The rule was written against the single
+# example sentence in SKILL.md and caught that phrasing only: "contains no X", "lacks X",
+# "X is absent", "zero X" and "without any X" all read as audited fact and all passed.
 NEGATION = re.compile(
     r"\bthere (?:is|are) no\s+\w+"
+    r"|\b(?:contains?|has|have|had|includes?|defines?|ships?|provides?) no\s+\w+"
+    r"|\b(?:lacks?|lacking)\s+\w+"
+    r"|\b(?:is|are|was|were)\s+(?:entirely |completely |wholly )?absent\b"
+    r"|\bzero\s+\w+"
+    r"|\bwithout any\s+\w+"
+    r"|\bno\s+\w+(?:\s+\w+){0,2}\s+(?:is|are|was|were)\s+(?:present|configured|defined|set|applied|used|implemented|enabled)\b"
     r"|\bno (?:\w+ ){0,3}(?:exists?|existed|is|are|was|were|found|applies|applied)\s+\w+"
     r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\s+(?!a\b|an\b|the\b)(?!recorded|documented|stated|named|written|commented|described|mentioned)[a-z`\"']\w*"
     r"|\bnever\s+\w+|\bnothing\s+\w+|\bnone of\s+\w+|\bno such\s+\w+", re.I)
@@ -465,6 +474,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     hit = re.search(rf"\b{re.escape(name)}\b\s*(?:[=:]|\|)\s*([^\s|]+)", joined)
                     if hit and not PLACEHOLDER_VALUE.match(hit.group(1)):
                         add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
+                # A credential-shaped string is a credential whatever it sits beside: the name
+                # in front of it does not have to be one the inventory found.
+                tok = REDACTABLE.search(joined)
+                if tok:
+                    add("G7", first, f"a token-shaped string is written here ({tok.group(0)[:8]}...); drafts carry names, never values")
                 # G9: a number the inventory does not report. Brackets carry paths and keys, and
                 # code spans carry commands and identifiers, so both are removed first.
                 # A draft that names its own scan, or cites the inventory key it counted, has
@@ -473,7 +487,12 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # G9 takes a narrower exemption than G10: naming a folder is a scope for a
                 # claim of absence, but it is not a reason to contradict the inventory about a
                 # count. Only a scan command or the inventory key itself will do.
-                if numbers and not historical and not SCAN_CMD.search(joined) and not INV_BRACKET.search(joined):
+                # A sentence that names a subset - "3 endpoints under /admin" - is not claiming
+                # the repo-wide total, and the API template asks for exactly that shape, one H3
+                # per path prefix.
+                scoped_count = re.search(r"\b(?:under|within|in|for|beneath)\s+[`/\w.*-]+", joined)
+                if (numbers and not historical and not SCAN_CMD.search(joined)
+                        and not INV_BRACKET.search(joined)):
                     prose = BRACKET_ANY.sub(" ", bare)
                     for m in NUMBER.finditer(prose):
                         raw = m.group(1).replace(",", "")
@@ -484,6 +503,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                         # draft is wrong. "36 names" against "1 or 2 or 4 or 8 or 34 or 97" is a
                         # rule talking past the sentence.
                         if not known or len(known) > 3 or YEARISH.match(raw) or raw in known:
+                            continue
+                        # A sentence naming a subset is claiming a subtotal, and a subtotal is
+                        # smaller than the total. Larger than the total, it is not a subtotal at
+                        # all - naming a folder does not make an impossible number possible.
+                        if scoped_count and int(raw) < max(int(k) for k in known):
                             continue
                         add("G9", first,
                             f'the count "{m.group(1)} {noun}" disagrees with the inventory, which reports '
@@ -639,9 +663,13 @@ def render(data: dict, cap: int) -> str:
             lines.append(f"  ... {len(hits) - cap} more, use --format json")
     for w in data["warnings"]:
         lines.append(f"note: {w}")
-    if data["total"]:
+    blocking = [f for f in data["findings"] if f.get("level") != "skipped"]
+    if blocking:
         lines.append("")
         lines.append("Nothing should be written while any finding stands: fix the draft, then run this again.")
+    elif data["total"]:
+        lines.append("")
+        lines.append("The notes above say what was not judged. Nothing here blocks a write.")
     if data["docs"]:
         lines.append("")
         lines.append("**Not checked.** Every rule here reads the shape of a sentence. None opens the file in")
@@ -712,7 +740,11 @@ def main() -> int:
         print(json.dumps(data, indent=2, sort_keys=True))
     else:
         print(render(data, args.cap))
-    return 1 if (args.fail_on_findings and findings) else 0
+    # G0 rows say what the gate did not judge. They are information, not a defect: failing on
+    # them meant a doc with one reviewed section could never be refilled, which is the whole
+    # messy-middle workflow.
+    blocking = [f for f in findings if f.get("level") != "skipped"]
+    return 1 if (args.fail_on_findings and blocking) else 0
 
 
 if __name__ == "__main__":

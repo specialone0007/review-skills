@@ -66,6 +66,11 @@ ALWAYS_SKIP = {"node_modules", ".venv", "venv", "__pycache__", ".git", "dist", "
                "vendor", ".next", ".nuxt", "coverage", ".terraform", "site-packages", ".tox", ".mypy_cache"}
 # A documentation website is about the repository, not part of it: counting its Tailwind
 # config as frontend turned a Go command-line tool into an application needing a design doc.
+# Skip-list names that can still hold the application itself.
+RESCUABLE = {"www", "site", "public", "app"}
+MANIFEST_NAMES = ("package.json", "pyproject.toml", "setup.py", "go.mod", "Cargo.toml", "pom.xml",
+                  "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs",
+                  "Move.toml", "Dockerfile", "requirements.txt")
 EVIDENCE_SKIP = {"website", "site", "docs-site", "doc-site", "www", "docs", "doc", "documentation",
                  "fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests",
                  "__tests__", "spec", "specs", "__mocks__", "mocks", "benches", "bench", "benchmarks"}
@@ -127,8 +132,14 @@ def redact(s: str) -> str:
     return out
 
 
-def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14, pruned: list[str] | None = None):
-    """os.walk with pruning. Sorted dirnames AND filenames, so output is the same on NTFS and ext4."""
+def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14,
+         pruned: list[str] | None = None, keep=None):
+    """os.walk with pruning. Sorted dirnames AND filenames, so output is the same on NTFS and ext4.
+
+    `keep(path)` rescues a folder the skip list would otherwise drop. A folder named www/ or
+    site/ that holds a package manifest is the application, not decoration, and pruning it by
+    name made a whole repository read as a folder of notes.
+    """
     skip = ALWAYS_SKIP | (skip_names or set())
     base = len(root.parts)
     for dirpath, dirnames, filenames in os.walk(root):
@@ -137,9 +148,14 @@ def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14, pr
             if dirnames:
                 warnings.append(f"depth cap {max_depth} reached under {d.relative_to(root).as_posix()}; deeper files not scanned")
             dirnames[:] = []
+        rescued = {n for n in dirnames if keep and n in (skip_names or set()) and keep(d / n)}
+        for n in sorted(rescued):
+            warnings.append(f"{(d / n).relative_to(root).as_posix()} is on the skip list but holds a build manifest; scanned as code")
         if pruned is not None:
-            pruned.extend((d / n).as_posix() for n in dirnames if n in (skip_names or set()))
-        dirnames[:] = sorted(n for n in dirnames if n not in skip and not n.startswith("."))
+            pruned.extend((d / n).as_posix() for n in dirnames
+                          if n in (skip_names or set()) and n not in rescued)
+        dirnames[:] = sorted(n for n in dirnames
+                             if (n not in skip or n in rescued) and not n.startswith("."))
         yield d, dirnames, sorted(filenames)
 
 
@@ -294,7 +310,16 @@ class Ctx:
         self.dirs: set[str] = set()
         self.pruned: list[str] = []
         truncated = False
-        for d, dirnames, filenames in walk(repo, EVIDENCE_SKIP, pruned=self.pruned):
+        # A folder holding a build manifest is the application, whatever it is called. Pruning
+        # www/ or site/ by name made an Express app with a Dockerfile read as a folder of
+        # notes with no findings at all - the most confident possible wrong answer.
+        def keep(d: Path) -> bool:
+            # Only names that could plausibly BE the application. A docs site, an examples
+            # package and a test fixture all carry manifests too, and rescuing those put a
+            # documentation site back into the product's inventory.
+            return d.name.lower() in RESCUABLE and any((d / m).is_file() for m in MANIFEST_NAMES)
+
+        for d, dirnames, filenames in walk(repo, EVIDENCE_SKIP, pruned=self.pruned, keep=keep):
             rel_d = posix(d, repo)
             if rel_d != ".":
                 self.dirs.add(rel_d)

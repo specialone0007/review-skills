@@ -468,6 +468,32 @@ def load_manifest(repo: Path, explicit: str | None) -> tuple[dict, Path | None, 
                 if not isinstance(v, want) or (want is int and isinstance(v, bool)):
                     sys.stderr.write(f"error: manifest {c}: key {k} must be {want.__name__}\n")
                     raise SystemExit(2)
+            # Nested shapes, checked here rather than found by a traceback halfway through a
+            # run. Exit 1 is what --fail-on-findings uses, so a crash was indistinguishable in
+            # CI from a check that simply failed.
+            for key, of in (("counts", ("index", "folder")), ("registries", ("folder", "table"))):
+                for row in data.get(key) or []:
+                    if not isinstance(row, dict) or any(not isinstance(row.get(f), str) for f in of):
+                        sys.stderr.write(f"error: manifest {c}: every {key} entry needs string "
+                                         f"{' and '.join(of)}\n")
+                        raise SystemExit(2)
+            for key in ("ignore", "duplicateExempt", "pathPrefixes", "roots", "citationExtensions", "recordFolders"):
+                v = data.get(key)
+                if isinstance(v, list) and any(not isinstance(x, str) for x in v):
+                    sys.stderr.write(f"error: manifest {c}: {key} must be a list of strings\n")
+                    raise SystemExit(2)
+            he = data.get("heavyEvidence")
+            if isinstance(he, dict):
+                for k2, v2 in he.items():
+                    if isinstance(v2, bool) or not isinstance(v2, int):
+                        sys.stderr.write(f"error: manifest {c}: heavyEvidence.{k2} must be a number\n")
+                        raise SystemExit(2)
+            ex = data.get("exempt")
+            if isinstance(ex, dict):
+                for k2, v2 in ex.items():
+                    if not isinstance(v2, list) or any(not isinstance(x, str) for x in v2):
+                        sys.stderr.write(f"error: manifest {c}: exempt.{k2} must be a list of strings\n")
+                        raise SystemExit(2)
             ol = data.get("ownerLine")
             if isinstance(ol, dict) and not isinstance(ol.get("markers", []), list):
                 sys.stderr.write(f"error: manifest {c}: ownerLine.markers must be a list\n")
@@ -928,7 +954,11 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             covered_by = pin if exists_exact(repo / pin) else None
             how = "manifest"
         else:
-            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel or d.path.name.lower() == "readme.md")), d) for d in candidates), key=lambda x: -x[0][0])
+            # Front-door weighting is for the front door. Giving it to every file named
+            # README.md let a sub-package's readme own a repo-wide concern - prometheus routed
+            # "how to run it" to the React UI's README, and marked it reviewed.
+            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel)), d)
+                             for d in candidates), key=lambda x: -x[0][0])
             # Heavy evidence: a README section is a seed, not a home. The dedicated doc is still missing.
             weight, label = evidence_weight(cid, inv)
             threshold = int(heavy_cfg.get(cid) or 0)
@@ -988,13 +1018,30 @@ def section_states(doc: "Doc", template: Path) -> dict:
     return {"owner": owner, "sections": states, "missing": missing}
 
 
+def in_git_repo(repo: Path) -> bool:
+    """Whether git can answer questions about this directory at all.
+
+    A scratch copy built from `git ls-files` has no .git, and every root file then read as
+    untracked - so the manifest apply writes dropped the README from the doc set and keyed the
+    routing table to an agent file that does not exist.
+    """
+    if shutil.which("git") is None:
+        return False
+    try:
+        p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--git-dir"], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=GIT_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return p.returncode == 0
+
+
 def tracked_file(repo: Path, name: str) -> bool:
     """Present and, when git can answer, tracked: a gitignored CLAUDE.md is one person's file, not the repo's."""
     p = repo / name
     if not p.is_file():
         return False
     git = shutil.which("git")
-    if git is None:
+    if git is None or not in_git_repo(repo):
         return True
     try:
         r = subprocess.run([git, "ls-files", "--error-unmatch", name], cwd=str(repo), text=True, timeout=GIT_TIMEOUT,
@@ -1519,6 +1566,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             tgt = resolve_target(d.path, repo, file_part)
             if not exists_exact(tgt):
                 add("R5", d.rel, i, f"{'image' if is_img else 'link'} target does not exist: {file_part}")
+                continue
+            if anchor and tgt.suffix.lower() in DOC_EXTS and tgt.stat().st_size > MAX_READ:
+                # read() bails past MAX_READ and returns "", so every anchor into a large
+                # CHANGELOG looked dead. Say what actually happened.
+                add("R5", d.rel, i, f"{file_part} is too large to read, so #{anchor} was not checked", "warn")
                 continue
             if anchor and tgt.suffix.lower() in DOC_EXTS:
                 try:
