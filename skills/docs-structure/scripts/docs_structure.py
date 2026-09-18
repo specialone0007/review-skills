@@ -353,7 +353,13 @@ def read(path: Path) -> str:
     try:
         if path.stat().st_size > MAX_READ:
             return ""
-        return path.read_text(encoding="utf-8-sig", errors="replace")
+        # PowerShell 5.1's ">" writes UTF-16LE. Read as UTF-8 with errors replaced, such a
+        # file became NUL-laden text with no heading, no owner line and no anchors - and every
+        # rule then failed it, in silence. The BOM says what it is; decode it as that.
+        raw = path.read_bytes()
+        if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+            return raw.decode("utf-16", errors="replace")
+        return raw.decode("utf-8-sig", errors="replace")
     except OSError:
         return ""
 
@@ -1596,6 +1602,12 @@ class Doc:
         except OSError:
             self.skipped = True
         self.raw = read(path)
+        # Two replacement characters in a hundred means the bytes were not text in any encoding
+        # this reads. Judging that as a document with no heading, no owner line and no anchors
+        # produced false failures; a file the checker could not read is reported as exactly that.
+        self.undecodable = self.raw.count(chr(0xFFFD)) * 50 > max(len(self.raw), 1)
+        if self.undecodable:
+            self.skipped = True
         self.lines = self.raw.splitlines()
         # HTML comments are blanked before anything reads the text: parking a stale link in a
         # comment is routine, and reporting it as a P1 dead link punishes the tidy thing to do.
@@ -1969,6 +1981,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         if not d.skipped and not d.balanced:
             add("R5", d.rel, 1, "a code fence is never closed; links and citations below it were not checked", "warn")
         rec = in_record(d.rel)
+        if getattr(d, "undecodable", False):
+            add("R5", d.rel, 1, "could not be decoded as UTF-8 or UTF-16, so nothing in it was checked - save it as UTF-8", "warn")
+            continue
         if d.skipped:
             warnings.append(f"{d.rel} is over {MAX_READ} bytes and was not analysed")
 
@@ -2063,6 +2078,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             tgt = resolve_target(d.path, repo, file_part)
             if not exists_exact(tgt):
                 add("R5", d.rel, i, f"{'image' if is_img else 'link'} target does not exist: {file_part}")
+                continue
+            tdoc = by_rel.get(posix(tgt, repo))
+            if anchor and tdoc is not None and getattr(tdoc, "undecodable", False):
+                add("R5", d.rel, i, f"{file_part} could not be decoded, so #{anchor} was not checked", "warn")
                 continue
             if anchor and tgt.suffix.lower() in DOC_EXTS and tgt.stat().st_size > MAX_READ:
                 # read() bails past MAX_READ and returns "", so every anchor into a large

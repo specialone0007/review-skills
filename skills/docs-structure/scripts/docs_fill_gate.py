@@ -88,13 +88,17 @@ ABBREV = re.compile(r"\b(?:[A-Z]|e\.g|i\.e|etc|vs|cf|approx|Inc|Ltd|Dr|St|No|Fig
 BAD_BREAK = re.compile(r"[^\]`.]\.\s+(?=[A-Z`(])")
 # Hyphen-aware: fast-glob, simple-git and secure-compare are names. A hyphen is a word
 # character for this purpose even though \b says otherwise.
-BANNED = re.compile(r"(?<![\w-])(robust|secure|simple|clean|fast|modern|scalable|easy|powerful|"
-                    r"seamless|best|properly|elegant|efficient|reliable)(?![\w-])", re.I)
+# The adverb too: "validates input efficiently and securely" is the same claim as the adjective,
+# and the trailing lookahead used to let every -ly form through.
+BANNED = re.compile(r"(?<![\w-])(robust|secure|simple|simply|clean|fast|modern|scalable|easy|easily|powerful|"
+                    r"seamless|best|properly|elegant|efficient|reliable|reliably)(?:ly)?(?![\w-])", re.I)
 INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to)\b", re.I)
 # Case-insensitive like BANNED and INTENT: sentence-start is where a modal actually appears.
 # "handles" left: "the worker keeps 3 file handles open" is a count of file descriptors, not a
 # promise, and it is the ordinary way to write that sentence.
-MODAL = re.compile(r"\b(should|must|will|guarantees)\b", re.I)
+# Contracted and periphrastic too: shouldn't, won't, has to, needs to are how a promise is
+# actually written, and the four bare words caught none of them.
+MODAL = re.compile(r"\b(should|shouldn't|must|mustn't|will|won't|can't|cannot|guarantees|has to|have to|needs? to|ought to)\b", re.I)
 # A count is the weakest sentence a draft can carry: two scanners give two answers and the
 # reader cannot tell which one wrote the doc. A number has to be one the inventory reports.
 # Things a repository scan counts. A number in front of one of these is an aggregate someone
@@ -180,7 +184,8 @@ KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
 # Source extensions only: ".com:5432" and "redis.io:6379" are a host and a port, and a
 # DEPLOYMENT draft is told to state them. The checker's R7 makes the same distinction.
-LINE_CITE = re.compile(r"\.(?:ts|tsx|js|jsx|mjs|cjs|py|sql|go|rs|java|kt|kts|rb|php|cs|ex|exs|swift|c|h|cpp|hpp|vue|svelte|sh|ps1|yaml|yml|toml|json|md|mdx):\d+\b")
+LINE_CITE = re.compile(r"\.(?:ts|tsx|js|jsx|mjs|cjs|py|sql|go|rs|java|kt|kts|rb|php|cs|ex|exs|swift|c|h|cpp|hpp|vue|svelte|sh|ps1|yaml|yml|toml|json|md|mdx):\d+\b"
+                       r"|\b(?:Makefile|Dockerfile|Procfile|Justfile|\.env(?:\.[\w-]+)?):\d+\b")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
 # The template's own owner line. It states what the document covers; there is nothing to cite
@@ -277,7 +282,13 @@ def read(path: Path) -> str:
     try:
         if path.stat().st_size > MAX_READ:
             return ""
-        return path.read_text(encoding="utf-8-sig", errors="replace")
+        # PowerShell 5.1's ">" writes UTF-16LE. Read as UTF-8 with errors replaced, such a
+        # file became NUL-laden text with no heading, no owner line and no anchors - and every
+        # rule then failed it, in silence. The BOM says what it is; decode it as that.
+        raw = path.read_bytes()
+        if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+            return raw.decode("utf-16", errors="replace")
+        return raw.decode("utf-8-sig", errors="replace")
     except OSError:
         return ""
 
@@ -833,6 +844,8 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # name the word after the verb is judged like a value after a colon.
                 if SECRET_NAME.search(name):
                     said = re.search(rf"\b{re.escape(name)}\b`?(?:\s+\w+){{0,3}}?\s+(?:defaults?\s+to|is\s+set\s+to|set\s+to|ships\s+as|equals|is|becomes|reads\s+as|comes\s+as|starts\s+as)\s+`?([^\s`\[|]+)", joined, re.I)
+                    # The imperative puts the verb first: "Set `ADMIN_TOKEN` to hunter2 before starting".
+                    said = said or re.search(rf"\b(?:set|export|put|use|pass|provide)\s+`?{re.escape(name)}`?\s+(?:to|as|=)\s+`?([^\s`\[|]+)", joined, re.I)
                     if said:
                         val = said.group(1).rstrip(".,;")
                         if not (PLACEHOLDER_VALUE.match(val) or FLAG_VALUE.match(val) or val.lower() in PROSE_LEAD):
@@ -1246,7 +1259,10 @@ def main() -> int:
         # to reach "Who it's for": everything that is not a word character, a slash, a dot,
         # a dash or the "#" comes out, then spacing is collapsed.
         doc, _, head = s.strip().replace("\\", "/").partition("#")
-        head = re.sub(r"[^\w\s/.-]", "", head)
+        # An apostrophe joins - "it's" and "its" are the same slug - and every other mark is a
+        # space, so "Setup - Run" and "Setup Run" are too.
+        head = re.sub(r"['\u2019]", "", head)
+        head = re.sub(r"[^\w\s]", " ", head)
         return doc.lower() + "#" + " ".join(head.lower().split())
 
     wrote = {slug(w) for w in args.wrote}
