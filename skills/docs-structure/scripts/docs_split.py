@@ -345,7 +345,7 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int, min_part: i
             problems.append(f"{p['rel']}: first heading is not H2")
         if f"{p['n']:02d}-" != p["file"][:3]:
             problems.append(f"{p['rel']}: number does not match table position")
-        if hs and ds.slug(hs[0].group(2)) != p["slug"]:
+        if hs and clean_slug(hs[0].group(2)) != p["slug"]:
             problems.append(f"{p['rel']}: filename slug differs from first-heading slug")
     # Every link in a touched file resolves in the new tree, and reaches the same absolute target.
     tree_anchors: dict[Path, set[str]] = {}
