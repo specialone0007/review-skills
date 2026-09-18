@@ -110,7 +110,10 @@ GENERATOR_GLOBS = ("docusaurus.config.*", "sidebars.*", "astro.config.*", "conf.
 # marker has to corroborate itself before it is believed: conf.py must read like Sphinx, and a
 # SUMMARY or sidebar must be nav-shaped, a list of links and little else.
 AMBIGUOUS_MARKERS = {"conf.py": ("extensions", "master_doc", "html_theme", "sphinx"),
-                     "config.toml": ("baseurl", "basseurl", "theme", "languagecode", "params"),
+                     # Two of these, not one: config.toml is an ordinary application config
+                     # name, and a [ui] section with theme = "dark" switched four rules off.
+                     "config.toml": ("baseurl", "theme", "languagecode", "params", "permalinks",
+                                     "taxonomies", "markup", "menu"),
                      "SUMMARY.md": None, "_sidebar.md": None}
 # Folders whose contents describe something other than this repo; ignored when deciding what the repo is.
 EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests", "__tests__", "spec", "specs"}
@@ -138,12 +141,17 @@ RULE_TITLE = {
 
 # Keys whose default is null but whose shape still matters.
 NULLABLE_TYPES = {"centralIndex": (str,), "templatesDir": (str,), "existingChecker": (str,),
+                  "indexConvention": (str,),
                   "requiredDocs": (dict, list)}
 
 DEFAULT_MANIFEST = {
     "roots": [],
     "centralIndex": None,
-    "indexConvention": "sibling",
+    # None, not "sibling": load_manifest merges the defaults in, so a value here made the left
+    # side of `manifest.get(...) or detect_convention(...)` always truthy and the detector never
+    # ran once. A folder-README tree then got one P1 per leaf doc, and the proposed manifest
+    # froze the wrong convention into the repository.
+    "indexConvention": None,
     "ownerLine": {"markers": ["This document owns:", "Part of"], "enforce": False},
     "splitAt": 500,
     "maxParts": 30,
@@ -237,6 +245,7 @@ HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 LINK_RE = re.compile(r"(!?)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+\S")
 REF_DEF_TARGET = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
+HTML_HREF = re.compile(r"""<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']""", re.I)
 REF_USE_RE = re.compile(r"\[[^\]]+\]\[([^\]]+)\]")
 FOOTNOTE_RE = re.compile(r"\[\^[^\]]+\]")
 MEASURE_RE = re.compile(r"\$\d+\.\d+|(?<![\d.])\d{1,3}\.\d+%|(?<![\d.])0\.\d{3,}\b")
@@ -352,7 +361,11 @@ def git_root(start: Path) -> Path | None:
 
 # A line telling the reader not to write a line-number citation necessarily contains one as an
 # example. The advice is not the offence.
-CITE_ADVICE = re.compile(r"\b(never|not|instead of|rather than|do ?n.t|avoid|no longer|stop)\b", re.I)
+# Phrases, not the bare word "not": "the handler does not validate its input, see src/a.ts:88"
+# is an ordinary sentence carrying a real citation, and it was silently excused.
+CITE_ADVICE = re.compile(r"\bnever (?:cite|write|use)\b|\binstead of\b|\brather than\b"
+                         r"|\bdo ?n.t (?:cite|write|use)\b|\bavoid (?:citing|writing|using)\b"
+                         r"|\bcite (?:a )?symbols?\b|\bnot line numbers\b", re.I)
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
 
@@ -705,7 +718,10 @@ def corroborated(hit: Path) -> bool:
     text = read(hit)
     if want is not None:
         low = text.lower()
-        return any(w in low for w in want)
+        # A filename shared with ordinary application config needs more than one word to be
+        # believed, because being believed switches R1, R4, R11 and R12 off silently.
+        need = 2 if hit.name == "config.toml" else 1
+        return sum(1 for w in want if w in low) >= need
     lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
     if len(lines) < 2:
         return False
@@ -1231,7 +1247,11 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"]]
     if not have_index and not root_docs:
-        files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(INDEX_TEMPLATE.splitlines())}
+        # With the content, not just a name. SKILL.md says the template is in the checker's
+        # output; it was a module constant nothing emitted, so two agents wrote two indexes.
+        files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)",
+                                          "lines": len(INDEX_TEMPLATE.splitlines()),
+                                          "content": INDEX_TEMPLATE}
     manifest = {
         # Only tracked files: a gitignored CLAUDE.md is on this machine, not in the clone the
         # manifest travels to, and a root that does not exist there is a warning for everyone.
@@ -1486,6 +1506,14 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     root_docs = discovery is not None and discovery["status"] == "root-docs"
     root_files_only = discovery is not None and discovery["status"] not in ("resolved", "root-docs")
     generator = detect_generator(repo, roots)
+    generated_docs = 0
+    if generator:
+        gen_root = (repo / generator).parent
+        try:
+            generated_docs = sum(1 for _, _, files in walk(gen_root)
+                                 for f in files if Path(f).suffix.lower() in DOC_EXTS)
+        except OSError:
+            generated_docs = 0
 
     # ---- doc set
     paths: list[Path] = []
@@ -1570,8 +1598,13 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     # links out of a file, resolved to repo-relative paths (outside fences)
     def links_out(doc: Doc) -> set[str]:
+        # Inline links, reference definitions and HTML hrefs. R5 already resolves the first two,
+        # so an index written with [Guide][g] or <a href> reported its own docs unreachable.
         out = set()
-        for _, _, target in doc.links():
+        extra = [m.group(2).strip().strip("<>") for line in doc.clean
+                 for m in [REF_DEF_TARGET.match(line)] if m]
+        extra += [m.group(1) for line in doc.clean for m in HTML_HREF.finditer(line)]
+        for target in [t for _, _, t in doc.links()] + extra:
             t = target.split("#")[0].strip()
             if not t or t.startswith(("http://", "https://", "mailto:", "<")):
                 continue
@@ -1801,7 +1834,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         idx = repo / spec.get("index", "")
         folder = repo / spec.get("folder", "")
         if not idx.is_file() or not folder.is_dir():
-            warnings.append(f"R9: {spec} - index or folder missing")
+            # Silent when neither side exists yet: a counts entry for the TASKLIST pair apply
+            # is about to create is a not-yet, not a drift, and warning about it on every run
+            # until someone runs apply is noise. Warn only when one half is there.
+            if (repo / str(spec.get("index", ""))).exists() or (repo / str(spec.get("folder", ""))).exists():
+                warnings.append(f"R9: {spec} - index or folder missing")
             continue
         idx_doc = by_rel.get(posix(idx, repo)) or Doc(idx, repo)
         shown: dict[str, list[int]] = {}
@@ -2017,6 +2054,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         "coverage_determined": not unreadable,
         "roots": roots_rel,
         "central_index": central_rel if central_exists else None,
+        "index_convention": convention,
+        # Markdown a generated site owns. A docs/ folder that is itself a package is skipped
+        # by discovery, so a 65-page Starlight site read as "Docs checked: 1, no findings" -
+        # true, and silent about everything it did not look at.
+        "generated_docs": generated_docs,
         "generator": generator,
         "record_folders": record_folders,
         "totals": {"docs_checked": len(docs), "non_doc_files": non_doc,
@@ -2058,8 +2100,12 @@ def render(d: dict, top: int) -> str:
         L.append(f"Manifest: none, proposed below. The docs live at the repo root ({len(d['roots'])} files); README.md is the index.")
     else:
         L.append(f"Manifest: none, proposed below. Roots: {', '.join(d['roots'])}")
+    if d.get("generator") and d.get("generated_docs"):
+        L.append(f"{d['generated_docs']} Markdown files under a generated site were not checked: "
+                 f"{d['generator']} owns their navigation and URLs.")
     L.append(f"Docs checked: {t['docs_checked']}   non-doc files in docs folders: {t['non_doc_files']}")
-    L.append(f"Central index: {d['central_index'] or 'none'}   Generator: {d['generator'] or 'none'}")
+    L.append(f"Central index: {d['central_index'] or 'none'}   Index convention: {d.get('index_convention') or 'sibling'}"
+             f"   Generator: {d['generator'] or 'none'}")
     if d["record_folders"]:
         L.append(f"Record folders (R6/R7 warn, R8 skipped): {', '.join(d['record_folders'])}")
     L.append(f"Failures: {t['failures']}   Warnings: {t['warnings']}   Placeholders awaiting review: {t['placeholders']}")

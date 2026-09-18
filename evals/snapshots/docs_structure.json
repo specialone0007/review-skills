@@ -323,7 +323,9 @@
       "severity": "P3"
     }
   ],
+  "generated_docs": 0,
   "generator": null,
+  "index_convention": "sibling",
   "init": {
     "agent_file": null,
     "files": {
@@ -352,6 +354,7 @@
         "why": "deploy (Dockerfile: Dockerfile)"
       },
       "docs/INDEX.md": {
+        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.\n\n| doc | owns | state |\n| --- | --- | --- |\n",
         "lines": 8,
         "template": "INDEX.md (built in)"
       },

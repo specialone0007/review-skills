@@ -147,6 +147,7 @@ INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exp
                   "ecosystems", "warnings"}
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
+URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
 LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
@@ -157,7 +158,8 @@ OWNER_LINE = re.compile(r"^>?\s*\*\*(?:This document owns|Part of)")
 # Shapes that are a credential wherever they appear. Kept in step with docs_evidence.redact().
 REDACTABLE = re.compile(r"\b(?:sk|pk|rk)[-_][A-Za-z0-9_-]{16,}|\bAIza[A-Za-z0-9_-]{20,}"
                         r"|\bglpat-[A-Za-z0-9_-]{16,}|\b(?:hf|npm)_[A-Za-z0-9]{20,}"
-                        r"|\bghp_[A-Za-z0-9]{20,}|\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}")
+                        r"|\bghp_[A-Za-z0-9]{20,}|\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}"
+                        r"|\b[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]+@")
 # A URL, an assignment, a bare number, or a long opaque run. Prose after a colon is not a value.
 LOOKS_LIKE_VALUE = re.compile(r"://|=|^\d[\d._-]*$|^[A-Za-z0-9+/_-]{16,}$")
 PLACEHOLDER_VALUE = re.compile(r"^(?:-+|—|n/?a|none|unset|empty|required|optional|string|number|bool(?:ean)?|url|path|int|float|secret|token|\.\.\.|<[^>]*>|\{[^}]*\}|\[[^\]]*\])$", re.I)
@@ -539,7 +541,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             evaluative word, a modal, an invented count and an unscoped negative all reached a
             clean report inside table cells.
             """
-            bare = CODESPAN.sub("", joined)
+            # The evidence bracket is a citation, not the draft's words: a path containing
+            # clean/fast/simple made every sentence citing it unwritable.
+            bare = CODESPAN.sub("", BRACKET_ANY.sub(" ", joined))
             # Code spans out, then quotations out. A file named fast.js or a dependency called
             # simple-git is a name, not a claim about quality; and a quoted README sentence is the
             # repository's words, which G5 and G6 have always respected. G4 did not, so an
@@ -669,8 +673,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     why = resolve_bracket(repo, ref)
                     if why:
                         add("G2", first, why)
-                if LINE_CITE.search(joined) and "://" not in joined:
-                    add("G3", first, f"line-number citation: {LINE_CITE.search(joined).group(0)}")
+                # URLs out first, then look. Skipping any paragraph containing one meant a real
+                # citation beside a dashboard link was never reported.
+                no_urls = URL_TOKEN.sub(" ", joined)
+                if LINE_CITE.search(no_urls):
+                    add("G3", first, f"line-number citation: {LINE_CITE.search(no_urls).group(0)}")
                 semantics(joined, first)
             para.clear()
 
@@ -687,7 +694,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # exactly where an env example lands, and the templates ask fill for "the exact
                 # commands". A secret does not stop being a secret inside three backticks.
                 for name in names:
-                    hit = re.search(rf"\b{re.escape(name)}\b\s*=\s*([^\s]+)", s_)
+                    # [=:] as outside a fence: NAME: value is compose, k8s and YAML shape, which
+                    # is where the DEPLOYMENT template's own evidence comes from.
+                    hit = re.search(rf"\b{re.escape(name)}\b\s*[=:]\s*([^\s]+)", s_)
                     if hit and not PLACEHOLDER_VALUE.match(hit.group(1)):
                         add("G7", idx + 1, f"a value is written beside {name} inside a fenced block; "
                                            f"drafts carry names, never values")
@@ -725,8 +734,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     why = resolve_bracket(repo, m.group(1))
                     if why:
                         add("G2", n, why)
-                if LINE_CITE.search(s_) and "://" not in s_:
-                    add("G3", n, f"line-number citation: {LINE_CITE.search(s_).group(0)}")
+                row_no_urls = URL_TOKEN.sub(" ", s_)
+                if LINE_CITE.search(row_no_urls):
+                    add("G3", n, f"line-number citation: {LINE_CITE.search(row_no_urls).group(0)}")
                 # Joined with the pipe intact: G7 reads "name | value" as a value beside a
                 # name, and splitting the row on pipes first hid exactly that shape.
                 semantics(" | ".join(cells), n)
@@ -774,7 +784,7 @@ def drafted_docs(repo: Path, near: list[str] | None = None) -> list[str]:
     return out
 
 
-def render(data: dict, cap: int) -> str:
+def render(data: dict, cap: int, strict: bool = False) -> str:
     lines = ["# Fill Gate", "", f"Repo: {data['repo']}",
              f"Docs checked: {len(data['docs'])}   Findings: {data['total']}"]
     if not data["docs"]:
@@ -788,9 +798,16 @@ def render(data: dict, cap: int) -> str:
             lines.append(f"  {doc}:{f['line']}: [{f['rule']}] {f['message']}")
         if len(hits) > cap:
             lines.append(f"  ... {len(hits) - cap} more, use --format json")
+    orphan = [f for f in data["findings"] if f["doc"] not in data["docs"]]
+    if orphan:
+        # A doc whose marker is misspelled is never in targets, so its finding was counted and
+        # never shown - and the reader was told there was nothing to gate.
+        lines.append("")
+        for f in orphan[:cap]:
+            lines.append(f"  {f['doc']}: [{f['rule']}] {f['message']}")
     for w in data["warnings"]:
         lines.append(f"note: {w}")
-    blocking = [f for f in data["findings"] if f.get("level") != "skipped"]
+    blocking = [f for f in data["findings"] if strict or f.get("level") != "skipped"]
     if blocking:
         lines.append("")
         lines.append("Nothing should be written while any finding stands: fix the draft, then run this again.")
@@ -890,7 +907,7 @@ def main() -> int:
     if args.format == "json":
         print(json.dumps(data, indent=2, sort_keys=True))
     else:
-        print(render(data, args.cap))
+        print(render(data, args.cap, args.strict))
     # G0 rows say what the gate did not judge. They are information, not a defect: failing on
     # them meant a doc with one reviewed section could never be refilled, which is the whole
     # messy-middle workflow.
