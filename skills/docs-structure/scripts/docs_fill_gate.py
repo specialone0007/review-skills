@@ -194,7 +194,7 @@ INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exp
                   "ecosystems", "warnings", "auth", "jobs", "integrations", "changelog", "env_count"}
 ADR_STATUS = re.compile(r"^>\s*[*]{2}Status[:][*]{2}\s*(proposed|accepted|rejected|deprecated|superseded)\b.*[*]{2}Date[:][*]{2}\s*\d{4}-\d{2}-\d{2}", re.I)
 ADR_SECTIONS = ("Context", "Options", "Decision", "Consequences")
-INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(.*?)\s*(?:-\s*(\S.*?))?\s*$")
+INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.*?)|(.*?))\s*$")
 INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
 AGENT_MAX_LINES = 40
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")

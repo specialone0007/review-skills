@@ -1186,7 +1186,9 @@ INDEX_INTRO = """Pick the one file you need here; do not read the folder. Every 
 # per-package docs and the stray root files. A group with no lines is left out.
 INDEX_ORDER = [title for _, title in BUCKETS] + ["Packages", "Root files"]
 # One line per doc, llms.txt-shaped: a link, a colon, the owner text, a dash, the state.
-INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(.*?)\s*(?:-\s*(\S.*?))?\s*$")
+# The state sits after the LAST " - ": owner texts carry dashes of their own. Greedy `.*` before the
+# separator finds the last one; a line with no separator at all has no state.
+INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.*?)|(.*?))\s*$")
 
 
 def index_content(groups: dict[str, list[str]], name: str, summary: str = "", extra_order: list[str] | None = None) -> str:
@@ -1220,7 +1222,7 @@ def index_lines(doc: "Doc") -> list[dict]:
             continue
         m = INDEX_LINE.match(line)
         if m:
-            out.append({"heading": heading, "title": m.group(1), "target": m.group(2), "owns": m.group(3), "state": m.group(4) or "", "line": i})
+            out.append({"heading": heading, "title": m.group(1), "target": m.group(2), "owns": m.group(3) if m.group(4) else (m.group(5) or ""), "state": m.group(4) or "", "line": i})
     return out
 
 
@@ -1436,6 +1438,13 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
         candidates.append(d)
     docs_only = "docs-only" in (inv.get("kinds") or [])
     monorepo = "monorepo" in (inv.get("kinds") or [])
+    if monorepo:
+        have = {d.rel for d in candidates}
+        for p in inv.get("packages") or []:
+            pp = str(Path(p.get("path", ".")).as_posix())
+            if pp in (".", "") or f"{pp}/README.md" in have or not exists_exact(repo / pp / "README.md"):
+                continue
+            candidates.append(Doc(repo / pp / "README.md", repo))
     heavy_cfg = manifest.get("heavyEvidence") if isinstance(manifest.get("heavyEvidence"), dict) else {}
     # 1. which concerns apply
     rows: list[dict] = []
@@ -1459,7 +1468,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                      "companions": list(companions), "pin": pin, "unit": None})
     # onboarding is earned by the size of the set, not by evidence: under seven docs its glossary folds into SETUP
     others = [r for r in rows if r["bucket"] and r["concern"] != "onboarding"]
-    if len(others) < COLLAPSE_BELOW - 1 and not isinstance(pin_map.get("onboarding"), (str, bool)):
+    if len(others) < COLLAPSE_BELOW and not isinstance(pin_map.get("onboarding"), (str, bool)):
         rows = [r for r in rows if r["concern"] != "onboarding"]
     # per-unit rows in a monorepo: a package that deploys on its own owns its deployment and operations
     units = unit_dirs(inv, repo)
@@ -1811,7 +1820,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str) -> str:
             if t in ("test", "lint", "build", "run", "dev", "check", "fmt"):
                 add(t, f"make {t}" if tr["file"].endswith("Makefile") else f"just {t}", tr["file"])
     lines = [f"# {name} - for agents", "",
-             f"> **This document owns:** the commands that build, test, run and lint {name}, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the docs index holds everything else. *(draft, review me)*",
+             f"> **This document owns:** the commands that build, test, run and lint {name}, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the docs index holds everything else. *(skeleton, write me)*",
              "", "## Commands", ""]
     lines += cmds or ["- open question: no manifest scripts or task-runner targets were found; write the commands by hand"]
     lines += ["", "## Conventions", "", "- open question: branch, commit and PR rules an agent would get wrong without being told",
@@ -2448,7 +2457,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 if seen >= 12:
                     break
         if (not has_owner and not exempt("R2", d.rel) and not d.skipped and generator is None
-                and not is_community_file(d.rel)
+                and not is_community_file(d.rel) and d.rel != central_rel
                 and (root_docs and d.rel not in ROOT_FILES or d.path not in roots)):
             if rec:
                 pass  # a record folder describes a moment; R6 and R7 already relax there, and so does this

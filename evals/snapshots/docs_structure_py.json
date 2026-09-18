@@ -259,7 +259,7 @@
     "files": {
       "AGENTS.md": {
         "concern": "agent",
-        "content": "# mini-py - for agents\n\n> **This document owns:** the commands that build, test, run and lint mini-py, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the docs index holds everything else. *(draft, review me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
+        "content": "# mini-py - for agents\n\n> **This document owns:** the commands that build, test, run and lint mini-py, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the docs index holds everything else. *(skeleton, write me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
         "lines": 19,
         "template": "references/templates/AGENTS.md",
         "why": "agent (always)"

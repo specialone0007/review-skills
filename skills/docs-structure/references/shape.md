@@ -102,7 +102,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | doc | concern | read this if you | owns | earned by | sections |
 | --- | --- | --- | --- | --- | --- |
 | `README.md` | front door | arrived from anywhere | what it is, the quickstart, the licence, the Start-here block | always; never created, only the block is written | hand-written; the block is `## Start here` between the markers |
-| `AGENTS.md` | agent | are a coding agent or a new contributor with ten minutes | the commands that build, test, run and lint; the conventions an agent cannot infer; the gotchas | always: task runners, package scripts, CI jobs, test runners | Commands · Conventions · Gotchas · Docs (a link to the index, nothing else) |
+| `AGENTS.md` | agent | are a coding agent or a new contributor with ten minutes | the commands that build, test, run and lint; the conventions an agent cannot infer; the gotchas | always: task runners, package scripts, CI jobs, test runners. Written as a skeleton with the commands filled in from the manifests; the gate never judges it as a draft, a person finishes it | Commands · Conventions · Gotchas · Docs (a link to the index, nothing else) |
 | `CLAUDE.md` | agent | use Claude Code | nothing; it imports AGENTS.md | a `.claude/` folder or an existing CLAUDE.md | the single line `@AGENTS.md`; an existing CLAUDE.md with content is left alone and warned |
 
 ### getting-started
@@ -110,7 +110,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | doc | concern | read this if you | owns | earned by | sections · fill |
 | --- | --- | --- | --- | --- | --- |
 | `SETUP.md` | setup | have never run it | prerequisites, install, run, the first visible success, what to do when it fails | always | Prerequisites · Install · Run it · First success · If it fails · fill: packages, tree, ci, env, services |
-| `ONBOARDING.md` | onboarding | joined this week | the reading order, the path per role, the vocabulary | always when seven or more docs are earned; else its Glossary folds into SETUP | Read in this order · By role · Glossary · fill: readme, packages, schema, routes |
+| `ONBOARDING.md` | onboarding | joined this week | the reading order, the path per role, the vocabulary | when seven or more other docs are earned (it is the eighth); else its Glossary folds into SETUP | Read in this order · By role · Glossary · fill: readme, packages, schema, routes |
 
 ### guides
 
@@ -180,9 +180,9 @@ Worked examples from real runs, so the numbers mean something:
   cron job and OpenAI, Railway and Zep SDKs: sixteen docs plus the index, AGENTS.md and two unit
   deployment guides. Every bucket folder exists.
 - A two-route Python service with alembic and a CLI entry: PRODUCT, SETUP, DEVELOPMENT, ARCHITECTURE,
-  DATA_MODEL, API, CLI. Seven docs, so buckets exist, and `guides/` holds only DEVELOPMENT, so that one
-  stays flat: `docs/DEVELOPMENT.md`, `docs/getting-started/SETUP.md`, `docs/reference/{DATA_MODEL,API,CLI}.md`,
-  `docs/explanation/{PRODUCT,ARCHITECTURE}.md`.
+  DATA_MODEL, API, CLI, and ONBOARDING as the eighth. Buckets exist; `guides/` holds only DEVELOPMENT and
+  `explanation/` only PRODUCT, so those two stay flat: `docs/DEVELOPMENT.md`, `docs/PRODUCT.md`,
+  `docs/getting-started/{SETUP,ONBOARDING}.md`, `docs/reference/{ARCHITECTURE,DATA_MODEL,API,CLI}.md`.
 - A single-package library with tests and a publish script: OVERVIEW, SETUP, DEVELOPMENT, TESTING,
   RELEASING, PUBLIC_API. Six docs, flat in `docs/`, index with bucket headings.
 
