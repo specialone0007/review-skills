@@ -80,6 +80,10 @@ QUOTED = re.compile(r"\"[^\"]*\"|\u201c[^\u201d]*\u201d")
 # A sentence that ended mid-paragraph without a bracket before the next one began. An
 # abbreviation is not a sentence end: U.S., i.e., etc., vs. and a single initial all carry a
 # full stop in the middle of a clause.
+# An ordered-list marker ends in a full stop and is not a sentence end. Every numbered step in
+# a draft was reported as a sentence without evidence - on the shape the DEPLOYMENT template
+# asks for by name ("Numbered, from a clean checkout to a live URL").
+LIST_MARKER = re.compile(r"(?:^|\s)\d{1,3}\.$")
 ABBREV = re.compile(r"\b(?:[A-Z]|e\.g|i\.e|etc|vs|cf|approx|Inc|Ltd|Dr|St|No|Fig|Ref)\.$", re.I)
 BAD_BREAK = re.compile(r"[^\]`.]\.\s+(?=[A-Z`(])")
 # Hyphen-aware: fast-glob, simple-git and secure-compare are names. A hyphen is a word
@@ -121,6 +125,7 @@ NEGATION = re.compile(
     r"|\b(?:is|are|was|were|does|do|did|has|have|had) not\s+(?!a\b|an\b|the\b)(?!recorded|documented|stated|named|written|commented|described|mentioned)[a-z`\"']\w*"
     r"|\b(?:is|are|was|were)\s+(?:\w+\s+){0,2}(?:missing|nonexistent|non-existent|unauthenticated|unprotected|unvalidated|unchecked|unenforced)\b"
     r"|\bnowhere to be (?:found|seen)\b"
+    r"|(?:^|\|\s*)(?:none found|not found|none|n/?a)\s*(?:\||$)"
     r"|\b(?:omits?|omitted|skips?|bypasses)\s+(?:any|all|every)?\s*\w+"
     r"|\bnever\s+\w+|\bnothing\s+\w+|\bnone of\s+\w+|\bno such\s+\w+", re.I)
 # A scope is evidence that a search happened: a command, or a named place with a path in it.
@@ -607,7 +612,8 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 if not BRACKET_END.search(last):
                     add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")
                 breaks = [m for m in BAD_BREAK.finditer(bare)
-                          if not ABBREV.search(bare[:m.end(0)].rstrip())]
+                          if not ABBREV.search(bare[:m.end(0)].rstrip())
+                          and not LIST_MARKER.search(bare[:m.end(0)].rstrip())]
                 if breaks:
                     add("G1", first, "a sentence inside this paragraph ends without an evidence bracket")
                 for ref in BRACKET_ANY.findall(joined):
@@ -765,6 +771,9 @@ def main() -> int:
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
     ap.add_argument("--max-lines", type=int, default=0, help="draft line cap (default: half the manifest's splitAt, else 250)")
     ap.add_argument("--cap", type=int, default=40, help="findings printed per doc in text mode (default 40)")
+    ap.add_argument("--strict", action="store_true",
+                    help="treat an unjudged section as a failure; use it after a fill run, "
+                         "where a dropped marker is the likeliest slip and unjudged is not clean")
     ap.add_argument("--fail-on-findings", action="store_true", help="exit 1 when any finding stands")
     ap.add_argument("--format", choices=("text", "json"), default="text")
     args = ap.parse_args()
@@ -827,7 +836,9 @@ def main() -> int:
     # G0 rows say what the gate did not judge. They are information, not a defect: failing on
     # them meant a doc with one reviewed section could never be refilled, which is the whole
     # messy-middle workflow.
-    blocking = [f for f in findings if f.get("level") != "skipped"]
+    # --strict: after a fill run, a section the gate did not judge is not a section that passed.
+    # Without it, one dropped marker turned the gate green over prose breaking six of ten rules.
+    blocking = [f for f in findings if args.strict or f.get("level") != "skipped"]
     return 1 if (args.fail_on_findings and blocking) else 0
 
 

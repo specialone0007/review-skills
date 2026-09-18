@@ -147,6 +147,7 @@
       "weak": false
     }
   ],
+  "coverage_determined": true,
   "discovery": null,
   "ecosystems": [
     "node",
@@ -182,6 +183,14 @@
       "line": 32,
       "message": "line-number citation \"[src/config.js:12\" - cite a symbol or a log tag",
       "path": "docs/drafted.md",
+      "rule": "R7",
+      "severity": "P2"
+    },
+    {
+      "level": "fail",
+      "line": 12,
+      "message": "line-number citation \"src/config.js:12\" - cite a symbol or a log tag",
+      "path": "docs/setup.md",
       "rule": "R7",
       "severity": "P2"
     },
@@ -502,9 +511,10 @@
       "warnings": 0
     },
     "R7": {
-      "failures": 1,
+      "failures": 2,
       "first": [
-        "docs/drafted.md:32"
+        "docs/drafted.md:32",
+        "docs/setup.md:12"
       ],
       "severity": "P2",
       "title": "line-number citations",
@@ -582,7 +592,7 @@
     "concerns_covered": 1,
     "concerns_missing": 8,
     "docs_checked": 10,
-    "failures": 4,
+    "failures": 5,
     "non_doc_files": 0,
     "placeholders": 24,
     "split_candidates": 4,

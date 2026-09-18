@@ -343,6 +343,9 @@ def git_root(start: Path) -> Path | None:
     return Path(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else None
 
 
+# A line telling the reader not to write a line-number citation necessarily contains one as an
+# example. The advice is not the offence.
+CITE_ADVICE = re.compile(r"\b(never|not|instead of|rather than|do ?n.t|avoid|no longer|stop)\b", re.I)
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
 
@@ -653,7 +656,15 @@ def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
     pkg = linked_package_docs(repo, skills, ignore)
     # is_dir()/is_file() are case-insensitive on Windows, so a repo holding Documentation/ was
     # discovered here and not on Linux - the same repo, two sets of findings, and CI is Linux.
-    for name in DOCS_FOLDER_NAMES:
+    # Match the folder name case-insensitively but keep the spelling on disk: exists_exact made
+    # a capitalised Docs/ or Documentation/ - the Linux-kernel and .NET conventions - read as
+    # "no docs folder at all", which is a wrong answer where an honest one was available.
+    try:
+        on_disk = {p.name.lower(): p.name for p in repo.iterdir() if p.is_dir()}
+    except OSError:
+        on_disk = {}
+    for want in DOCS_FOLDER_NAMES:
+        name = on_disk.get(want, want)
         d = repo / name
         if exists_exact(d) and d.is_dir() and is_package_dir(d):
             # A docs site that builds itself is a package that happens to be called docs. Taking
@@ -976,6 +987,11 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             continue
         dfile = default_file(inv)
         default_path = dfile if root_docs else f"{docs_root}/{dfile}"
+        # A manifest that maps a concern to a file names that file, whether or not it exists
+        # yet. Using it only as a cover meant the escape hatch for "our team calls it something
+        # else" failed in the one case a team would reach for it: a doc not yet written.
+        if isinstance(pin, str):
+            default_path = pin
         covered_by, how, runner_up, seed = None, "", None, None
         if isinstance(pin, str):
             covered_by = pin if exists_exact(repo / pin) else None
@@ -1660,10 +1676,13 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
         # ---- R7 line-number citations
         if not exempt("R7", d.rel) and not d.skipped:
-            # nocode, not clean: a doc quoting `file.ts:123` as an example of what not to write
-            # was flagged for writing it - including the routing block this skill prints for a
-            # maintainer to paste into their agent file, which then failed the skill's own check.
-            for i, line in enumerate(d.nocode, start=1):
+            # clean, not nocode: backticks are how a path is written in Markdown, and scanning
+            # the code-stripped copy meant the rule almost never fired on a real doc. A line
+            # that tells the reader NOT to write one - "never line numbers", "instead of" - is
+            # excused instead, which is the narrow case that motivated the earlier change.
+            for i, line in enumerate(d.clean, start=1):
+                if CITE_ADVICE.search(line):
+                    continue
                 for tok in line.split():
                     if "://" in tok or len(tok) > MAX_TOKEN:
                         continue
@@ -1950,6 +1969,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                      "proposed_path": (("docs-structure.json" if root_docs else f"{pick_docs_root(repo, roots)}/structure.json")
                                        if proposed is not None else None)},
         "discovery": discovery,
+        "coverage_determined": not unreadable,
         "roots": roots_rel,
         "central_index": central_rel if central_exists else None,
         "generator": generator,
@@ -2000,9 +2020,14 @@ def render(d: dict, top: int) -> str:
     L.append(f"Failures: {t['failures']}   Warnings: {t['warnings']}   Placeholders awaiting review: {t['placeholders']}")
     if d.get("kinds"):
         L.append(f"Kinds: {', '.join(d['kinds'])}   Ecosystems: {', '.join(d['ecosystems']) or 'none recognised'}")
+    if d.get("concerns") and d.get("coverage_determined") is False:
+        L.append("Coverage could not be determined: this repository has documents, and none of them")
+        L.append("scored for any concern - the heading keywords are English and these may not be.")
+        L.append("Nothing below is a claim that a document is missing, and apply creates nothing.")
+        L.append("")
     if d.get("concerns"):
         st = t["states"]
-        L.append(f"Concerns: {t['concerns_covered']} covered, {t['concerns_missing']} missing   Sections: {st['skeleton']} skeleton, {st['draft']} draft, {st['reviewed']} reviewed, {st['missing']} template sections absent from hand-written docs (advice)")
+        L.append(f"Concerns: {t['concerns_covered']} covered, {t['concerns_missing']} {'not determined' if d.get('coverage_determined') is False else 'missing'}   Sections: {st['skeleton']} skeleton, {st['draft']} draft, {st['reviewed']} reviewed, {st['missing']} template sections absent from hand-written docs (advice)")
         L.append("")
         L.append("| concern | applies because | covered by | matched by | state |")
         L.append("|---|---|---|---|---|")
@@ -2084,7 +2109,13 @@ def main() -> int:
     data = build(repo, manifest, mpath, source, args.check_paths)
 
     if args.propose_manifest:
-        print(json.dumps(data["proposed_manifest"] or manifest, indent=2))
+        # On a greenfield repo discovery is root-files-only, so there is no proposal - but apply
+        # still writes a manifest, and printing the bare defaults told the operator nothing. The
+        # flag answers with what apply would write.
+        init_files = ((data.get("init") or {}).get("files") or {})
+        written = next((v.get("content") for k, v in init_files.items()
+                        if k.endswith("structure.json") and isinstance(v.get("content"), dict)), None)
+        print(json.dumps(data["proposed_manifest"] or written or manifest, indent=2))
         return 0
     if args.format == "json":
         if len(data["findings"]) > MAX_JSON_FINDINGS:

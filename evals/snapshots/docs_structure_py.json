@@ -117,6 +117,7 @@
       "weak": false
     }
   ],
+  "coverage_determined": true,
   "discovery": {
     "candidates": {},
     "package_docs": [],
