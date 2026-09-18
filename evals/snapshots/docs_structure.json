@@ -37,7 +37,7 @@
       "concern": "develop",
       "covered_by": "docs/setup.md",
       "default_path": "docs/DEVELOPMENT.md",
-      "matched_by": "H1: setup; H2: install",
+      "matched_by": "file name; H1: setup; H2: install",
       "matched_heading": null,
       "missing_sections": [
         "Prerequisites",

@@ -1136,7 +1136,7 @@ def det_readme_tree(ctx: Ctx, inv: dict) -> None:
     inv["tree"].update({"top_level_dirs": ctx.top_level_dirs(), "governance_files": gov,
                         "pr_template": any((ctx.repo / ".github" / n).exists() for n in ("PULL_REQUEST_TEMPLATE.md", "pull_request_template.md")),
                         "adr_folders": sorted(d for d in ctx.dirs if Path(d).name.lower() in ("adr", "adrs", "decisions", "rfcs"))[:5],
-                        "plan_like_docs": sorted(ctx.rel(p) for p in ctx.files if p.suffix.lower() == ".md" and re.search(r"(plan|roadmap|todo|backlog|tasklist)", p.name, re.I))[:20]})
+                        "plan_like_docs": sorted(ctx.rel(p) for p in ctx.files if p.suffix.lower() == ".md" and re.search(r"\b(plan|plans|roadmap|todo|backlog|tasklist|tasks)\b", p.name, re.I))[:20]})
 
 
 def det_git(ctx: Ctx, inv: dict) -> None:

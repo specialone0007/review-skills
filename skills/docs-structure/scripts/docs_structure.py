@@ -714,8 +714,25 @@ def linked_package_docs(repo: Path, skills: set[Path], ignore: list[str]) -> lis
     return out
 
 
+def root_extras(repo: Path, skills: set[Path], ignore: list[str]) -> list[str]:
+    """Markdown at the repository root that is not one of the standard files.
+
+    These are documents wherever the docs folder is. Returning early on a docs/ folder made
+    them invisible: their concerns read as uncovered and apply offered to create a second copy
+    beside each one.
+    """
+    try:
+        return sorted(p.name for p in repo.iterdir()
+                      if p.is_file() and p.suffix.lower() in DOC_EXTS
+                      and p.name not in ROOT_FILES and not is_community_file(p.name)
+                      and not excluded(p, repo, skills, ignore))
+    except OSError:
+        return []
+
+
 def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
     pkg = linked_package_docs(repo, skills, ignore)
+    pkg += [n for n in root_extras(repo, skills, ignore) if n not in pkg]
     # is_dir()/is_file() are case-insensitive on Windows, so a repo holding Documentation/ was
     # discovered here and not on Linux - the same repo, two sets of findings, and CI is Linux.
     # Match the folder name case-insensitively but keep the spelling on disk: exists_exact made
@@ -961,6 +978,12 @@ def concern_score(doc: "Doc", keywords: set[str], default_file: str, front_door:
     score = 0
     how = []
     name_hit = doc.path.name.lower() == Path(default_file).name.lower()
+    if not name_hit:
+        # A file whose own name is one of the concern's words is that concern's document, whatever
+        # the template calls it: PURPOSE.md is the purpose doc even though the default is
+        # PRODUCT.md, and reporting purpose uncovered beside it is how a second copy gets created.
+        stem = doc.path.stem.lower().replace("_", " ").replace("-", " ")
+        name_hit = stem in {k.lower() for k in keywords}
     if name_hit:
         score += 6
         how.append("file name")
@@ -1648,7 +1671,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     unreadable = False
     convention = manifest.get("indexConvention") or detect_convention(folders, repo)
     central_rel = manifest.get("centralIndex")
-    if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2:
+    # Only a discovery that actually found root docs, never root-files-only. Counting the root
+    # files instead meant adding a CLAUDE.md flipped the whole layout: the same repository laid
+    # its skeletons in docs/ without it and at the root with it, and lost its index.
+    if discovery and discovery.get("status") == "root-docs":
         root_docs = True  # every root is a top-level file: the docs live at the repo root and the README is their index
     if not central_rel and root_docs:
         central_rel = "README.md"

@@ -145,7 +145,9 @@ NEGATION = re.compile(
 # and it cleared this the same way ", per a scan" once did.
 SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+(?:-\S+\s+)*(?:[\"'`][^\"'`]+[\"'`]|[\w.*-]*[/.][\w./*-]+)"
                    r"|\b(?:searched|scanned|scan(?:ned)?)\s+(?:every |all |the )?`?[\w.-]*[/.][\w/*-][\w./*-]*"
-                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w/*-][\w./*-]*", re.I)
+                   # The trailing segment is optional: `src/` names a folder, and refusing it asked the author to
+# write a less precise scope than the one they had.
+                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]*", re.I)
 SCAN_CMD = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|wc|ls)\b\s*[-\w`\"']", re.I)
 INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 # The keys docs_evidence actually emits.
@@ -343,7 +345,11 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             # SKILL.md calls the bracket grammar closed. A link to a dashboard is not evidence
             # from this repository, and accepting it made any claim citable.
             return f"a URL is not repository evidence: {path[:40]}"
-        if not path or path.startswith(("^", "!")):
+        if path.startswith("^"):
+            # SKILL.md calls the bracket grammar closed. A footnote reference points at a
+            # footnote, not at the repository, and it was satisfying the evidence rule.
+            return f"a footnote marker is not evidence: [{path[:20]}]"
+        if not path or path.startswith("!"):
             continue
         if not exists_exact(repo, path):
             return f"cited path does not exist: {path}"
@@ -969,7 +975,13 @@ def main() -> int:
             return False
         if not wrote:
             return True
-        head = f.get("section", "")
+        # A document-level G0 - a misspelled marker, a commit nobody could verify - has no
+        # section, and --wrote is about sections. Comparing "doc#" against the list meant the
+        # prescribed command switched those protections off: a typo in the marker passed.
+        head = f.get("section")
+        if not head:
+            return True
+
         # --wrote names what this run drafted. A skipped section the run did not write is a
         # person's prose and must not block; one it did write and left unmarked must.
         return f"{f['doc']}#{head}" in wrote
