@@ -127,12 +127,9 @@ AMBIGUOUS_MARKERS = {"conf.py": ("extensions", "master_doc", "html_theme", "sphi
                                      "taxonomies", "markup", "menu"),
                      "SUMMARY.md": None, "_sidebar.md": None}
 # Folders whose contents describe something other than this repo; ignored when deciding what the repo is.
-EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests", "__tests__", "spec", "specs"}
 # Folders whose Markdown describes test material. Such a doc is still checked for links and
 # citations; it just never becomes the doc that covers one of the repo's own concerns.
 FIXTURE_DIRS = {"fixtures", "fixture", "__fixtures__", "testdata", "test-data", "mocks", "__mocks__", "golden", "snapshots"}
-CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".go", ".rs", ".rb", ".php",
-             ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh", ".sql", ".html", ".astro"}
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
             "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2", "R13": "P3"}
@@ -232,6 +229,41 @@ def _lib_or_cli(inv):
     return bool(k & {"library", "cli"}) and "application" not in k
 
 
+# What a document covering a concern is called in the languages most often met in public
+# repositories. Partial by construction and only ever used to say "this existing file looks like
+# the home for this concern - confirm", never to create anything: the cost of a miss is advice
+# not given, and the cost of a wrong guess is a skeleton written beside a real document.
+CONCERN_ALIASES = {
+    "purpose": ("producto", "produto", "produkt", "prodotto", "vision", "visao", "vizyon",
+                "resumen", "resumo", "ubersicht", "uebersicht", "panoramica", "proposito",
+                "objetivo", "zweck", "scopo", "urun", "genelbakis"),
+    "architecture": ("arquitectura", "arquitetura", "architektur", "architettura", "mimari",
+                     "struktur", "estructura", "estrutura", "struttura", "yapi"),
+    "develop": ("desarrollo", "desenvolvimento", "entwicklung", "sviluppo", "gelistirme",
+                "developpement", "instalacion", "instalacao", "installazione", "kurulum",
+                "empezar", "comecar", "einstieg", "iniziare"),
+    "plan": ("planificacion", "planejamento", "planung", "pianificazione", "tareas", "tarefas",
+             "aufgaben", "compiti", "gorevler", "hoja-de-ruta"),
+    "deploy": ("despliegue", "implantacao", "implantacion", "bereitstellung", "distribuzione",
+               "dagitim", "deploiement", "produccion", "producao", "produktion", "produzione"),
+    "release": ("lanzamiento", "lancamento", "veroffentlichung", "veroeffentlichung", "rilascio",
+                "surum", "publicacion", "publicacao"),
+    "data": ("datos", "dados", "daten", "dati", "veri", "modelo-de-datos", "modelodedatos",
+             "esquema", "banco-de-dados", "datenbank", "veritabani"),
+    "http": ("endpoints", "puntos-finales", "servicios", "servicos", "schnittstelle",
+             "arayuz", "rotas", "rutas"),
+    "commands": ("comandos", "befehle", "comandi", "komutlar", "commandes"),
+    "exports": ("exportaciones", "exportacoes", "esportazioni"),
+    "design": ("diseno", "gestaltung", "tasarim", "progettazione", "estilo", "stil"),
+    "testing": ("pruebas", "testes", "prufung", "pruefung", "collaudo", "testler"),
+    "operate": ("operaciones", "operacoes", "betrieb", "operazioni", "isletme", "manual",
+                "handbuch", "guia-operativa"),
+    "contribute": ("contribuir", "contribuicao", "contribucion", "beitragen", "contribuire",
+                   "katki", "katkida-bulunma"),
+    "research": ("investigacion", "pesquisa", "forschung", "ricerca", "arastirma"),
+}
+
+
 CONCERNS = [
     # id, applies(inv) -> reason | None, default_file(inv) -> str, keywords, template, companions
     ("purpose", lambda inv: "always", lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md",
@@ -281,9 +313,14 @@ REF_DEF_TARGET = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 HTML_HREF = re.compile(r"""<a\b[^>]*\bhref\s*=\s*["']([^"']+)["']""", re.I)
 REF_USE_RE = re.compile(r"\[[^\]]+\]\[([^\]]+)\]")
 FOOTNOTE_RE = re.compile(r"\[\^[^\]]+\]")
-MEASURE_RE = re.compile(r"\$\d+\.\d+|(?<![\d.])\d{1,3}\.\d+%|(?<![\d.])0\.\d{3,}\b")
+# The trailing (?!\.\d) keeps a semver out: fastapi 0.107.0 appears in three docs and is a
+# dependency pin, not a measurement anybody has to keep in step.
+MEASURE_RE = re.compile(r"\$\d+\.\d+|(?<![\d.])\d{1,3}\.\d+%|(?<![\d.])0\.\d{3,}\b(?!\.\d)")
 TRIVIAL_MEASURES = {"$0.00", "0.0%", "100.0%"}
 SETEXT_RE = re.compile(r"^ {0,3}(=+|-+)\s*$")
+# A list item, a table row or a blockquote opens a block whose indented lines are its
+# continuation, not a code block.
+LIST_MARKER_RE = re.compile(r"^ {0,3}(?:[-*+]\s|\d+[.)]\s|\||>)")
 CODESPAN_RE = re.compile(r"`[^`\n]*`")
 BOX_RE = re.compile(r"^\s*[-*] \[( |~|x|X)\]")
 DATE_RE = re.compile(r"\b20\d{2}-\d{2}(-\d{2})?\b")
@@ -408,21 +445,44 @@ def strip_html_comments(text: str) -> str:
 
 
 def strip_fences(lines: list[str]) -> list[str]:
-    """Blank out fenced blocks, keeping line numbers stable."""
+    """Blank out code blocks, fenced and indented, keeping line numbers stable.
+
+    Only fenced blocks were blanked, so a stack trace pasted in a four-space block was read as
+    prose: its paths became dead links and its frame lines became line-number citations, and
+    both are failures rather than advice. An indented block needs a blank line before it and a
+    parent that is not a list item, which is what keeps a list continuation out of this.
+    """
     out: list[str] = []
     fence: str | None = None
+    indented = False
+    prev_blank = True
+    prev_top = ""
     for line in lines:
         m = FENCE_RE.match(line)
         if fence is None and m:
             fence = m.group(1)
             out.append("")
+            prev_blank = False
             continue
         if fence is not None:
             if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
                 fence = None
             out.append("")
+            prev_blank = False
             continue
-        out.append(line)
+        blank = not line.strip()
+        deep = line.startswith("    ") or line.startswith("\t")
+        if indented and not blank and not deep:
+            indented = False
+        if not indented and deep and prev_blank and not LIST_MARKER_RE.match(prev_top) and prev_top.strip():
+            indented = True
+        if indented and not blank:
+            out.append("")
+        else:
+            out.append(line)
+        if not blank and not deep:
+            prev_top = line
+        prev_blank = blank
     return out
 
 
@@ -617,8 +677,29 @@ def skill_dirs(repo: Path) -> set[Path]:
     return out
 
 
+# The four files GitHub reads from .github/ as well as from the root.
+GITHUB_DOCS = {"CONTRIBUTING.md", "SECURITY.md", "SUPPORT.md", "CODE_OF_CONDUCT.md"}
+
+
+def root_files_here(repo: Path) -> list[str]:
+    """The standard files this repository actually has, at the root or under .github/.
+
+    A repository that keeps its contributing guide where GitHub documents it was told no doc
+    covered the concern, and apply offered to write a second one in docs/.
+    """
+    here = [f for f in ROOT_FILES if exists_exact(repo / f)]
+    here += [".github/" + n for n in sorted(GITHUB_DOCS)
+             if n not in here and exists_exact(repo / ".github" / n)]
+    return here
+
+
 def excluded(path: Path, repo: Path, skills: set[Path], ignore: list[str]) -> bool:
     rel_parts = path.relative_to(repo).parts
+    # .github/ is where GitHub itself documents CONTRIBUTING, SECURITY, SUPPORT and the code
+    # of conduct. Excluding every dot-folder made a repository that follows that convention
+    # look as though it had no contributing guide, and apply offered to write a second one.
+    if len(rel_parts) == 2 and rel_parts[0] == ".github" and rel_parts[1] in GITHUB_DOCS:
+        return False
     for i, part in enumerate(rel_parts[:-1] if path.is_file() else rel_parts):
         if part in ALWAYS_SKIP or (part.startswith(".") and part not in (".",)):
             return True
@@ -1175,8 +1256,16 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
         near = None
         if not covered_by:
             stem = Path(dfile).stem.split("_")[0].lower()
+            # The comment above cites ARQUITECTURA.md, and "architecture" is not inside
+            # "arquitectura" - the example the rule was written for did not work. The
+            # keywords are English and a lot of repositories are not, so the concern's name
+            # in the languages most often met carries the same weight as the English stem.
+            aliases = {a for a in CONCERN_ALIASES.get(cid, ())}
             for d in candidates:
                 dn = d.path.stem.lower()
+                if len(dn) > 3 and any(a in dn or dn in a for a in aliases if len(a) > 3):
+                    near = d.rel
+                    break
                 # Both sides need length: "a" is inside "architecture" and inside "tasklist",
                 # so docs/A.md was reported as named for both.
                 if len(stem) > 3 and len(dn) > 3 and (stem in dn or dn in stem):
@@ -1601,10 +1690,14 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         roots_rel = list(discovery["roots"])
         if discovery["status"] == "root-docs":
             pass  # every top-level doc is a root; the README is the index
+        # exists_exact, not is_file(): is_file() is case-insensitive on Windows, so a repo with
+        # a lowercase readme.md was checked here as README.md and on Linux as readme.md - two
+        # verdicts for the same tree, and a proposed manifest naming a root that CI reports as
+        # missing. This is the divergence exists_exact was written for.
         elif discovery["status"] != "resolved":
-            roots_rel = [f for f in ROOT_FILES if (repo / f).is_file()]
+            roots_rel = root_files_here(repo)
         else:
-            roots_rel += [f for f in ROOT_FILES if (repo / f).is_file()]
+            roots_rel += root_files_here(repo)
         roots_rel += [p for p in discovery.get("package_docs", []) if p not in roots_rel]  # a monorepo's per-package READMEs
     expanded: list[str] = []
     for r in roots_rel:
@@ -1862,6 +1955,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             if GITHUB_REL.match(target) and d.path.parent == repo:
                 continue  # ../../issues from a root file is the repository on github.com
             file_part, _, anchor = target.partition("#")
+            # GitHub takes ?plain=1 and ?raw=true on a file link; the path in front of the
+            # question mark is the file, and resolving the whole string reported it dead.
+            file_part = file_part.split("?", 1)[0]
             anchor = unquote(anchor).lower()
             if generator is not None and (file_part.startswith("/") or (file_part and "." not in Path(file_part).name)):
                 continue  # a site route, resolved by the generator, not a file
@@ -2058,9 +2154,12 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     front_rel = manifest.get("frontDoor") or "README.md"
     front = repo / front_rel
     front_doc: "Doc | None" = None  # set when R11 applies; the checklist below needs the coverage table
-    if front_rel != "README.md" and not front.is_file():
+    # Same reason as the roots above: a lowercase readme.md is a different file, and saying
+    # otherwise made R11 fire here and not on the Linux runner.
+    front_here = exists_exact(front)
+    if front_rel != "README.md" and not front_here:
         warnings.append(f"frontDoor {front_rel} does not exist")
-    if (central_exists and front.is_file() and not r1_off and not exempt("R11", front_rel)
+    if (central_exists and front_here and not r1_off and not exempt("R11", front_rel)
             and front.resolve() != central.resolve()):
         fdoc = by_rel.get(front_rel) or Doc(front, repo)
         outgoing = links_out(fdoc)
@@ -2333,7 +2432,11 @@ def render(d: dict, top: int) -> str:
     L.append("|---|---|---|---|---|")
     for r, info in d["rules"].items():
         if info["failures"] or info["warnings"]:
-            L.append(f"| {r} {info['title']} | {info['severity']} | {info['failures']} | {info['warnings']} | {', '.join(info['first'])} |")
+            # R12 anchors every concern at the same line, so this column read
+            # "docs/INDEX.md:1, docs/INDEX.md:1, docs/INDEX.md:1". The concern table below
+            # names them; here one anchor is the whole answer.
+            where = list(dict.fromkeys(info['first']))
+            L.append(f"| {r} {info['title']} | {info['severity']} | {info['failures']} | {info['warnings']} | {', '.join(where)} |")
     L.append("")
     shown = d["findings"][:top]
     if not d["findings"]:

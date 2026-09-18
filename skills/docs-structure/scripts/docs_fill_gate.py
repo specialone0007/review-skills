@@ -66,7 +66,6 @@ if hasattr(sys.stdout, "reconfigure"):
 GIT_TIMEOUT = 30
 MAX_READ = 2_000_000
 DRAFT_MARK = "*(draft, review me)*"
-SKELETON_MARK = "(skeleton, write me)"
 DEFAULT_MAX_LINES = 250  # splitAt 500 / 2
 
 # One level of nesting is allowed inside a bracket. Without it the grammar SKILL.md documents
@@ -94,7 +93,9 @@ BANNED = re.compile(r"(?<![\w-])(robust|secure|simple|clean|fast|modern|scalable
                     r"seamless|best|properly|elegant|efficient|reliable)(?![\w-])", re.I)
 INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to)\b", re.I)
 # Case-insensitive like BANNED and INTENT: sentence-start is where a modal actually appears.
-MODAL = re.compile(r"\b(should|must|will|guarantees|handles)\b", re.I)
+# "handles" left: "the worker keeps 3 file handles open" is a count of file descriptors, not a
+# promise, and it is the ordinary way to write that sentence.
+MODAL = re.compile(r"\b(should|must|will|guarantees)\b", re.I)
 # A count is the weakest sentence a draft can carry: two scanners give two answers and the
 # reader cannot tell which one wrote the doc. A number has to be one the inventory reports.
 # Things a repository scan counts. A number in front of one of these is an aggregate someone
@@ -159,7 +160,6 @@ INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exp
                   "tests", "ci", "ops", "decisions", "readme", "tree", "release", "kinds",
                   "ecosystems", "warnings"}
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
-PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
 URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
 LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
@@ -180,7 +180,16 @@ LOOKS_LIKE_VALUE = re.compile(r"://|=|^\d[\d._-]*$|^[A-Za-z0-9+/_-]{16,}$")
 SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
 # What a secret_like column holds instead of a value: structure.md asks for that flag, and it
 # is a yes or a no, not a password.
-FLAG_VALUE = re.compile(r"^(?:yes|no|y|n|true|false|server|client|build|runtime|redacted|hidden|masked)$", re.I)
+FLAG_VALUE = re.compile(r"^(?:yes|no|y|n|true|false|server|client|build|runtime|redacted|hidden|masked|server-only|client-only|build-time|build-only|internal|public|private)$", re.I)
+# How a description of a variable starts. "One word or it is prose" let a value through the
+# moment anything followed it - "hunter2 (dev only)", "hunter2 in development" - which is how
+# a password is actually written down. The first token is the value unless the field opens
+# like a sentence about the variable rather than the variable's contents.
+PROSE_LEAD = frozenset("""a an the this that these those its it their your our any each every some no not
+one two only same both either neither used use uses set sets setting generated provided supplied issued
+created chosen picked derived read reads holds hold points identifies controls enables disables selects
+defaults default must may can should will when where whether if for from in on at by with without
+name names value values how what which see whatever per as of to and or but so then also""".split())
 PLACEHOLDER_VALUE = re.compile(r"^(?:-+|—|n/?a|none|unset|empty|required|optional|string|number|bool(?:ean)?|url|path|int|float|secret|token|\.\.\.|<[^>]*>|\{[^}]*\}|\[[^\]]*\])$", re.I)
 BULLET = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
 CODESPAN = re.compile(r"`[^`]*`")
@@ -202,6 +211,39 @@ warnings: list[str] = []
 def safe(text: str) -> str:
     """Never echo a line back raw: a drafted line can quote a value the inventory flagged."""
     return docs_evidence.redact(text) if docs_evidence is not None else text
+
+
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "references" / "templates"
+_TEMPLATE_LINES: set[str] | None = None
+
+
+def is_template_text(candidate: list[str]) -> bool:
+    """Lines the bundled templates ship, verbatim.
+
+    TASKLIST and DESIGN_GUIDELINES carry unbracketed prose in their leads by design, so the
+    moment fill flipped the owner line the template's own words failed G1, G2 and G10 - the
+    plan and design concerns could not be filled at all, and "never rewrite template prose"
+    and "the gate must be clean" contradicted each other with no way out.
+    """
+    global _TEMPLATE_LINES
+    if _TEMPLATE_LINES is None:
+        _TEMPLATE_LINES = set()
+        try:
+            for p in sorted(TEMPLATES_DIR.glob("*.md")):
+                for l in read(p).splitlines():
+                    t = l.strip()
+                    if not t:
+                        continue
+                    # A blockquote reaches the rules with its "> " taken off - the gate judges
+                    # the text, not the marker - so the quoted form has to be here as well, or
+                    # DESIGN_GUIDELINES' own golden rule failed G1 and G10.
+                    _TEMPLATE_LINES.add(t)
+                    if t.startswith(">"):
+                        _TEMPLATE_LINES.add(t.lstrip("> ").strip())
+        except OSError:
+            pass
+    text = [l.strip() for l in candidate if l.strip()]
+    return bool(text) and bool(_TEMPLATE_LINES) and all(t in _TEMPLATE_LINES for t in text)
 
 
 def read(path: Path) -> str:
@@ -564,6 +606,14 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # a section still holding only its template italic line is a skeleton, not a draft
         if len(body) == 1 and body[0].strip().startswith("*") and body[0].strip().endswith("*") and body[0].strip() != DRAFT_MARK:
             continue
+        # A section holding the marker and nothing else said "drafted" and carried no draft.
+        # SKILL.md asks for a sentence or an `open question:` line; silence is neither.
+        if len(body) == 1 and body[0].strip() == DRAFT_MARK:
+            found.append({"doc": rel, "line": start, "rule": "G1", "section": heading,
+                          "message": f"section '{safe(heading)}' carries the {DRAFT_MARK} marker "
+                                     "and no content; write a sentence with its evidence, or one "
+                                     "`open question:` line"})
+            continue
         # The lead carries its marker inline on the owner line - the shape every template
         # produces and SKILL.md prescribes - so its last line is prose, the section was skipped,
         # and the report printed OK. A drafted document's lead is drafted.
@@ -575,9 +625,15 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # a fill run that forgot to flip the owner line used to come back clean under --strict.
         if heading == "(lead)" and any(DRAFT_MARK in l for l in lines[start:end]):
             pass
+        # An HTML comment is not prose. Every template ships one - <!-- concern: deploy; fill:
+        # ... --> - so the moment a person reviewed the owner line and took its marker off, the
+        # lead "carried prose", the finding had no section for --wrote to name, and refill on
+        # that document exited 1 for ever. That is the messy-middle case the skill is for.
         elif heading == "(lead)" and DRAFT_MARK in text and len(
-                [l for l in body if not OWNER_LINE.match(l.strip())]) > 0:
+                [l for l in body if not OWNER_LINE.match(l.strip())
+                 and not l.strip().startswith("<!--")]) > 0:
             found.append({"doc": rel, "line": start, "rule": "G0", "level": "skipped",
+                          "section": "(lead)",
                           "message": "the lead carries prose and no " + DRAFT_MARK + " marker, "
                                      "so it was not judged; flip the owner line if fill wrote it"})
             continue
@@ -609,7 +665,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             """
             # The evidence bracket is a citation, not the draft's words: a path containing
             # clean/fast/simple made every sentence citing it unwritable.
-            bare = CODESPAN.sub("", BRACKET_ANY.sub(" ", joined))
+            # Code spans first. `app/[slug]/page.tsx` and `req.params[id]` are a Next.js route
+            # and an array index; read as evidence brackets they sent G2 looking for files
+            # called slug and id, so every correct sentence about a dynamic route was blocked.
+            nospan = CODESPAN.sub(" ", joined)
+            bare = BRACKET_ANY.sub(" ", CODESPAN.sub("", joined))
             # Code spans out, then quotations out. A file named fast.js or a dependency called
             # simple-git is a name, not a claim about quality; and a quoted README sentence is the
             # repository's words, which G5 and G6 have always respected. G4 did not, so an
@@ -631,7 +691,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # verbatim - so "drop redis because the latency was unacceptable" is the repo's
             # words, not the draft's reasoning.
             intent_hit = INTENT.search(QUOTED.sub(" ", joined))
-            cites_commit = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(joined))
+            cites_commit = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(nospan))
             if intent_hit and not cites_commit and not joined.lower().startswith("inferred:"):
                 add("G6", first, f"intent word outside a quotation or `inferred:`: {intent_hit.group(0)}")
             # A table cell and a YAML-style colon are both "beside". Matching only NAME=value
@@ -665,8 +725,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # placeholder is a value. An "=" assigns whatever follows it; after a colon
                 # or in a table cell the field has to be that one word alone, or it is prose
                 # about the variable rather than its value.
-                secretish = (bool(SECRET_NAME.search(name)) and (sep == "=" or len(words) == 1)
-                             and not FLAG_VALUE.match(val))
+                secretish = (bool(SECRET_NAME.search(name)) and not FLAG_VALUE.match(val)
+                             and (sep == "=" or len(words) == 1
+                                  or val.lower() not in PROSE_LEAD))
                 if secretish or LOOKS_LIKE_VALUE.search(val):
                     add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
             # A credential-shaped string is a credential whatever it sits beside: the name
@@ -765,18 +826,20 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             joined = " ".join(t for _, t in para)
             last = para[-1][1]
             bare = CODESPAN.sub("", joined)
-            if OWNER_LINE.match(joined.strip()):
+            if OWNER_LINE.match(joined.strip()) or is_template_text([t for _, t in para]):
                 para.clear()
                 return
             if not joined.lower().startswith("open question:"):
-                if not BRACKET_END.search(last):
+                # A code span ending in "]" is not an evidence bracket either, and it used to
+                # satisfy this rule: `app/[slug]/page.tsx` at the end of a paragraph passed.
+                if not BRACKET_END.search(CODESPAN.sub(" ", last)):
                     add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")
                 breaks = [m for m in BAD_BREAK.finditer(bare)
                           if not ABBREV.search(bare[:m.end(0)].rstrip())
                           and not LIST_MARKER.search(bare[:m.end(0)].rstrip())]
                 if breaks:
                     add("G1", first, "a sentence inside this paragraph ends without an evidence bracket")
-                for ref in BRACKET_ANY.findall(joined):
+                for ref in BRACKET_ANY.findall(CODESPAN.sub(" ", joined)):
                     why = resolve_bracket(repo, ref)
                     if why:
                         add("G2", first, why)
@@ -824,11 +887,13 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 nxt = lines[idx + 1].strip() if idx + 1 < len(lines) else ""
                 if TABLE_RULE.match(nxt):
                     continue  # header row
+                if is_template_text([s_]):
+                    continue  # the template's own legend row
                 cells = [c.strip() for c in s_.strip("|").split("|")]
                 # A drafted endpoint table puts the handler and its guard in middle cells;
                 # resolving only the last one let a row cite a file that does not exist.
                 for cell in cells[:-1]:
-                    for ref in BRACKET_ANY.findall(cell):
+                    for ref in BRACKET_ANY.findall(CODESPAN.sub(" ", cell)):
                         why = resolve_bracket(repo, ref)
                         if why:
                             add("G2", n, why)
@@ -916,12 +981,12 @@ def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = No
         lines.append(f"note: {w}")
     blocking = ([f for f in data["findings"] if strict or f.get("level") != "skipped"]
                 if blocked is None else ([1] if blocked else []))
-    if blocking:
-        lines.append("")
-        lines.append("Nothing should be written while any finding stands: fix the draft, then run this again.")
-    elif data["total"]:
-        lines.append("")
-        lines.append("The notes above say what was not judged. Nothing here blocks a write.")
+    # The verdict goes last, because SKILL.md says the last line carries it and because a
+    # reader who stops at the first sentence that looks like a conclusion stops at the wrong
+    # one. The boilerplate below is context for the verdict, so it comes first.
+    verdict = ("Nothing should be written while any finding stands: fix the draft, then run this again."
+               if blocking else
+               "The notes above say what was not judged. Nothing here blocks a write." if data["total"] else "")
     if data["docs"]:
         lines.append("")
         unjudged = sorted(set(COUNT_NOUNS) - set(data.get("count_authorities") or []))
@@ -941,6 +1006,14 @@ def render(data: dict, cap: int, strict: bool = False, blocked: bool | None = No
         lines.append("is checkable, not that it is correct. What still needs a person: that each sentence")
         lines.append("matches the code it cites, that a table is complete and not just well formed, and that")
         lines.append("an absence is real. The `*(draft, review me)*` markers say where to start.")
+        lines.append("")
+        lines.append("**Values.** G7 reads the field beside a variable name. Where the name says")
+        lines.append("secret, token, password or key it treats the first word as a value unless that")
+        lines.append("word opens a sentence - so a one-word description in the wrong column can be")
+        lines.append("reported, and a password spelled like an English article will not be.")
+    if verdict:
+        lines.append("")
+        lines.append(verdict)
     return "\n".join(lines)
 
 
