@@ -5,9 +5,10 @@ rule exists, where each concern's evidence comes from, and spells out the split 
 
 ## The shape in one paragraph
 
-One central index lists every doc with one line saying what it owns. A doc that grows past one
-context load becomes an index plus a folder of parts, and the index beside the folder links every
-part. Every doc says what it owns under its title, so a fact has one home and the other docs link
+One central index lists every doc with one line saying what it owns, grouped by what a reader
+came to do: run and build, operate, reference, product and decisions, packages, history. A doc that
+grows past a thousand lines becomes an index plus a folder of a few chapter-sized parts, each
+linking the previous and next, and the index beside the folder links every part. Every doc says what it owns under its title, so a fact has one home and the other docs link
 to it. Links point at headings that exist, paths that exist, and never at line numbers. The README
 says what the project is and how to run it, then points at the index once. An agent loads the
 index plus one doc, not the whole tree.
@@ -17,8 +18,16 @@ index plus one doc, not the whole tree.
 - **R1 reachable.** A doc nobody links to is a doc nobody reads.
 - **R2 owner line.** One owner per fact. When two docs both state a number, one is stale within a
   month. The line under the title says which doc is the home.
-- **R3 oversize.** 500 lines is a proxy for one context load. A candidate list only; a human
-  confirms each split, because the cut is the largest diff this skill can produce.
+- **R3 oversize.** A thousand lines is where a doc stops being one read. A candidate list only; a
+  human confirms each split, because the cut is the largest diff this skill can produce. The cut
+  makes chapters, not confetti: a part is at least `minPart` lines (shorter sections merge into the
+  next), a doc becomes at most `maxParts` parts, and each part links the previous and the next.
+  Found the day a 359-line doc was cut into eighteen parts of six to forty lines, and the
+  filenames were headings slugged whole, paths and asides included.
+- **R14 index state.** The index is where a reader learns whether a doc can be trusted. That
+  needs a closed vocabulary with a date: `skeleton`, `draft`, `reviewed 2026-09-18`,
+  `stale 2026-09-18`. Free text ("current - mostly checked") tells a reader nothing the checker can
+  hold anyone to.
 - **R4 index and folder agree.** An index a reader uses instead of the folder must list the folder.
 - **R5 links and anchors.** A link is a promise. Anchors rot when a heading is reworded; GitHub's
   slug rules (lowercase, drop punctuation, spaces to hyphens, `-1` for duplicates) are applied.
@@ -58,8 +67,9 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "centralIndex": "docs/INDEX.md",
   "indexConvention": "sibling",
   "ownerLine": { "markers": ["This document owns:", "Part of"], "enforce": false },
-  "splitAt": 500,
-  "maxParts": 30,
+  "splitAt": 1000,
+  "maxParts": 12,
+  "minPart": 80,
   "pathPrefixes": ["src", "docs"],
   "citationExtensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "sql", "go", "rs", "java", "rb"],
   "recordFolders": ["docs/plans"],
@@ -272,7 +282,10 @@ first` or `Documentation` section is left alone.
 `scripts/docs_split.py` performs every step below and runs the proof in step 7 itself; the agent writes the files it returns, and only when its `proof.ok` is true.
 
 Input: one doc the user confirmed. Every step is mechanical and every step can refuse; a refusal is
-a finding ("needs a human restructure"), not a failure.
+a finding ("needs a human restructure"), not a failure. A part is a chapter: sections shorter than
+`minPart` merge into the next, the doc becomes at most `maxParts` parts, filenames are the first
+five words of the heading with code spans, paths and parentheticals removed, and every part ends
+with a `Previous · Index · Next` line.
 
 1. **Parse fence-aware.** Fences are ```` ``` ```` or `~~~`, indented up to three spaces. An
    unbalanced fence: refuse. A leading `---` frontmatter block stays on the index.

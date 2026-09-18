@@ -252,7 +252,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "101 lines - could become an index plus 16 parts at H2 (largest 7)",
+      "message": "101 lines, oversize and unsplittable (H2: 16 parts, over maxParts 12; H3: 16 parts, over maxParts 12) - needs a human restructure",
       "path": "docs/drafted.md",
       "rule": "R3",
       "severity": "P2"
@@ -329,8 +329,8 @@
         "why": "deploy (Dockerfile: Dockerfile)"
       },
       "docs/INDEX.md": {
-        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.\n\n| doc | owns | state |\n| --- | --- | --- |\n",
-        "lines": 8,
+        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it. State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Run and build\n\n| doc | owns | state |\n| --- | --- | --- |\n| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |\n| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |\n\n## Operate\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |\n| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |\n\n## Reference\n\n| doc | owns | state |\n| --- | --- | --- |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n\n## Product and decisions\n\n| doc | owns | state |\n| --- | --- | --- |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
+        "lines": 32,
         "template": "INDEX.md (built in)"
       },
       "docs/PRODUCT.md": {
@@ -357,6 +357,23 @@
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
+    },
+    "index_groups": {
+      "Operate": [
+        "| [DEPLOYMENT](DEPLOYMENT.md) | how the system is deployed \u2014 every service, its environment, the steps, and how to roll back. | skeleton |",
+        "| [RUNBOOK](RUNBOOK.md) | how this system is run in production \u2014 health checks, scheduled jobs, alerts, and what to do when each one fires. | skeleton |"
+      ],
+      "Product and decisions": [
+        "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
+        "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |"
+      ],
+      "Reference": [
+        "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |"
+      ],
+      "Run and build": [
+        "| [TESTING](TESTING.md) | how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. | skeleton |",
+        "| [CONTRIBUTING](CONTRIBUTING.md) | how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. | skeleton |"
+      ]
     },
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
@@ -430,6 +447,13 @@
       "severity": "P3",
       "title": "verified-on date fresh",
       "warnings": 1
+    },
+    "R14": {
+      "failures": 0,
+      "first": [],
+      "severity": "P3",
+      "title": "index state vocabulary",
+      "warnings": 0
     },
     "R2": {
       "failures": 0,
@@ -522,12 +546,12 @@
   },
   "split_candidates": [
     {
-      "largest": 7,
-      "level": "H2",
+      "largest": null,
+      "level": null,
       "lines": 101,
-      "parts": 16,
+      "parts": null,
       "path": "docs/drafted.md",
-      "refuse": null
+      "refuse": "H2: 16 parts, over maxParts 12; H3: 16 parts, over maxParts 12"
     },
     {
       "largest": 6,

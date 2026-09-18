@@ -184,8 +184,8 @@
         "why": "data (schema: alembic/versions/0001_initial.py)"
       },
       "docs/INDEX.md": {
-        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.\n\n| doc | owns | state |\n| --- | --- | --- |\n",
-        "lines": 8,
+        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it. State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Reference\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |\n\n## Product and decisions\n\n| doc | owns | state |\n| --- | --- | --- |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
+        "lines": 20,
         "template": "INDEX.md (built in)"
       },
       "docs/PRODUCT.md": {
@@ -217,7 +217,7 @@
             "docs",
             "README.md"
           ],
-          "splitAt": 500
+          "splitAt": 1000
         },
         "lines": 24,
         "template": "generated"
@@ -228,6 +228,17 @@
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
+    },
+    "index_groups": {
+      "Product and decisions": [
+        "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
+        "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |"
+      ],
+      "Reference": [
+        "| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |",
+        "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
+        "| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |"
+      ]
     },
     "index_rows": [
       "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
@@ -294,6 +305,13 @@
       "first": [],
       "severity": "P3",
       "title": "verified-on date fresh",
+      "warnings": 0
+    },
+    "R14": {
+      "failures": 0,
+      "first": [],
+      "severity": "P3",
+      "title": "index state vocabulary",
       "warnings": 0
     },
     "R2": {

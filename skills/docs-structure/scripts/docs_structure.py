@@ -10,7 +10,7 @@ Read-only. Standard library only. Writes nothing.
     python docs_structure.py --check-paths          # also check backticked repo paths (noisy)
     python docs_structure.py --fail-on-findings     # exit 1 when any rule fails (CI gate)
 
-Thirteen mechanical rules, each with a fixed severity. None of them judges prose.
+Fourteen mechanical rules, each with a fixed severity. None of them judges prose.
 
   R1  every doc is reachable in one hop: linked from the central index, or from the
       index that sits beside its folder. No central index at all is ONE finding.
@@ -132,7 +132,8 @@ AMBIGUOUS_MARKERS = {"conf.py": ("extensions", "master_doc", "html_theme", "sphi
 FIXTURE_DIRS = {"fixtures", "fixture", "__fixtures__", "testdata", "test-data", "mocks", "__mocks__", "golden", "snapshots"}
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
-            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2", "R13": "P3"}
+            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2", "R13": "P3",
+            "R14": "P3"}
 FRONT_DOOR_PARALLEL = 8  # a README linking this many docs under the roots is a second index
 # The front door's hand-off section: a reader's first three files, then the index. Apply inserts it
 # between these markers after the README's intro; refill regenerates only what is between them.
@@ -145,6 +146,7 @@ RULE_TITLE = {
     "R6": "backticked paths exist", "R7": "line-number citations",
     "R8": "duplicated measurement", "R9": "checklist counts", "R10": "registry",
     "R11": "front door links the index", "R12": "concern covered", "R13": "verified-on date fresh",
+    "R14": "index state vocabulary",
 }
 
 # Keys whose default is null but whose shape still matters.
@@ -161,8 +163,12 @@ DEFAULT_MANIFEST = {
     # froze the wrong convention into the repository.
     "indexConvention": None,
     "ownerLine": {"markers": ["This document owns:", "Part of"], "enforce": False},
-    "splitAt": 500,
-    "maxParts": 30,
+    # 500 cut 43's 359-line PODCASTS.md into eighteen parts of six to forty lines. A doc is long
+    # at a thousand lines; a part is a chapter of at least minPart lines, and a doc becomes at
+    # most maxParts of them.
+    "splitAt": 1000,
+    "maxParts": 12,
+    "minPart": 80,
     # An uncovered concern warns by default; a team that wants a missing doc to fail the build
     # sets this. Absent from the defaults it was rejected as an unknown key, so the escape
     # hatch SKILL.md documents stopped the tool from running at all.
@@ -1026,11 +1032,30 @@ INDEX_TEMPLATE = """# Docs index
 
 > **This document owns:** the list of every doc in this repository, what each one owns, and its state.
 
-Pick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.
-
-| doc | owns | state |
-| --- | --- | --- |
+Pick the one file you need here; do not read the folder. One doc owns each fact; the others link to it. State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.
 """
+
+# The index is grouped by what a reader came to do, not by concern id: a new engineer wants
+# "run and build", an operator "operate", an API consumer "reference". One flat table served none.
+INDEX_GROUPS = (
+    ("Run and build", ("develop", "testing", "contribute")),
+    ("Operate", ("deploy", "operate")),
+    ("Reference", ("http", "commands", "exports", "data", "design")),
+    ("Product and decisions", ("purpose", "architecture", "plan", "release")),
+    ("Packages", ()),
+    ("History", ("research",)),
+)
+INDEX_TABLE_HEAD = "| doc | owns | state |\n| --- | --- | --- |\n"
+
+
+def index_content(groups: dict[str, list[str]]) -> str:
+    """The central index from its rows, one H2 and one table per group that has rows."""
+    out = INDEX_TEMPLATE
+    for name, _ in INDEX_GROUPS:
+        rows = groups.get(name) or []
+        if rows:
+            out += f"\n## {name}\n\n" + INDEX_TABLE_HEAD + "\n".join(rows) + "\n"
+    return out
 
 # What kind of change sends a reader to each concern's doc. Used for the routing table an agent
 # file carries: the rows are the repo's own covered concerns, never a fixed list.
@@ -1268,6 +1293,11 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             continue  # a part of a split doc; its index is the doc
         candidates.append(d)
     docs_only = "docs-only" in (inv.get("kinds") or [])
+    # In a monorepo a package README describes its package. Scoring it like any doc let the Python
+    # service's README "cover" how the whole repo is run and deployed, and a three-service repo got
+    # neither DEVELOPMENT.md nor DEPLOYMENT.md. Its sections are a seed, as the front door's are.
+    monorepo = "monorepo" in (inv.get("kinds") or [])
+    PER_REPO = ("develop", "deploy", "architecture", "operate")
     heavy_cfg = manifest.get("heavyEvidence") if isinstance(manifest.get("heavyEvidence"), dict) else {}
     rows = []
     for cid, applies, default_file, keywords, template, companions in CONCERNS:
@@ -1300,7 +1330,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             # Front-door weighting is for the front door. Giving it to every file named
             # README.md let a sub-package's readme own a repo-wide concern - prometheus routed
             # "how to run it" to the React UI's README, and marked it reviewed.
-            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel)), d)
+            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel) or (monorepo and "/" in d.rel and d.path.name.upper().startswith("README"))), d)
                              for d in candidates
                              # A CHANGELOG or a SECURITY policy is not a home for a concern; a
                              # CONTRIBUTING or a code of conduct is the home of exactly one.
@@ -1310,6 +1340,8 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             # Heavy evidence: a README section is a seed, not a home. The dedicated doc is still missing.
             weight, label = evidence_weight(cid, inv)
             threshold = int(heavy_cfg.get(cid) or 0)
+            if monorepo and cid in PER_REPO and not threshold:
+                threshold, weight, label = 1, 1, label or "a monorepo: one doc per repo-wide concern, package READMEs seed it"
             if threshold and weight >= threshold:
                 scored = [(s, d) for s, d in scored if not s[1].startswith("README sections")] + [(s, d) for s, d in scored if s[1].startswith("README sections")]
                 dedicated = [(s, d) for s, d in scored if s[0] >= 3 and not s[1].startswith("README sections")]
@@ -1346,7 +1378,9 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                     break
                 # Both sides need length: "a" is inside "architecture" and inside "tasklist",
                 # so docs/A.md was reported as named for both.
-                if len(stem) > 3 and len(dn) > 3 and (stem in dn or dn in stem):
+                # DEVELOPMENT_PLAN.md is named for the plan, not for development; a stem that
+                # carries another concern's word is that concern's doc.
+                if len(stem) > 3 and len(dn) > 3 and (stem in dn or dn in stem) and not re.search(r"plan|roadmap|todo|backlog", dn.replace(stem, "")):
                     near = d.rel
                     break
         weak = bool(covered_by) and how.startswith("README sections") and how.count(",") == 0
@@ -1372,13 +1406,16 @@ def section_states(doc: "Doc", template: Path) -> dict:
     states: dict[str, str] = {}
     # bodies of the doc's H2s
     h2s = [(i, t) for i, lvl, t in doc.headings if lvl == 2]
+    # One marker per document, on the owner line: a section under a drafted owner line is a
+    # draft whether or not it repeats the marker. Seven markers per doc was ceremony.
+    owner_draft = any(DRAFT_MARK in l for l in doc.lines[:12])
     for n, (line_no, text) in enumerate(h2s):
         end = h2s[n + 1][0] - 1 if n + 1 < len(h2s) else len(doc.lines)
         body = [l.strip() for l in doc.lines[line_no:end] if l.strip()]
         key = slug(text)
         if not body or (key in guides and guides[key] and body == [guides[key]]) or (len(body) == 1 and body[0].startswith("*") and body[0].endswith("*")):
             states[text] = "skeleton"
-        elif body[-1] == DRAFT_MARK:
+        elif body[-1] == DRAFT_MARK or owner_draft:
             states[text] = "draft"
         else:
             states[text] = "reviewed"
@@ -1532,12 +1569,6 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     """What apply would create. Names templates, never carries content; the agent copies them."""
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"]]
-    if not have_index and not root_docs:
-        # With the content, not just a name. SKILL.md says the template is in the checker's
-        # output; it was a module constant nothing emitted, so two agents wrote two indexes.
-        files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)",
-                                          "lines": len(INDEX_TEMPLATE.splitlines()),
-                                          "content": INDEX_TEMPLATE}
     manifest = {
         # Only tracked files: a gitignored CLAUDE.md is on this machine, not in the clone the
         # manifest travels to, and a root that does not exist there is a warning for everyone.
@@ -1554,8 +1585,8 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                          else "README.md" if root_docs else f"{docs_root}/INDEX.md"),
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
-        "splitAt": 500,
-        "pathPrefixes": top_level_dirs(repo),
+        "splitAt": 1000,
+        "pathPrefixes": [d for d in top_level_dirs(repo) if d not in ("tmp", "temp", "scratch")],
         "recordFolders": [c["default_path"].rsplit("/", 1)[0] + "/log" for c in uncovered if c["concern"] == "research"],
         "counts": [{"index": c["default_path"],
                     "folder": (c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else "") + "tasklist"}
@@ -1566,6 +1597,8 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     if not have_manifest:
         files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
     rows = []
+    groups: dict[str, list[str]] = {}
+    group_of = {cid: name for name, cids in INDEX_GROUPS for cid in cids}
     for c in uncovered:
         t = template_for(c["template"])
         if t is None:
@@ -1579,10 +1612,28 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                 files[base + comp] = {"template": f"references/templates/{comp}", "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
         title = c["default_path"].rsplit("/", 1)[-1][:-3]
         link = c["default_path"].split("/", 1)[1] if (not root_docs and "/" in c["default_path"]) else c["default_path"]
-        rows.append(f"| [{title}]({link}) | {owner_text(t)} | skeleton |")
+        row = f"| [{title}]({link}) | {owner_text(t)} | skeleton |"
+        rows.append(row)
+        groups.setdefault(group_of.get(c["concern"], "Product and decisions"), []).append(row)
+    # Every root that is a package's own doc gets a row too: "one hop from the index" was false
+    # for exactly the READMEs a new engineer on a monorepo needs first.
+    for p in (package_docs or []):
+        if "/" not in p or not (repo / p).is_file():
+            continue
+        pd = Doc(repo / p, repo)
+        h1 = next((t for _, lvl, t in pd.headings if lvl == 1), Path(p).parent.name)
+        rel_link = ("../" * (docs_root.count("/") + 1)) + p if not root_docs else p
+        row = f"| [{p}]({rel_link}) | {h1} | reviewed |"
+        rows.append(row)
+        groups.setdefault("Packages", []).append(row)
+    if not have_index and not root_docs:
+        # With the content, not just a name. SKILL.md says the template is in the checker's
+        # output; it was a module constant nothing emitted, so two agents wrote two indexes.
+        content = index_content(groups)
+        files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)", "lines": len(content.splitlines()), "content": content}
     if not files and front_links_index and (front_has_start_here or root_docs):
         return None
-    out: dict = {"files": files, "index_rows": rows,
+    out: dict = {"files": files, "index_rows": rows, "index_groups": groups,
                  "print_only": {(agent_file(repo) or "AGENTS.md"): routing_section(coverage, docs_root, manifest["centralIndex"])},
                  "agent_file": agent_file(repo),
                  "then": "run the checker again; skeletons show up in the section states until written or filled"}
@@ -1716,8 +1767,45 @@ def index_for(doc: Doc, repo: Path, roots: list[Path], convention: str) -> Path 
         folder = folder.parent
 
 
-def split_analysis(doc: Doc, split_at: int, max_parts: int) -> dict:
+def part_groups(lines: list[str], cuts: list[int], min_part: int) -> list[tuple[int, int]]:
+    """Cut points to (start, end) line ranges, 1-based start, exclusive end. A heading with no
+    body merges into the part that follows; a part shorter than min_part merges into the
+    part that follows it (or, last, into the one before). Eighteen six-line parts were the
+    alternative."""
+    n = len(lines)
+    bounds = list(cuts) + [n + 1]
+    raw: list[tuple[int, int]] = []
+    i = 0
+    while i < len(bounds) - 1:
+        j = i
+        while j + 1 < len(bounds) - 1 and not [l for l in lines[bounds[j]:bounds[j + 1] - 1] if l.strip()]:
+            j += 1
+        raw.append((bounds[i], bounds[j + 1]))
+        i = j + 1
+    merged: list[tuple[int, int]] = []
+    carry: tuple[int, int] | None = None
+    for start, end in raw:
+        if carry is not None:
+            start = carry[0]
+            carry = None
+        if end - start < min_part:
+            carry = (start, end)
+            continue
+        merged.append((start, end))
+    if carry is not None:
+        if merged:
+            s0, _ = merged.pop()
+            merged.append((s0, carry[1]))
+        else:
+            merged.append(carry)
+    return merged
+
+
+def split_analysis(doc: Doc, split_at: int, max_parts: int, min_part: int = 80) -> dict:
     """Where a doc could be cut. Reports, never cuts."""
+    # A manifest that lowers splitAt for a small repo keeps the ratio: a part is never asked to
+    # be longer than a fifth of what counts as long, or every section merges into one.
+    min_part = max(1, min(min_part, split_at // 5))
     n = len(doc.lines)
     out: dict = {"path": doc.rel, "lines": n, "level": None, "parts": None,
                  "largest": None, "refuse": None}
@@ -1740,21 +1828,7 @@ def split_analysis(doc: Doc, split_at: int, max_parts: int) -> dict:
         if intro > split_at:
             reasons.append(f"H{level}: intro is {intro} lines")
             continue
-        # merge a heading with no body into the part that follows it
-        bounds = [c[0] for c in cuts] + [n + 1]
-        parts = []
-        i = 0
-        while i < len(bounds) - 1:
-            start, end = bounds[i], bounds[i + 1]
-            body = [l for l in doc.lines[start:end - 1] if l.strip()]
-            if not body and i + 1 < len(bounds) - 1:
-                i += 1
-                end = bounds[i + 1]
-                while i + 1 < len(bounds) - 1 and not [l for l in doc.lines[bounds[i]:bounds[i + 1] - 1] if l.strip()]:
-                    i += 1
-                    end = bounds[i + 1]
-            parts.append(end - start)
-            i += 1
+        parts = [end - start for start, end in part_groups(doc.lines, [c[0] for c in cuts], min_part)]
         largest = max(parts)
         if len(parts) < 3:
             reasons.append(f"H{level}: only {len(parts)} part(s)")
@@ -2171,6 +2245,23 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 if age > stale_days:
                     add("R13", d.rel, i, f"verified against {src.strip()} on {ymd}, older than {stale_days} days - look again or strike the line", "warn")  # no day count: the snapshot must not change with the calendar
 
+    # ---- R14 the index says where each doc stands, in words the checker can read
+    if central_exists and not exempt("R14", central_rel):
+        cdoc = by_rel.get(central_rel) or Doc(central, repo)
+        for i, line in enumerate(cdoc.clean, start=1):
+            s_ = line.strip()
+            if not s_.startswith("|") or set(s_.replace("|", "").strip()) <= set("-: "):
+                continue
+            cells = [c.strip() for c in s_.strip("|").split("|")]
+            if len(cells) < 3 or cells[0].lower() in ("doc", "part", "phase") or not LINK_RE.search(cells[0]):
+                continue
+            state = cells[-1].strip("*` ").lower()
+            m = re.match(r"(skeleton|draft|reviewed|current|stale)\b(.*)$", state)
+            if not m:
+                add("R14", central_rel, i, f"state '{cells[-1][:40]}' is not one of skeleton, draft, reviewed <date>, stale <date>", "warn")
+            elif m.group(1) in ("reviewed", "current", "stale") and not re.search(r"\d{4}-\d{2}-\d{2}", m.group(2)):
+                add("R14", central_rel, i, f"state '{m.group(1)}' carries no date; write {m.group(1)} YYYY-MM-DD so a reader knows when", "warn")
+
     # ---- R1 aggregate when no central index
     if not r1_off and not central_exists and unreachable:
         if manifest_path is not None and repo.resolve() in manifest_path.resolve().parents:
@@ -2185,8 +2276,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             f"no central index - {len(unreachable)} doc(s) are linked only from the front door, if at all")
 
     # ---- R3 candidates
-    split_at = int(manifest.get("splitAt") or 500)
-    max_parts = int(manifest.get("maxParts") or 30)
+    split_at = int(manifest.get("splitAt") or 1000)
+    max_parts = int(manifest.get("maxParts") or 12)
+    min_part = int(manifest.get("minPart") or 80)
     candidates = []
     for d in docs:
         if d.skipped:
@@ -2194,7 +2286,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 add("R3", d.rel, 1, f"over {MAX_READ} bytes, not analysed - oversize by any measure", "warn")
             continue
         if len(d.lines) > split_at and not exempt("R3", d.rel) and not is_community_file(d.rel):
-            a = split_analysis(d, split_at, max_parts)
+            a = split_analysis(d, split_at, max_parts, min_part)
             candidates.append(a)
             if a["refuse"]:
                 add("R3", d.rel, 1, f"{a['lines']} lines, oversize and unsplittable ({a['refuse']}) - needs a human restructure", "warn")

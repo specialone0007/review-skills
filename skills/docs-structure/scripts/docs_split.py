@@ -107,7 +107,18 @@ def unsplice(line: str, records: list[tuple[str, str]]) -> str:
     return ds.LINK_RE.sub(sub, line)
 
 
-def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
+def clean_slug(text: str) -> str:
+    """A filename from a heading: code spans and paths out, parentheticals out, five words at
+    most. `01-data-model-apps-web-src-db-schema-ts.md` was a heading slugged whole."""
+    t = re.sub(r"`[^`]*`", " ", text)
+    t = re.sub(r"\([^)]*\)", " ", t)
+    t = re.sub(r"\S+[/\\]\S+", " ", t)
+    t = re.sub(r"^\s*\d+[.)]\s*", "", t)
+    words = [w for w in ds.slug(t).split("-") if w][:5]
+    return "-".join(words) or ds.slug(text)
+
+
+def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int, min_part: int = 80) -> dict:
     doc_path = repo / doc_rel
     if not doc_path.is_file():
         sys.stderr.write(f"error: {doc_rel} is not a file under {repo}\n")
@@ -119,7 +130,8 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     if doc.skipped or doc.undecodable:
         out["refuse"] = "the file could not be read as text"
         return out
-    analysis = ds.split_analysis(doc, split_at, max_parts)
+    min_part = max(1, min(min_part, split_at // 5))
+    analysis = ds.split_analysis(doc, split_at, max_parts, min_part)
     if analysis["refuse"]:
         out["refuse"] = analysis["refuse"]
         return out
@@ -133,16 +145,9 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     h1 = next((t for _, lvl, t in heads if lvl == 1), Path(doc.rel).stem)
     cuts = [ln for ln, lvl, _ in heads if 2 <= lvl <= level]
     bounds = cuts + [n + 1]
-    # Group: a heading with no body before the next cut merges into the part that follows.
-    groups: list[tuple[int, int]] = []
-    i = 0
-    while i < len(bounds) - 1:
-        start = bounds[i]
-        j = i
-        while j + 1 < len(bounds) - 1 and not [l for l in lines[bounds[j]:bounds[j + 1] - 1] if l.strip()]:
-            j += 1
-        groups.append((start, bounds[j + 1]))
-        i = j + 1
+    # Group: a heading with no body merges into the part that follows; so does a part shorter
+    # than min_part, so a part is a chapter and not a heading.
+    groups = ds.part_groups(lines, cuts, min_part)
     intro_lines = lines[:cuts[0] - 1]
     if len(intro_lines) > split_at:
         out["refuse"] = f"intro is {len(intro_lines)} lines"; return out
@@ -174,7 +179,7 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
             if start <= ln < end:
                 slug_home[anchor_for(text)] = idx
         part_specs.append({"n": idx, "start": start, "end": end, "shift": shift, "first": first_text,
-                           "slug": ds.slug(first_text), "body": body, "group": None})
+                           "slug": clean_slug(first_text), "body": body, "group": None})
     # Part filenames.
     for p in part_specs:
         p["file"] = f"{p['n']:02d}-{p['slug']}.md"
@@ -228,7 +233,14 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
                 line = rewrite_line(line, p["n"], p["rel"], li + 2)
             new_body.append(line)
         injected = [f"> Part of [{h1}](../{Path(index_rel).name})", ""]
-        files[p["rel"]] = injected + new_body
+        prev_ = part_specs[p["n"] - 2]["file"] if p["n"] > 1 else None
+        next_ = part_specs[p["n"]]["file"] if p["n"] < len(part_specs) else None
+        nav = " · ".join(x for x in (f"Previous: [{prev_}]({prev_})" if prev_ else None,
+                                     f"Index: [{Path(index_rel).name}](../{Path(index_rel).name})",
+                                     f"Next: [{next_}]({next_})" if next_ else None) if x)
+        while new_body and not new_body[-1].strip():
+            new_body.pop()
+        files[p["rel"]] = injected + new_body + ["", nav]
         out["parts"].append({"n": p["n"], "path": p["rel"], "heading": p["first"], "lines": len(new_body)})
     # Index: intro, owner line if absent, a table of parts.
     intro = list(intro_lines)
@@ -304,7 +316,9 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     # the index had its trailing blank lines trimmed; the original's come back here
     rebuilt = rebuilt + intro_lines[len(rebuilt):] if len(intro_lines) > len(rebuilt) else rebuilt
     for p in part_specs:
-        body = files[p["rel"]][2:]
+        body = files[p["rel"]][2:-2]
+        # the part had its trailing blank lines trimmed before the nav line; the original's come back
+        body = body + p["body"][len(body):] if len(p["body"]) > len(body) else body
         pm = mask[p["start"] - 1:p["end"] - 1]
         restored = []
         for li, line in enumerate(body):
@@ -322,7 +336,7 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
         else:
             problems.append(f"reversal differs in length: {len(rebuilt)} vs {len(lines)}")
     for p, info in zip(part_specs, out["parts"]):
-        body = files[p["rel"]][2:]
+        body = files[p["rel"]][2:-2]
         pm = mask[p["start"] - 1:p["end"] - 1]
         hs = [HEADING_RE.match(l) for li, l in enumerate(body) if not pm[li] and HEADING_RE.match(l)]
         if any(len(h.group(1)) == 1 for h in hs):
@@ -393,7 +407,8 @@ def main() -> int:
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
     ap.add_argument("--manifest", help="manifest path (default: <repo>/docs/structure.json, then docs-structure.json)")
     ap.add_argument("--split-at", type=int, help="override the manifest's splitAt (default 500)")
-    ap.add_argument("--max-parts", type=int, help="override the manifest's maxParts (default 30)")
+    ap.add_argument("--max-parts", type=int, help="override the manifest's maxParts (default 12)")
+    ap.add_argument("--min-part", type=int, help="override the manifest's minPart (default 80): a shorter section merges into the next")
     ap.add_argument("--out", help="a folder OUTSIDE the repository to materialise the proposal into")
     ap.add_argument("--format", choices=("text", "json"), default="text")
     a = ap.parse_args()
@@ -402,12 +417,13 @@ def main() -> int:
         root = ds.git_root(repo) if hasattr(ds, "git_root") else None
         repo = root or repo
     manifest, _, _ = ds.load_manifest(repo, a.manifest)
-    split_at = a.split_at or int(manifest.get("splitAt") or 500)
-    max_parts = a.max_parts or int(manifest.get("maxParts") or 30)
+    split_at = a.split_at or int(manifest.get("splitAt") or 1000)
+    max_parts = a.max_parts or int(manifest.get("maxParts") or 12)
+    min_part = a.min_part or int(manifest.get("minPart") or 80)
     doc_rel = Path(a.doc).as_posix()
     if (repo / doc_rel).is_file() is False and Path(a.doc).is_file():
         doc_rel = ds.posix(Path(a.doc).resolve(), repo)
-    result = propose(repo, doc_rel, split_at, max_parts)
+    result = propose(repo, doc_rel, split_at, max_parts, min_part)
     result["repo"] = str(repo)
     nl = "\r\n" if result["newline"] == "crlf" else "\n"
     if a.out and not result["refuse"] and result["proof"] and result["proof"]["ok"]:
