@@ -90,7 +90,7 @@ Without a scope, audit the whole repository. Do not ask for a scope; discovery p
    ```bash
    python <skill-dir>/scripts/docs_structure.py --repo . --format json
    python <skill-dir>/scripts/docs_evidence.py  --repo . --format json    # only needed for apply fill
-   python <skill-dir>/scripts/docs_fill_gate.py --repo <scratch> --all    # after fill, before anything is accepted; never --repo .
+   python <skill-dir>/scripts/docs_fill_gate.py --repo <scratch> --all --no-git-root --strict --fail-on-findings   # after fill; never --repo .
    ```
 
    Checker flags: `--manifest <path>` (default `docs/structure.json`, then `docs-structure.json` at the root), `--propose-manifest`, `--check-paths` (R6), `--fail-on-findings` (exit 1 on any failure, for CI), `--top N`, `--no-git-root`. Exit 0 whenever the run completes; findings are data. Inventory flags: `--no-git`, `--no-git-root`, `--cap N`, `--format`. A manifest root written `*.md` or `docs/*.md` means the Markdown files directly in that folder; proposed manifests use it for repos whose docs live at the root.

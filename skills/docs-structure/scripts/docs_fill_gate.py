@@ -115,7 +115,7 @@ YEARISH = re.compile(r"^(19|20)\d{2}$")
 # "X is absent", "zero X" and "without any X" all read as audited fact and all passed.
 NEGATION = re.compile(
     r"\bthere (?:is|are) no\s+\w+"
-    r"|\b(?:contains?|has|have|had|includes?|defines?|ships?|provides?) no\s+\w+"
+    r"|\b(?:contains?|has|have|had|includes?|defines?|ships?|provides?|applies|applied|enforces?|enforced|performs?|requires?|required|uses?|implements?|implemented|sets?) no\s+\w+"
     r"|\b(?:lacks?|lacking)\s+\w+"
     r"|\b(?:is|are|was|were)\s+(?:entirely |completely |wholly )?absent\b"
     r"|\bzero\s+\w+"
@@ -133,9 +133,12 @@ NEGATION = re.compile(
 # for - and "under any circumstances" is not a place.
 # A scope names a place or a command. The bare word "scan" was enough on its own, so adding
 # ", per a scan" to any claim cleared the rule without anyone looking at anything.
-SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+[^\s]"
-                   r"|\b(?:searched|scanned|scan(?:ned)?)\s+(?:every |all |the )?`?[\w.-]*[/.][\w./*-]*"
-                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]*", re.I)
+# The command needs an argument that is not the evidence bracket. Every drafted sentence ends
+# with one, so "[" was always the non-space that followed - and ", per grep" cleared the rule
+# exactly as ", per a scan" used to.
+SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+[\"'`]?[\w/*-][\w./*-]*"
+                   r"|\b(?:searched|scanned|scan(?:ned)?)\s+(?:every |all |the )?`?[\w.-]*[/.][\w/*-][\w./*-]*"
+                   r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w/*-][\w./*-]*", re.I)
 SCAN_CMD = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|wc|ls)\b\s*[-\w`\"']", re.I)
 INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 # The keys docs_evidence actually emits.
@@ -179,10 +182,16 @@ def safe(text: str) -> str:
 
 
 def read(path: Path) -> str:
+    """Text, with a byte-order mark stripped.
+
+    utf-8 rather than utf-8-sig left the BOM on the first line, so the H1 did not match, the
+    lead section was never found, and four real violations in it vanished behind an OK. BOMs
+    are routine on Windows - PowerShell, VS Code, .NET tooling - and this was written there.
+    """
     try:
         if path.stat().st_size > MAX_READ:
             return ""
-        return path.read_text(encoding="utf-8", errors="replace")
+        return path.read_text(encoding="utf-8-sig", errors="replace")
     except OSError:
         return ""
 
@@ -207,14 +216,20 @@ def is_git_repo(repo: Path) -> bool:
     and every [sha date] bracket then failed - so the documented apply path could never finish
     for a doc citing a commit, which ARCHITECTURE, DEPLOYMENT and PRODUCT all do.
     """
+    key = str(repo)
+    if key in _IS_REPO:
+        return _IS_REPO[key]
     if shutil.which("git") is None:
+        _IS_REPO[key] = False
         return False
     try:
-        p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--git-dir"],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace")
-    except OSError:
+        p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--git-dir"], capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=GIT_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        _IS_REPO[key] = False
         return False
-    return p.returncode == 0
+    _IS_REPO[key] = p.returncode == 0
+    return _IS_REPO[key]
 
 
 def sha_known(repo: Path, sha: str) -> bool:
@@ -233,6 +248,9 @@ def sha_known(repo: Path, sha: str) -> bool:
 
 
 _GATE_LISTING: dict[str, set[str]] = {}
+# Asked once per tree: sha_known calls this for every [sha date] bracket, so a decisions
+# section citing twenty commits was spawning forty git processes.
+_IS_REPO: dict[str, bool] = {}
 
 
 def exists_exact(repo: Path, rel: str) -> bool:
@@ -467,6 +485,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
     # An unclosed fence makes everything after it look fenced, and every shape rule is then
     # skipped while the report still says OK. That is not covered by the "Not checked" block:
     # it disclaims truth, not the rules the gate does enforce.
+    if not any(HEADING.match(l) and len(HEADING.match(l).group(1)) == 1 for l in lines):
+        found.append({"doc": rel, "line": 1, "rule": "G0", "level": "fail",
+                      "message": "no H1, so the lead section could not be found and was not judged; a drafted document starts with its title"})
+        return found
     if sum(1 for l in lines if FENCE.match(l)) % 2:
         found.append({"doc": rel, "line": 1, "rule": "G0", "level": "fail",
                       "message": "a code fence is never closed, so the rules below it were not "
@@ -593,7 +615,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # neither: backticking the file in the sentence used to clear this rule without
                 # changing a thing about the evidence behind it.
                 neg = NEGATION.search(BRACKET_ANY.sub(" ", unquoted))
-                scoped = (SCOPE.search(joined) or INV_BRACKET.search(joined)
+                # The brackets are evidence, not scope: searching the text with them still in
+                # let a command name immediately before one count as a search that ran.
+                bracketless = BRACKET_ANY.sub(" ", joined)
+                scoped = (SCOPE.search(bracketless) or INV_BRACKET.search(joined)
                           or KEY_BRACKET.search(joined))
                 if neg and not scoped:
                     add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")

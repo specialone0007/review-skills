@@ -230,6 +230,7 @@ FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
 LINK_RE = re.compile(r"(!?)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 REF_DEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+\S")
+REF_DEF_TARGET = re.compile(r"^ {0,3}\[([^\]]+)\]:\s+(\S+)")
 REF_USE_RE = re.compile(r"\[[^\]]+\]\[([^\]]+)\]")
 FOOTNOTE_RE = re.compile(r"\[\^[^\]]+\]")
 MEASURE_RE = re.compile(r"\$\d+\.\d+|(?<![\d.])\d{1,3}\.\d+%|(?<![\d.])0\.\d{3,}\b")
@@ -1031,7 +1032,9 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             stem = Path(dfile).stem.split("_")[0].lower()
             for d in candidates:
                 dn = d.path.stem.lower()
-                if len(stem) > 3 and (stem in dn or dn in stem):
+                # Both sides need length: "a" is inside "architecture" and inside "tasklist",
+                # so docs/A.md was reported as named for both.
+                if len(stem) > 3 and len(dn) > 3 and (stem in dn or dn in stem):
                     near = d.rel
                     break
         weak = bool(covered_by) and how.startswith("README sections") and how.count(",") == 0
@@ -1578,7 +1581,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         # strip_fences blanks everything after an unclosed fence, so R5 and R7 stop finding
         # anything below it - and "Failures: 2" then reads exactly like a complete result.
         if not d.skipped and not d.balanced:
-            add("R3", d.rel, 1, "a code fence is never closed; links and citations below it were not checked", "warn")
+            add("R5", d.rel, 1, "a code fence is never closed; links and citations below it were not checked", "warn")
         rec = in_record(d.rel)
         if d.skipped:
             warnings.append(f"{d.rel} is over {MAX_READ} bytes and was not analysed")
@@ -1624,6 +1627,22 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
         # ---- R5 links, anchors, images, reference definitions
         defs = {m.group(1).lower() for l in d.clean for m in [REF_DEF_RE.match(l)] if m}
+        # A reference definition's target is a link like any other. The rule table promises
+        # these resolve; only the use-without-definition half was ever checked, so a dead
+        # [rb]: ./DOES-NOT-EXIST.md was invisible.
+        if not d.skipped:
+            for i, line in enumerate(d.clean, start=1):
+                m = REF_DEF_TARGET.match(line)
+                if not m:
+                    continue
+                target = m.group(2).strip().strip("<>")
+                if target.startswith(("http://", "https://", "mailto:", "tel:", "data:", "#")):
+                    continue
+                if PLACEHOLDER_TARGET.search(target) or (GITHUB_REL.match(target) and d.path.parent == repo):
+                    continue
+                file_part = target.split("#")[0]
+                if file_part and not exists_exact(resolve_target(d.path, repo, file_part)):
+                    add("R5", d.rel, i, f"reference definition target does not exist: {file_part}")
         for i, is_img, target in ([] if d.skipped else d.links()):
             if target.startswith(("http://", "https://", "mailto:", "<", "tel:", "data:")):
                 continue
@@ -1851,7 +1870,12 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             if c["covered_by"]:
                 continue
             manifest_inside = manifest_path is not None and not posix(manifest_path, repo).startswith(("/", "C:", "c:")) and ":" not in posix(manifest_path, repo)
-            anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_inside else front_rel)
+            # A finding anchors at something that exists. On a repo with no README at all,
+            # nine findings pointed at README.md:1, against this skill's own rule about
+            # path:line where a line exists.
+            anchor_path = central_rel if central_exists else (posix(manifest_path, repo) if manifest_inside else None)
+            if anchor_path is None:
+                anchor_path = front_rel if exists_exact(repo / front_rel) else roots_rel[0] if roots_rel else "."
             why = "always" if c["applies"] == "always" else ("named in the manifest" if c["applies"] == "manifest" else f"the repo has {c['applies']}")
             seed = f"; {c['seed']} has a section to seed from" if c.get("seed") else ""
             # A doc this repository has never had is advice, not a failure. Left as a failure it
@@ -2032,7 +2056,8 @@ def render(d: dict, top: int) -> str:
         L.append("| concern | applies because | covered by | matched by | state |")
         L.append("|---|---|---|---|---|")
         for c in d["concerns"]:
-            cov = c["covered_by"] or f"none - apply creates {c['default_path']}" + (f" (seed: {c['seed']})" if c.get("seed") else "")
+            cov = c["covered_by"] or (f"not determined" if d.get("coverage_determined") is False
+                                      else f"none - apply creates {c['default_path']}") + (f" (seed: {c['seed']})" if c.get("seed") else "")
             extra = f" (also {c['runner_up']})" if c.get("runner_up") else ""
             # Reusing the outer quote inside an f-string expression is PEP 701, so 3.12 only.
             # The skill promises 3.11+, where this is a SyntaxError at import and every one of
