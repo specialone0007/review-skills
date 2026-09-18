@@ -114,15 +114,27 @@ NEGATION = re.compile(
 # A scope is evidence that a search happened: a command, or a named place with a path in it.
 # A bare path is not a scope - citing a file says it was read, never that anything was looked
 # for - and "under any circumstances" is not a place.
-SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\b|\bsearched\b|\bscan(?:ned|s|ning)?\b"
+# A scope names a place or a command. The bare word "scan" was enough on its own, so adding
+# ", per a scan" to any claim cleared the rule without anyone looking at anything.
+SCOPE = re.compile(r"\b(?:grep|rg|ripgrep|git grep)\s+[^\s]"
+                   r"|\b(?:searched|scanned|scan(?:ned)?)\s+(?:every |all |the )?`?[\w.-]*[/.][\w./*-]*"
                    r"|\b(?:under|across|throughout|within)\s+`?[\w.-]*[/.][\w./*-]*", re.I)
+SCAN_CMD = re.compile(r"\b(?:grep|rg|ripgrep|git grep|find|wc|ls)\b\s*[-\w`\"']", re.I)
 INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
+# The keys docs_evidence actually emits.
+INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exports", "frontend",
+                  "tests", "ci", "ops", "decisions", "readme", "tree", "release", "kinds",
+                  "ecosystems", "warnings"}
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
 LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
 # What a doc legitimately writes in a value column: a type, a default marker, a description.
+# Shapes that are a credential wherever they appear. Kept in step with docs_evidence.redact().
+REDACTABLE = re.compile(r"\b(?:sk|pk|rk)[-_][A-Za-z0-9_-]{16,}|\bAIza[A-Za-z0-9_-]{20,}"
+                        r"|\bglpat-[A-Za-z0-9_-]{16,}|\b(?:hf|npm)_[A-Za-z0-9]{20,}"
+                        r"|\bghp_[A-Za-z0-9]{20,}|\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}")
 PLACEHOLDER_VALUE = re.compile(r"^(?:-+|—|n/?a|none|unset|empty|required|optional|string|number|bool(?:ean)?|url|path|int|float|secret|token|\.\.\.|<[^>]*>|\{[^}]*\}|\[[^\]]*\])$", re.I)
 BULLET = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
 CODESPAN = re.compile(r"`[^`]*`")
@@ -164,11 +176,28 @@ def git_root(start: Path) -> Path | None:
         return None
 
 
+def is_git_repo(repo: Path) -> bool:
+    """Whether commits can be looked up here at all.
+
+    SKILL.md tells the agent to gate a scratch copy of the tracked files, which has no .git,
+    and every [sha date] bracket then failed - so the documented apply path could never finish
+    for a doc citing a commit, which ARCHITECTURE, DEPLOYMENT and PRODUCT all do.
+    """
+    if shutil.which("git") is None:
+        return False
+    try:
+        p = subprocess.run(["git", "-C", str(repo), "rev-parse", "--git-dir"],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return p.returncode == 0
+
+
 def sha_known(repo: Path, sha: str) -> bool:
     """True when this repository has that commit. Unknown (no git) counts as known: the gate
     reports what it can prove, and never fails a draft because git is missing."""
     git = shutil.which("git")
-    if git is None:
+    if git is None or not is_git_repo(repo):
         return True
     try:
         p = subprocess.run([git, "cat-file", "-e", sha], cwd=str(repo), text=True,
@@ -216,7 +245,12 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
     """None when the reference resolves; otherwise why it does not."""
     for part in [p.strip() for p in ref.split(";") if p.strip()]:
         if part.startswith("inventory:"):
-            continue  # the checker owns the inventory; this gate does not re-derive it
+            # The key has to exist. Any [inventory: anything] used to satisfy G10 and switch
+            # G9 off, so an invented key was a licence to write an unscoped claim.
+            key = part.split(":", 1)[1].strip().split("[")[0].split(".")[0].strip()
+            if key and INVENTORY_KEYS and key not in INVENTORY_KEYS:
+                return f"no such inventory key: {key}"
+            continue
         if SHA_REF.match(part):
             if not sha_known(repo, part.split()[0]):
                 return f"commit not in this repository: {part}"
@@ -244,8 +278,10 @@ COUNT_FIELDS: dict[str, tuple] = {
     # "services" is absent on purpose: one service described by a Dockerfile and a compose
     # entry is counted twice, so the inventory's number answers a different question from the
     # one a sentence about compose is asking.
-    "packages": ("#len", "packages"), "modules": ("#len", "packages"),
-    "tests": ("#len", "tests"), "workflows": ("#len", "ci"), "jobs": ("#len", "ci"),
+    "packages": ("#len", "packages"),
+    # "tests", "jobs", "workflows" and "modules" are gone: the inventory holds one row per
+    # runner config and one per workflow *file*, so it answers a different question from the
+    # one a sentence counting jobs or test files is asking, and blocked true counts.
     "dependencies": ("#deps",), "names": ("#env",), "variables": ("#env",), "keys": ("#env",),
 }
 
@@ -434,13 +470,20 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # A draft that names its own scan, or cites the inventory key it counted, has
                 # already answered this rule; the message says so and now it is true.
                 historical = any(SHA_REF.match(r.strip()) for r in BRACKET_ANY.findall(joined))
-                if numbers and not historical and not SCOPE.search(joined) and not INV_BRACKET.search(joined):
+                # G9 takes a narrower exemption than G10: naming a folder is a scope for a
+                # claim of absence, but it is not a reason to contradict the inventory about a
+                # count. Only a scan command or the inventory key itself will do.
+                if numbers and not historical and not SCAN_CMD.search(joined) and not INV_BRACKET.search(joined):
                     prose = BRACKET_ANY.sub(" ", bare)
                     for m in NUMBER.finditer(prose):
                         raw = m.group(1).replace(",", "")
                         noun = m.group(2).lower()
                         known = numbers.get(noun)
-                        if not known or YEARISH.match(raw) or raw in known:
+                        # More than three candidate values means the inventory counts this noun
+                        # several ways - per file, per tool, and in total - so it cannot say the
+                        # draft is wrong. "36 names" against "1 or 2 or 4 or 8 or 34 or 97" is a
+                        # rule talking past the sentence.
+                        if not known or len(known) > 3 or YEARISH.match(raw) or raw in known:
                             continue
                         add("G9", first,
                             f'the count "{m.group(1)} {noun}" disagrees with the inventory, which reports '
@@ -489,6 +532,16 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 in_fence = not in_fence
                 continue
             if in_fence:
+                # A fenced block is not prose, so the style rules stay out of it - but it is
+                # exactly where an env example lands, and the templates ask fill for "the exact
+                # commands". A secret does not stop being a secret inside three backticks.
+                for name in names:
+                    hit = re.search(rf"\b{re.escape(name)}\b\s*=\s*([^\s]+)", s_)
+                    if hit and not PLACEHOLDER_VALUE.match(hit.group(1)):
+                        add("G7", idx + 1, f"a value is written beside {name} inside a fenced block; "
+                                           f"drafts carry names, never values")
+                if REDACTABLE and REDACTABLE.search(s_):
+                    add("G7", idx + 1, "a token-shaped string is written inside a fenced block")
                 continue
             n = idx + 1
             # A blockquote is drafted prose - DESIGN_GUIDELINES ships one - and skipping it left

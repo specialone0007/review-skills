@@ -83,6 +83,8 @@ DOCS_FOLDER_NAMES = ("docs", "doc", "documentation")
 PACKAGE_MANIFESTS = ("package.json", "pyproject.toml", "setup.py", "setup.cfg", "go.mod", "Cargo.toml", "pom.xml",
                      "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs", "Move.toml")
 R1_COLLAPSE_AT = 10
+# The line a split writes into each part, and the only reliable sign that a doc is one.
+SPLIT_PART = re.compile(r"^\s*>\s*\*\*Part of\*\*", re.M)
 RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
 # Files GitHub surfaces by name. Telling a maintainer their AGPL text needs an owner line, a
 # row in an index and a human restructure is how a docs checker gets uninstalled.
@@ -313,6 +315,14 @@ def git_root(start: Path) -> Path | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return Path(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip() else None
+
+
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
+
+
+def strip_html_comments(text: str) -> str:
+    """Commenting a stale link out is how people park one; reporting it as dead is noise."""
+    return HTML_COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), text)
 
 
 def strip_fences(lines: list[str]) -> list[str]:
@@ -700,15 +710,31 @@ ROUTING_TRIGGER = {
 
 
 def routing_section(coverage: list[dict], docs_root: str, central_rel: str) -> str:
-    """The routing table an agent file carries, one row per concern this repo actually has."""
+    """One row per covered concern, marked with what the target actually is.
+
+    This is pasted into an agent file, and an agent file that is wrong misleads every run
+    after it. Rows used to point at files apply had not created yet, with no marker, and a
+    concern covered by one generic README heading looked exactly like a real document.
+    """
     rows = []
     for c_ in coverage:
-        path = c_["covered_by"] or c_["default_path"]
         trigger = ROUTING_TRIGGER.get(c_["concern"])
-        if trigger:
-            rows.append(f"| {trigger} | [{path}]({path}) |")
+        if not trigger:
+            continue
+        path = c_["covered_by"] or c_["default_path"]
+        note = ""
+        if not c_["covered_by"]:
+            note = " *(apply creates this)*"
+        elif c_.get("weak"):
+            note = " *(one heading only - confirm this is the right home)*"
+        rows.append(f"| {trigger} | [{path}]({path}){note} |")
     body = "\n".join(rows) or "| <a kind of change> | `<the doc that owns it>` |"
-    return ROUTING_STARTER.replace("| <a kind of change> | `docs/<OWNER>.md` |", body).replace("docs/INDEX.md", central_rel)
+    out = ROUTING_STARTER.replace("| <a kind of change> | `docs/<OWNER>.md` |", body)
+    out = out.replace("docs/INDEX.md", central_rel)
+    # <skill-dir> is a placeholder for the reader of SKILL.md, not something to paste into
+    # somebody's AGENTS.md, where it is a command that cannot run.
+    return out.replace("python <skill-dir>/scripts/docs_structure.py",
+                       "python <path to the docs-structure skill>/scripts/docs_structure.py")
 
 
 ROUTING_STARTER = """## Docs routing - where a change gets written down
@@ -870,7 +896,11 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
         if matches_any(d.rel, records) or PREFIX_RE.match(d.path.name) or DATE_RE.search(d.path.name):
             continue  # a dated plan or audit is a record, not the living doc for a concern,
             # whether it sits in a record folder or alone at the docs root
-        if d.path.parent != repo and index_for(d, repo, roots, convention) is not None:
+        # A part of a split carries the marker the split injects. Treating "lives in a folder
+        # that has an index" as the test made every doc in docs/x/ invisible to R12 - which is
+        # the layout R4 asks for - so apply proposed a second architecture doc beside the real
+        # one the index already pointed at.
+        if d.path.parent != repo and SPLIT_PART.search(d.raw[:800]):
             continue  # a part of a split doc; its index is the doc
         candidates.append(d)
     docs_only = "docs-only" in (inv.get("kinds") or [])
@@ -1141,7 +1171,9 @@ class Doc:
             self.skipped = True
         self.raw = read(path)
         self.lines = self.raw.splitlines()
-        self.clean = strip_fences(self.lines)
+        # HTML comments are blanked before anything reads the text: parking a stale link in a
+        # comment is routine, and reporting it as a P1 dead link punishes the tidy thing to do.
+        self.clean = strip_fences(strip_html_comments(self.raw).splitlines())
         # links and citations are scanned with inline code removed as well
         self.nocode = [CODESPAN_RE.sub("", l) for l in self.clean]
         self.balanced = fences_balanced(self.lines)

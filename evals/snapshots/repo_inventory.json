@@ -53,7 +53,7 @@
     {
       "dir": "docs",
       "files": 11,
-      "lines": 254
+      "lines": 268
     },
     {
       "dir": "(root)",
@@ -141,6 +141,11 @@
       "path": "docs/guide.md"
     },
     {
+      "bytes": 683,
+      "lines": 32,
+      "path": "docs/quoted.md"
+    },
+    {
       "bytes": 517,
       "lines": 28,
       "path": "docs/history.md"
@@ -159,11 +164,6 @@
       "bytes": 416,
       "lines": 13,
       "path": "DEPLOY.md"
-    },
-    {
-      "bytes": 415,
-      "lines": 18,
-      "path": "docs/quoted.md"
     },
     {
       "bytes": 382,
@@ -307,7 +307,7 @@
   "totals": {
     "doc_files": 12,
     "files": 35,
-    "lines": 470,
+    "lines": 484,
     "test_files": 3
   },
   "warnings": []

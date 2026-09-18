@@ -33,7 +33,7 @@
     }
   ],
   "exports": [],
-  "files_scanned": 32,
+  "files_scanned": 21,
   "frontend": [],
   "kinds": [
     "application"
@@ -178,7 +178,6 @@
     "plan_like_docs": [],
     "pr_template": false,
     "top_level_dirs": [
-      "docs",
       "src"
     ]
   },

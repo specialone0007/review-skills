@@ -16,3 +16,17 @@
 | DATABASE_URL | - | [.env.example] |
 
 *(draft, review me)*
+
+## A fenced block with a value beside a name
+
+```bash
+export API_TOKEN=pk-51H8ZqPabcdefghijklmnopqrstuvwx
+```
+
+*(draft, review me)*
+
+## A claim scoped by a word rather than a place
+
+No retry limit is configured, per a scan [src/server.js].
+
+*(draft, review me)*
