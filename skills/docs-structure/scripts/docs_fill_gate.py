@@ -82,8 +82,10 @@ QUOTED = re.compile(r"\"[^\"]*\"|\u201c[^\u201d]*\u201d")
 # full stop in the middle of a clause.
 ABBREV = re.compile(r"\b(?:[A-Z]|e\.g|i\.e|etc|vs|cf|approx|Inc|Ltd|Dr|St|No|Fig|Ref)\.$", re.I)
 BAD_BREAK = re.compile(r"[^\]`.]\.\s+(?=[A-Z`(])")
-BANNED = re.compile(r"\b(robust|secure|simple|clean|fast|modern|scalable|easy|powerful|"
-                    r"seamless|best|properly|elegant|efficient|reliable)\b", re.I)
+# Hyphen-aware: fast-glob, simple-git and secure-compare are names. A hyphen is a word
+# character for this purpose even though \b says otherwise.
+BANNED = re.compile(r"(?<![\w-])(robust|secure|simple|clean|fast|modern|scalable|easy|powerful|"
+                    r"seamless|best|properly|elegant|efficient|reliable)(?![\w-])", re.I)
 INTENT = re.compile(r"\b(so that|because|designed to|ensures|aims to)\b", re.I)
 # Case-insensitive like BANNED and INTENT: sentence-start is where a modal actually appears.
 MODAL = re.compile(r"\b(should|must|will|guarantees|handles)\b", re.I)
@@ -120,6 +122,8 @@ PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
 LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
+# What a doc legitimately writes in a value column: a type, a default marker, a description.
+PLACEHOLDER_VALUE = re.compile(r"^(?:-+|—|n/?a|none|unset|empty|required|optional|string|number|bool(?:ean)?|url|path|int|float|secret|token|\.\.\.|<[^>]*>|\{[^}]*\}|\[[^\]]*\])$", re.I)
 BULLET = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
 CODESPAN = re.compile(r"`[^`]*`")
 TABLE_RULE = re.compile(r"^\|[\s:|-]+\|?$")
@@ -237,7 +241,10 @@ COUNT_FIELDS: dict[str, tuple] = {
     # "models" is deliberately absent: an ORM's model count and the SQL table count are two
     # different numbers, and a rule that conflates them flags a correct draft.
     "migrations": ("schema", "migrations", "count"),
-    "services": ("#len", "services"), "packages": ("#len", "packages"), "modules": ("#len", "packages"),
+    # "services" is absent on purpose: one service described by a Dockerfile and a compose
+    # entry is counted twice, so the inventory's number answers a different question from the
+    # one a sentence about compose is asking.
+    "packages": ("#len", "packages"), "modules": ("#len", "packages"),
     "tests": ("#len", "tests"), "workflows": ("#len", "ci"), "jobs": ("#len", "ci"),
     "dependencies": ("#deps",), "names": ("#env",), "variables": ("#env",), "keys": ("#env",),
 }
@@ -298,9 +305,11 @@ def inventory_counts(inv: dict) -> dict[str, set[str]]:
         for t in tables:
             if isinstance(t, dict) and t.get("tool"):
                 per_tool[t["tool"]] = per_tool.get(t["tool"], 0) + 1
-        for noun in ("tables", "models"):
-            out.setdefault(noun, set()).update(str(v) for v in per_tool.values())
-            out[noun].add(str(len(tables)))
+        # "models" gets no authority at all, for the same reason it is absent from
+        # COUNT_FIELDS: an ORM model count, a SQL table count and a per-group subtotal are
+        # three different numbers, and only the writer knows which one a sentence means.
+        out.setdefault("tables", set()).update(str(v) for v in per_tool.values())
+        out["tables"].add(str(len(tables)))
     # A detector that found nothing has not counted zero of anything: it did not look where this
     # repository keeps them. Buildkite, CircleCI, Zig, Bazel and everything else outside the
     # detector list would otherwise make every count of that noun unwritable.
@@ -379,7 +388,14 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         if len(body) == 1 and body[0].strip().startswith("*") and body[0].strip().endswith("*") and body[0].strip() != DRAFT_MARK:
             continue
         if body[-1].strip() != DRAFT_MARK:
-            continue  # not a drafted section: leave a person's prose alone
+            # Not a drafted section, so a person's prose is left alone - but a section inside a
+            # drafted document that carries no marker of its own was silently unjudged, and the
+            # report then read OK for the whole file.
+            if heading != "(lead)" and any(DRAFT_MARK in l for l in lines):
+                found.append({"doc": rel, "line": start, "rule": "G0", "level": "skipped",
+                              "message": f"section '{safe(heading)}' carries no {DRAFT_MARK} marker, "
+                                         f"so it was not judged"})
+            continue
         # A paragraph is the unit, not a line: a draft may be hard-wrapped, and the evidence
         # bracket belongs at the end of the paragraph's last line.
         para: list[tuple[int, str]] = []
@@ -407,8 +423,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 intent_hit = INTENT.search(QUOTED.sub(" ", joined))
                 if intent_hit and not joined.lower().startswith("inferred:"):
                     add("G6", first, f"intent word outside a quotation or `inferred:`: {intent_hit.group(0)}")
+                # A table cell and a YAML-style colon are both "beside". Matching only NAME=value
+                # let a live secret through in the column layout DEPLOYMENT.md asks for.
                 for name in names:
-                    if re.search(rf"\b{re.escape(name)}\s*=\s*\S", joined):
+                    hit = re.search(rf"\b{re.escape(name)}\b\s*(?:[=:]|\|)\s*([^\s|]+)", joined)
+                    if hit and not PLACEHOLDER_VALUE.match(hit.group(1)):
                         add("G7", first, f"a value is written beside {name}; drafts carry names, never values")
                 # G9: a number the inventory does not report. Brackets carry paths and keys, and
                 # code spans carry commands and identifiers, so both are removed first.
@@ -471,10 +490,15 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 continue
             if in_fence:
                 continue
+            n = idx + 1
+            # A blockquote is drafted prose - DESIGN_GUIDELINES ships one - and skipping it left
+            # every semantic rule blind inside it. Strip the marker and judge the text.
+            if s_.startswith(">") and s_.lstrip("> ").strip():
+                para.append((n, s_.lstrip("> ").strip()))
+                continue
             if not s_ or s_ == DRAFT_MARK or s_.startswith(("#", "<!--", ">")) or TABLE_RULE.match(s_):
                 flush()
                 continue
-            n = idx + 1
             if s_.startswith("|"):
                 flush()
                 nxt = lines[idx + 1].strip() if idx + 1 < len(lines) else ""
@@ -488,16 +512,20 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                         why = resolve_bracket(repo, ref)
                         if why:
                             add("G2", n, why)
-                m = BRACKET_END.search(cells[-1]) if cells else None
+                # Any cell, not the last: structure.md and the API template both prescribe a
+                # guard column after the handler, so the evidence lands mid-row by design.
+                m = next((BRACKET_END.search(c) for c in reversed(cells) if BRACKET_END.search(c)), None)
                 if not m:
-                    add("G1", n, "table row has no evidence bracket in its last cell")
+                    add("G1", n, "table row carries no evidence bracket in any cell")
                 else:
                     why = resolve_bracket(repo, m.group(1))
                     if why:
                         add("G2", n, why)
                 if LINE_CITE.search(s_) and "://" not in s_:
                     add("G3", n, f"line-number citation: {LINE_CITE.search(s_).group(0)}")
-                semantics(" ".join(cells), n)
+                # Joined with the pipe intact: G7 reads "name | value" as a value beside a
+                # name, and splitting the row on pipes first hid exactly that shape.
+                semantics(" | ".join(cells), n)
                 continue
             # A bullet is its own claim. Treated as a continuation of the paragraph above, a
             # list of five fabricated statements needed one bracket on the last line to pass

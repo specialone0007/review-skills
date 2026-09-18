@@ -1,7 +1,8 @@
 {
   "docs": [
     "docs/drafted.md",
-    "docs/gated.md"
+    "docs/gated.md",
+    "docs/quoted.md"
   ],
   "findings": [
     {
@@ -84,6 +85,12 @@
     },
     {
       "doc": "docs/gated.md",
+      "line": 3,
+      "message": "paragraph does not end with an evidence bracket: **This document owns:** the shapes the gate has to see. *(dr",
+      "rule": "G1"
+    },
+    {
+      "doc": "docs/gated.md",
       "line": 5,
       "message": "paragraph does not end with an evidence bracket: Must be installed before the suite runs [package.json]. The ",
       "rule": "G1"
@@ -105,9 +112,33 @@
       "line": 15,
       "message": "cited path does not exist: src/does-not-exist.js",
       "rule": "G2"
+    },
+    {
+      "doc": "docs/quoted.md",
+      "line": 7,
+      "message": "evaluative word: robust",
+      "rule": "G4"
+    },
+    {
+      "doc": "docs/quoted.md",
+      "line": 7,
+      "message": "modal verb: must",
+      "rule": "G5"
+    },
+    {
+      "doc": "docs/quoted.md",
+      "line": 7,
+      "message": "negative claim (\"never be\") names no scope; say what was searched, or cite an [inventory: key]",
+      "rule": "G10"
+    },
+    {
+      "doc": "docs/quoted.md",
+      "line": 15,
+      "message": "a value is written beside API_TOKEN; drafts carry names, never values",
+      "rule": "G7"
     }
   ],
   "repo": "<fixture>",
-  "total": 17,
+  "total": 22,
   "warnings": []
 }

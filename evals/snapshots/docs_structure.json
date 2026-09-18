@@ -8,6 +8,7 @@
       "covered_by": null,
       "default_path": "docs/PRODUCT.md",
       "matched_by": "",
+      "matched_heading": null,
       "runner_up": null,
       "seed": null,
       "template": "PRODUCT.md",
@@ -21,6 +22,7 @@
       "covered_by": null,
       "default_path": "docs/ARCHITECTURE.md",
       "matched_by": "",
+      "matched_heading": null,
       "runner_up": null,
       "seed": null,
       "template": "ARCHITECTURE.md",
@@ -34,6 +36,7 @@
       "covered_by": "docs/setup.md",
       "default_path": "docs/DEVELOPMENT.md",
       "matched_by": "H1: setup; H2: install",
+      "matched_heading": null,
       "missing_sections": [
         "Prerequisites",
         "Setup",
@@ -57,6 +60,7 @@
       "covered_by": null,
       "default_path": "docs/TASKLIST.md",
       "matched_by": "",
+      "matched_heading": null,
       "runner_up": null,
       "seed": null,
       "template": "TASKLIST.md",
@@ -70,6 +74,7 @@
       "covered_by": null,
       "default_path": "docs/DEPLOYMENT.md",
       "matched_by": "",
+      "matched_heading": null,
       "runner_up": null,
       "seed": null,
       "template": "DEPLOYMENT.md",
@@ -83,6 +88,7 @@
       "covered_by": null,
       "default_path": "docs/API_REFERENCE.md",
       "matched_by": "",
+      "matched_heading": null,
       "runner_up": null,
       "seed": null,
       "template": "API_REFERENCE.md",
@@ -96,6 +102,7 @@
       "covered_by": null,
       "default_path": "docs/TESTING.md",
       "matched_by": "",
+      "matched_heading": null,
       "runner_up": null,
       "seed": null,
       "template": "TESTING.md",
@@ -109,6 +116,7 @@
       "covered_by": "docs/h3-style.md",
       "default_path": "docs/RUNBOOK.md",
       "matched_by": "H1: operations; H2: alerts, health, on-call",
+      "matched_heading": "Health checks",
       "missing_sections": [
         "Health",
         "Scheduled jobs",
@@ -129,6 +137,7 @@
       "covered_by": null,
       "default_path": "docs/CONTRIBUTING.md",
       "matched_by": "",
+      "matched_heading": null,
       "runner_up": null,
       "seed": null,
       "template": "CONTRIBUTING.md",
@@ -145,7 +154,7 @@
     {
       "level": "fail",
       "line": 3,
-      "message": "no central index - 9 doc(s) unreachable in one hop",
+      "message": "no central index - 10 doc(s) unreachable in one hop",
       "path": "docs/structure.json",
       "rule": "R1",
       "severity": "P1"
@@ -559,10 +568,10 @@
   "totals": {
     "concerns_covered": 2,
     "concerns_missing": 7,
-    "docs_checked": 9,
+    "docs_checked": 10,
     "failures": 5,
     "non_doc_files": 0,
-    "placeholders": 19,
+    "placeholders": 22,
     "split_candidates": 3,
     "states": {
       "draft": 0,
@@ -581,6 +590,7 @@
     "docs/h3-style.md",
     "docs/history.md",
     "docs/limits.md",
+    "docs/quoted.md",
     "docs/setup.md"
   ],
   "warnings": []

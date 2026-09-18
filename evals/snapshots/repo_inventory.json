@@ -30,6 +30,7 @@
     "docs/h3-style.md",
     "docs/history.md",
     "docs/limits.md",
+    "docs/quoted.md",
     "docs/setup.md",
     "docs/structure.json",
     "src/config.js",
@@ -51,8 +52,8 @@
   "directories": [
     {
       "dir": "docs",
-      "files": 10,
-      "lines": 236
+      "files": 11,
+      "lines": 254
     },
     {
       "dir": "(root)",
@@ -81,7 +82,7 @@
     },
     {
       "ext": ".md",
-      "files": 12
+      "files": 13
     },
     {
       "ext": ".json",
@@ -158,6 +159,11 @@
       "bytes": 416,
       "lines": 13,
       "path": "DEPLOY.md"
+    },
+    {
+      "bytes": 415,
+      "lines": 18,
+      "path": "docs/quoted.md"
     },
     {
       "bytes": 382,
@@ -299,9 +305,9 @@
     ]
   },
   "totals": {
-    "doc_files": 11,
-    "files": 34,
-    "lines": 452,
+    "doc_files": 12,
+    "files": 35,
+    "lines": 470,
     "test_files": 3
   },
   "warnings": []

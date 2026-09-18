@@ -128,6 +128,10 @@ RULE_TITLE = {
     "R11": "front door links the index", "R12": "concern covered", "R13": "verified-on date fresh",
 }
 
+# Keys whose default is null but whose shape still matters.
+NULLABLE_TYPES = {"centralIndex": (str,), "templatesDir": (str,), "existingChecker": (str,),
+                  "requiredDocs": (dict, list)}
+
 DEFAULT_MANIFEST = {
     "roots": [],
     "centralIndex": None,
@@ -352,15 +356,26 @@ def slug(text: str) -> str:
 
 
 def headings(clean: list[str]) -> list[tuple[int, int, str]]:
-    """(line_number_1_based, level, text) for every heading outside fences."""
+    """(line_number_1_based, level, text) for every heading outside fences.
+
+    Frontmatter is skipped. Its closing --- made the last key a setext H2, which added a
+    phantom anchor and let a `description:` line cover a concern; meanwhile the real `title:`
+    was invisible, so every page of a Hugo or Docusaurus site scored zero.
+    """
     out = []
-    for i, line in enumerate(clean, start=1):
+    start = 0
+    if clean and clean[0].strip() == "---":
+        for j in range(1, min(len(clean), 60)):
+            if clean[j].strip() in ("---", "..."):
+                start = j + 1
+                break
+    for i, line in enumerate(clean[start:], start=start + 1):
         m = HEADING_RE.match(line)
         if m:
             out.append((i, len(m.group(1)), m.group(2)))
             continue
         # setext: a non-blank line followed by === or ---
-        if i < len(clean) and clean[i - 1].strip() and SETEXT_RE.match(clean[i]) and not clean[i - 1].lstrip().startswith(("|", "-", "*", "#")):
+        if i > start + 0 and i < len(clean) and clean[i - 1].strip() and SETEXT_RE.match(clean[i]) and not clean[i - 1].lstrip().startswith(("|", "-", "*", "#")):
             out.append((i, 1 if clean[i].strip()[0] == "=" else 2, clean[i - 1].strip()))
     return out
 
@@ -428,7 +443,16 @@ def load_manifest(repo: Path, explicit: str | None) -> tuple[dict, Path | None, 
                 raise SystemExit(2)
             for k, v in data.items():
                 d = DEFAULT_MANIFEST[k]
-                if v is None or d is None:
+                if d is None:
+                    # A key whose default is null still has a shape. {"centralIndex": 42} used to
+                    # reach `repo / central_rel` and raise TypeError halfway through the run.
+                    want_n = NULLABLE_TYPES.get(k)
+                    if v is not None and want_n and not isinstance(v, want_n):
+                        names = " or ".join(t.__name__ for t in want_n)
+                        sys.stderr.write(f"error: manifest {c}: key {k} must be {names}\n")
+                        raise SystemExit(2)
+                    continue
+                if v is None:
                     continue
                 want = bool if isinstance(d, bool) else int if isinstance(d, int) else type(d)
                 if not isinstance(v, want) or (want is int and isinstance(v, bool)):
@@ -896,7 +920,16 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 if len(scored) > 1 and scored[1][0][0] >= 3 and scored[1][0][0] >= sc - 1:
                     runner_up = scored[1][1].rel
         weak = bool(covered_by) and how.startswith("README sections") and how.count(",") == 0
-        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "weak": weak, "template": template(inv) if callable(template) else template,
+        # The heading text behind a front-door match, so the Start here block can link it.
+        matched_heading = None
+        if covered_by and ": " in how:
+            kws = [k.strip() for k in how.split(": ", 1)[1].split(",") if k.strip()]
+            doc = next((d for d in candidates if d.rel == covered_by), None)
+            if doc:
+                matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3)
+                                        and any(f" {tokens(k).strip()} " in tokens(t) for k in kws)), None)
+        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "weak": weak,
+                     "matched_heading": matched_heading, "template": template(inv) if callable(template) else template,
                      "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up, "seed": seed,
                      "universal": cid in UNIVERSAL})
     return rows
@@ -1023,11 +1056,13 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
         path = row["covered_by"] or row["default_path"]
         state = row.get("state") or ("reviewed" if row["covered_by"] else "skeleton")
         if path == front_rel:
-            # The block sits in this file, so link the section rather than the file - dropping
-            # the stop removed "how to run it", the one line a newcomer needs.
-            row = next((r for r in coverage if r["concern"] == cid), None)
-            anchor = slug((row or {}).get("matched_heading") or label)
-            stops.append(f"[{label}](#{anchor})")
+            # The block sits in this file. Link the heading that actually covered the concern -
+            # guessing an anchor from the label wrote a dead link into the one file every
+            # reader lands on, because no repo has a heading called "how to run it".
+            head = (row or {}).get("matched_heading")
+            if not head:
+                continue  # no known heading to point at; say nothing rather than invent one
+            stops.append(f"[{label}](#{slug(head)})")
             continue
         stops.append(f"[{label}]({path})" + ("" if state == "reviewed" else f" ({state})"))
     lines = [START_HERE_OPEN, "## Start here", "",
@@ -1331,6 +1366,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     def exempt(rule: str, rel: str) -> bool:
         return matches_any(rel, list((manifest.get("exempt") or {}).get(rule, [])))
 
+    # Ambiguous discovery lists two competing docs folders and checks neither. SKILL.md says
+    # to report them and ask; writing skeletons into a third place, having read none of the
+    # candidates' docs, is the guess it forbids - so R12 stays quiet and apply writes nothing.
+    ambiguous = bool(discovery and discovery.get("status") == "ambiguous")
     convention = manifest.get("indexConvention") or detect_convention(folders, repo)
     central_rel = manifest.get("centralIndex")
     if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2:
@@ -1648,6 +1687,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             # reported nothing else - and it turned --fail-on-findings red on day one for
             # every repository that tracks work somewhere other than a TASKLIST.md.
             # A team that wants the gate sets requireConcerns in the manifest.
+            if ambiguous:
+                continue  # two candidate docs folders went unread; their docs may cover this
             add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}{seed}) - apply creates {c['default_path']} from the template",
                 "fail" if manifest.get("requireConcerns") else "warn")
     states: dict[str, dict] = {}
@@ -1670,7 +1711,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         target = central_rel or "docs/INDEX.md"
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
     front_has = has_start_here(by_rel.get(front_rel) or Doc(front, repo)) if front.is_file() else False
-    init = None if generator is not None else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
+    init = None if (generator is not None or ambiguous) else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
                                                           discovery.get("package_docs", []) if discovery else [], front_has)
 
     # ---- placeholders
@@ -1714,6 +1755,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                     merged[key] = spec["content"][key]
             spec["content"] = merged
             spec["lines"] = len(json.dumps(merged, indent=2).splitlines())
+            # And the report prints what apply writes. Merging into init alone left two
+            # different files behind one name: the user consented to the printed one and
+            # apply wrote the other, which is the thing this merge existed to stop.
+            proposed.clear()
+            proposed.update(merged)
 
     # Collapse a flood of identical R1s. Past this many, "not linked from the index" has stopped
     # being a fact about each document and become one fact about the repository.
@@ -1723,9 +1769,11 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         first = ", ".join(f["path"] for f in r1[:3])
         keep.append({"rule": "R1", "severity": SEVERITY["R1"], "level": "fail",
                      "path": central_rel or roots_rel[0] if roots_rel else ".", "line": 1,
-                     "message": f"{len(r1)} docs are not linked from {central_rel or 'any index'} "
-                                f"- this repository has no in-repo index of its docs "
-                                f"(first: {first}). One index, or a manifest naming the one it uses."})
+                     "message": (f"{len(r1)} docs are not linked from {central_rel} (first: {first}). "
+                                 f"One index that links them, or a manifest naming the one this repo uses."
+                                 if central_rel else
+                                 f"{len(r1)} docs are not linked from any index - this repository has none "
+                                 f"(first: {first}). One index, or a manifest naming the one it uses.")})
         findings = keep
 
     order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
@@ -1802,7 +1850,11 @@ def render(d: dict, top: int) -> str:
         for c in d["concerns"]:
             cov = c["covered_by"] or f"none - apply creates {c['default_path']}" + (f" (seed: {c['seed']})" if c.get("seed") else "")
             extra = f" (also {c['runner_up']})" if c.get("runner_up") else ""
-            L.append(f"| {c['concern']} | {c['applies']} | {cov}{" (weak)" if c.get("weak") else ""}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
+            # Reusing the outer quote inside an f-string expression is PEP 701, so 3.12 only.
+            # The skill promises 3.11+, where this is a SyntaxError at import and every one of
+            # the three scripts dies.
+            weak = " (weak)" if c.get("weak") else ""
+            L.append(f"| {c['concern']} | {c['applies']} | {cov}{weak}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
     L.append("")
     L.append("| rule | severity | failures | warnings | first |")
     L.append("|---|---|---|---|---|")

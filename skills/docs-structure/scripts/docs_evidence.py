@@ -77,7 +77,10 @@ ENV_ALLOW = re.compile(r"^\.env(\.[A-Za-z0-9_-]+)?\.(example|sample|template)$")
 SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
 
 REDACT = [
-    re.compile(r"\b(sk|pk|rk)-[A-Za-z0-9_-]{12,}"),
+    re.compile(r"(sk|pk|rk)[-_][A-Za-z0-9_-]{12,}"),        # Stripe writes sk_live_, not sk-
+    re.compile(r"AIza[A-Za-z0-9_-]{20,}"),                   # Google
+    re.compile(r"glpat-[A-Za-z0-9_-]{16,}"),                 # GitLab
+    re.compile(r"(hf|npm)_[A-Za-z0-9]{20,}"),                # Hugging Face, npm
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
