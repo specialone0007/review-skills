@@ -157,7 +157,7 @@
     {
       "level": "fail",
       "line": 3,
-      "message": "no central index - 10 doc(s) unreachable in one hop",
+      "message": "no central index - 10 doc(s) are linked only from the front door, if at all",
       "path": "docs/structure.json",
       "rule": "R1",
       "severity": "P1"
@@ -418,6 +418,9 @@
     "proposed_path": null,
     "source": "found"
   },
+  "other_format_docs": [
+    "requirements.txt"
+  ],
   "proposed_manifest": null,
   "record_folders": [],
   "repo": "<fixture>",

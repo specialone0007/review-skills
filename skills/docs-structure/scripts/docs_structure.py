@@ -78,10 +78,18 @@ GIT_TIMEOUT = 30
 ALWAYS_SKIP = {"node_modules", ".venv", "venv", "__pycache__", ".git"}
 TOP_LEVEL_SKIP = {"dist", "build"}
 DOC_EXTS = {".md", ".mdx"}
+# Documentation this tool cannot parse. Their presence is worth saying out loud, because the
+# concern they cover is covered whether or not the checker can read it.
+OTHER_DOC_EXTS = {".adoc", ".asciidoc", ".rst", ".txt", ".org", ".textile"}
 ROOT_FILES = ("README.md", "CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md")
 DOCS_FOLDER_NAMES = ("docs", "doc", "documentation")
 PACKAGE_MANIFESTS = ("package.json", "pyproject.toml", "setup.py", "setup.cfg", "go.mod", "Cargo.toml", "pom.xml",
                      "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs", "Move.toml")
+# What a line-number citation looks like in each language the inventory can name.
+ECO_EXTENSIONS = {"csharp": ["cs"], "dotnet": ["cs"], "kotlin": ["kt", "kts"], "swift": ["swift"],
+                  "php": ["php"], "elixir": ["ex", "exs"], "c": ["c", "h"], "cpp": ["cpp", "hpp", "cc"],
+                  "java": ["java"], "go": ["go"], "rust": ["rs"], "ruby": ["rb"], "python": ["py"],
+                  "node": ["ts", "tsx", "js", "jsx", "mjs", "cjs"], "move": ["move"], "shell": ["sh"]}
 R1_COLLAPSE_AT = 10
 # The line a split writes into each part, and the only reliable sign that a doc is one.
 SPLIT_PART = re.compile(r"^\s*>\s*\*\*Part of\*\*", re.M)
@@ -1506,6 +1514,14 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     root_docs = discovery is not None and discovery["status"] == "root-docs"
     root_files_only = discovery is not None and discovery["status"] not in ("resolved", "root-docs")
     generator = detect_generator(repo, roots)
+    other_format_docs = []
+    for base in [repo] + [r for r in roots if r.is_dir()]:
+        try:
+            other_format_docs += [posix(p, repo) for p in base.iterdir()
+                                  if p.is_file() and p.suffix.lower() in OTHER_DOC_EXTS]
+        except OSError:
+            pass
+    other_format_docs = sorted(set(other_format_docs))[:20]
     generated_docs = 0
     if generator:
         gen_root = (repo / generator).parent
@@ -1626,7 +1642,14 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     # Escaped like pathPrefixes two lines up. Unescaped, a manifest holding "(" or "*" raised
     # re.PatternError and exited 1 - the same code --fail-on-findings uses, which is exactly the
     # confusion the validation above exists to prevent.
-    exts = "|".join(re.escape(e) for e in (manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"]))
+    # The default list is JavaScript-shaped, so a .NET or Kotlin repo got none of R7 and was
+    # told nothing. When the manifest does not pin the list, add the extensions of whatever
+    # languages the inventory actually found.
+    ext_list = list(manifest.get("citationExtensions") or DEFAULT_MANIFEST["citationExtensions"])
+    if not manifest.get("citationExtensions"):
+        for p in (inv.get("packages") or []):
+            ext_list += ECO_EXTENSIONS.get(str(p.get("language") or "").lower(), [])
+    exts = "|".join(re.escape(e) for e in dict.fromkeys(ext_list))
     # The quantifier is bounded: unbounded, it backtracks quadratically over one long token
     # (16 KB took a second, and MAX_READ allows 2 MB), which hangs a CI run rather than failing it.
     cite = re.compile(r"[\w./\[\]-]{1,200}\.(?:%s):\d+(?:-\d+)?" % exts)
@@ -1791,7 +1814,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         else:
             anchor_path, anchor_line = unreachable[0], 1
         add("R1", anchor_path, anchor_line,
-            f"no central index - {len(unreachable)} doc(s) unreachable in one hop")
+            f"no central index - {len(unreachable)} doc(s) are linked only from the front door, if at all")
 
     # ---- R3 candidates
     split_at = int(manifest.get("splitAt") or 500)
@@ -1927,7 +1950,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         for c in coverage:
             if c["covered_by"]:
                 continue
-            manifest_inside = manifest_path is not None and not posix(manifest_path, repo).startswith(("/", "C:", "c:")) and ":" not in posix(manifest_path, repo)
+            manifest_inside = manifest_path is not None and not posix(manifest_path, repo).startswith("/") and ":" not in posix(manifest_path, repo)
             # A finding anchors at something that exists. On a repo with no README at all,
             # nine findings pointed at README.md:1, against this skill's own rule about
             # path:line where a line exists.
@@ -2059,6 +2082,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         # by discovery, so a 65-page Starlight site read as "Docs checked: 1, no findings" -
         # true, and silent about everything it did not look at.
         "generated_docs": generated_docs,
+        # Documents in a format this tool does not parse. Laying Markdown skeletons beside a
+        # working AsciiDoc or reStructuredText set, without mentioning it, is the confident
+        # wrong answer where an honest one was available.
+        "other_format_docs": other_format_docs,
         "generator": generator,
         "record_folders": record_folders,
         "totals": {"docs_checked": len(docs), "non_doc_files": non_doc,
@@ -2100,6 +2127,11 @@ def render(d: dict, top: int) -> str:
         L.append(f"Manifest: none, proposed below. The docs live at the repo root ({len(d['roots'])} files); README.md is the index.")
     else:
         L.append(f"Manifest: none, proposed below. Roots: {', '.join(d['roots'])}")
+    if d.get("other_format_docs"):
+        names = ", ".join(d["other_format_docs"][:4])
+        more = "" if len(d["other_format_docs"]) <= 4 else f" and {len(d['other_format_docs']) - 4} more"
+        L.append(f"{len(d['other_format_docs'])} document(s) here are not Markdown and were not read: "
+                 f"{names}{more}. A concern they cover is still covered.")
     if d.get("generator") and d.get("generated_docs"):
         L.append(f"{d['generated_docs']} Markdown files under a generated site were not checked: "
                  f"{d['generator']} owns their navigation and URLs.")

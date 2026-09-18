@@ -83,7 +83,9 @@ QUOTED = re.compile(r"\"[^\"]*\"|\u201c[^\u201d]*\u201d")
 # An ordered-list marker ends in a full stop and is not a sentence end. Every numbered step in
 # a draft was reported as a sentence without evidence - on the shape the DEPLOYMENT template
 # asks for by name ("Numbered, from a clean checkout to a live URL").
-LIST_MARKER = re.compile(r"(?:^|\s)\d{1,3}\.$")
+# A list marker or a version number ending a sentence: "pins express 4.18." is not a
+# sentence boundary the draft left unsourced.
+LIST_MARKER = re.compile(r"(?:^|\s)\d{1,3}(?:\.\d+)*\.$")
 ABBREV = re.compile(r"\b(?:[A-Z]|e\.g|i\.e|etc|vs|cf|approx|Inc|Ltd|Dr|St|No|Fig|Ref)\.$", re.I)
 BAD_BREAK = re.compile(r"[^\]`.]\.\s+(?=[A-Z`(])")
 # Hyphen-aware: fast-glob, simple-git and secure-compare are names. A hyphen is a word
@@ -433,6 +435,10 @@ def gate_inventory(repo: Path) -> tuple[set[str], dict[str, set[str]] | None]:
     except Exception as exc:  # the gate must never fail because the inventory did
         warnings.append(f"evidence inventory unavailable, G7 and G9 not checked: {type(exc).__name__}")
         return set(), None
+    # The inventory's own warnings - a depth cap, a capped scan, a detector that failed - change
+    # what G9 can know, so a count judged against a truncated scan has to say so.
+    for w in inv.get("warnings") or []:
+        warnings.append(f"inventory: {w}")
     names: set[str] = set()
     for entry in inv.get("env") or []:
         names.update(n for n in entry.get("names", []) if isinstance(n, str))
@@ -550,7 +556,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             # attributed quotation - the evidence the fill rules require for PRODUCT.md's first
             # section - was blocked, and the only way past it was to drop the quote.
             unquoted = QUOTED.sub(" ", bare)
-            if True:
+            if True:  # noqa: SIM103 - kept to preserve the block's indentation
                 # A capitalised word followed by another capitalised word is a name - Modern
                 # Treasury, Simple Storage Service, Fast Refresh - and a repo that integrates
                 # one could not write a true sentence about it.
@@ -624,7 +630,11 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                         # claiming a subtotal - and a subtotal is smaller than the total. Above the
                         # total it is not a subtotal at all, which is how [inventory: routes] used
                         # to wave 400 through in a four-route repository.
-                        if (scoped_count or inv_cite) and int(raw) <= ceiling:
+                        # A path alone is not a scan: "2 routes in `src/api/guard.js`" passed
+                        # on a file with none, because the number was under the repo-wide
+                        # total. A scoped subtotal needs the scan that produced it; citing the
+                        # inventory key is the other way to answer.
+                        if ((scoped_count and SCAN_CMD.search(joined)) or inv_cite) and int(raw) <= ceiling:
                             continue
                         add("G9", first,
                             f'the count "{m.group(1)} {noun}" disagrees with the inventory, which reports '
