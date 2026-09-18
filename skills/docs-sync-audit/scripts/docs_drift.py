@@ -146,6 +146,8 @@ PLATFORM_ENV = {
 PLATFORM_PREFIXES = ("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_", "LC_", "WERKZEUG_",
                      "PLAYWRIGHT_", "PYTEST_", "JEST_", "VITEST", "TERM_", "SSH_", "XDG_", "CARGO_", "RUSTUP_",
                      "MAVEN_", "GRADLE_", "DOTNET_", "ASPNETCORE_", "KUBERNETES_", "LITELLM_", "TORCH_")
+# example.env, env.example: an env sample under another name, read as a sample and not as code.
+ENV_SAMPLE_NAME = re.compile(r"^(?:example|sample)\.env$|^env\.(?:example|sample)$")
 ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
 DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid|its [^.]{0,30}variable)\b", re.I)
 # (?<![\w-]) not \b: "zero-config" is not a word about configuration.
@@ -471,7 +473,7 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
     weak: dict[str, str] = {}
     for rel in files:
         base = Path(rel).name
-        is_env_sample = base.startswith(".env")
+        is_env_sample = base.startswith(".env") or ENV_SAMPLE_NAME.match(base) is not None
         if not is_env_sample and Path(rel).suffix not in DOC_EXTS:
             continue
         if any(p.startswith(".") and p != ".github" for p in Path(rel).parts[:-1]):
@@ -754,6 +756,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     # saying nothing reads a documented name, look for the bare token anywhere outside the
     # docs. A negative claim from one regex is not evidence; SKILL.md says the same.
     non_doc = [f for f in files if Path(f).suffix not in DOC_EXTS and not Path(f).name.startswith(".env")
+               and not ENV_SAMPLE_NAME.match(Path(f).name)
                and not any(p in SKIP_DIRS for p in Path(f).parts)]
     # Read once: every documented name used to re-read every non-doc file.
     non_doc_text = {rel: read(repo / rel) for rel in non_doc}

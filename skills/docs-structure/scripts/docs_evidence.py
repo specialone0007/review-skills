@@ -34,7 +34,7 @@ Keys, the same for every stack:
 Detectors are rows in a registry. Adding a stack is adding a row, not a code path.
 
 Secret safety is structural: env files are opened only from an allow-list of example files
-(.env.example, .env.sample, .env.template, .env.*.example, .env.*.sample); only the key side
+(.env.example, .env.sample, .env.template, .env.*.example, .env.*.sample, example.env, env.example); only the key side
 of `=` or `:` is kept; ports come from EXPOSE and `ports:` never from a PORT value; and every
 free string that leaves this script passes `redact()`.
 """
@@ -78,7 +78,9 @@ CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svel
              ".php", ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".move"}
 # `phoenix` routes live in .ex files, Ecto migrations in .exs
 
-ENV_ALLOW = re.compile(r"^\.env(\.[A-Za-z0-9_-]+)?\.(example|sample|template)$")
+# example.env and env.example are the same file under another name - an AgentOS service kept its
+# sample that way and every name in it was reported as undocumented.
+ENV_ALLOW = re.compile(r"^(?:\.env(\.[A-Za-z0-9_-]+)?\.(example|sample|template)|(?:example|sample)\.env|env\.(?:example|sample))$")
 SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
 
 REDACT = [
@@ -1132,8 +1134,13 @@ def det_readme_tree(ctx: Ctx, inv: dict) -> None:
                 break
         inv["readme"] = {"evidence": "README.md", "title": redact(h1), "first_paragraph": redact(para)[:300],
                          "headings": [redact(l.strip("# ").strip()) for l in lines if re.match(r"^#{1,3} ", l)][:40], "lines": len(lines)}
-    gov = [n for n in ("LICENSE", "LICENSE.md", "LICENCE", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md", "CHANGELOG.md", "CLAUDE.md", "AGENTS.md") if (ctx.repo / n).is_file()]
-    inv["tree"].update({"top_level_dirs": ctx.top_level_dirs(), "governance_files": gov,
+    present = [n for n in ("LICENSE", "LICENSE.md", "LICENCE", "CONTRIBUTING.md", "CODE_OF_CONDUCT.md", "SECURITY.md", "CHANGELOG.md", "CLAUDE.md", "AGENTS.md") if (ctx.repo / n).is_file()]
+    # A file git ignores is one developer's copy, not the repository's: a gitignored CLAUDE.md
+    # was quoted eight times into drafts before the gate caught it. `git check-ignore -q` exits 0
+    # for an ignored path, which run_git returns as "" rather than None.
+    ignored = [n for n in present if run_git(ctx.repo, ["check-ignore", "-q", n]) is not None]
+    gov = [n for n in present if n not in ignored]
+    inv["tree"].update({"top_level_dirs": ctx.top_level_dirs(), "governance_files": gov, "ignored_governance_files": ignored,
                         "pr_template": any((ctx.repo / ".github" / n).exists() for n in ("PULL_REQUEST_TEMPLATE.md", "pull_request_template.md")),
                         "adr_folders": sorted(d for d in ctx.dirs if Path(d).name.lower() in ("adr", "adrs", "decisions", "rfcs"))[:5],
                         "plan_like_docs": sorted(ctx.rel(p) for p in ctx.files if p.suffix.lower() == ".md" and re.search(r"\b(plan|plans|roadmap|todo|backlog|tasklist|tasks)\b", p.name, re.I))[:20]})
