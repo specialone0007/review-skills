@@ -1,14 +1,6 @@
 {
   "findings": [
     {
-      "detail": "relative link `../../actions/workflows/test.yml/badge.svg` does not resolve.",
-      "doc": "README.md",
-      "kind": "broken-link",
-      "line": 3,
-      "severity": "high",
-      "source": null
-    },
-    {
       "detail": "documents `dev`, which is not a script in any package.json. Closest existing: dev:start.",
       "doc": "README.md",
       "kind": "missing-script",
@@ -58,11 +50,13 @@
     }
   ],
   "repo": "<fixture>",
+  "stale_docs": [],
   "totals": {
     "docs_checked": 14,
     "env_names_documented": 4,
     "env_names_in_code": 2,
-    "findings": 7,
+    "env_names_skipped_as_platform": 0,
+    "findings": 6,
     "make_targets_found": 0,
     "npm_scripts_found": 4
   },
