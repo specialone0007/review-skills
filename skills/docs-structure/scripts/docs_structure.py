@@ -2518,8 +2518,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                             body.append(l)
                     if len(body) <= 1:
                         continue  # a line and a link is the shape asked for
-                    # names inside links and code spans are pointers, not a second home
-                    body_text = re.sub(r"\[[^\]]*\]\([^)]*\)|`[^`]*`", " ", " ".join(body))
+                    # a name inside a link is a pointer, not a second home; a name in backticks
+                    # in prose ("set `DATABASE_URL`") is exactly the second home
+                    body_text = re.sub(r"\[[^\]]*\]\([^)]*\)", " ", " ".join(body))
                     named = {n for e in (inv.get("env") or []) for n in (e.get("names") or [])} | {s.get("name") for s in (inv.get("services") or []) if s.get("name")}
                     hits = sum(1 for n in named if n and re.search(rf"(?<![A-Za-z0-9_]){re.escape(n)}(?![A-Za-z0-9_])", body_text))
                     # six lines that name two env variables are a second home; so are forty lines that name none
