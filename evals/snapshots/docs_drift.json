@@ -42,6 +42,7 @@
     }
   ],
   "repo": "<fixture>",
+  "stale_docs": [],
   "totals": {
     "docs_checked": 8,
     "env_names_documented": 4,

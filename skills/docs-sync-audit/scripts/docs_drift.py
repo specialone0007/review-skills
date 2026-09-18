@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -59,18 +60,18 @@ CODE_EXTS = {
     ".go", ".rs", ".rb", ".php", ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".sh",
 }
 
-FENCE = re.compile(r"^```")
+FENCE = re.compile(r"^(?:```|~~~)")
 # Commands worth checking. Anything else in a fenced block is left alone.
 CMD_NPM = re.compile(r"\b(?:npm|pnpm|yarn|bun)\s+run\s+([A-Za-z0-9:_.-]+)")
 CMD_MAKE = re.compile(r"\bmake\s+([A-Za-z0-9_.-]+)")
 CMD_SCRIPT = re.compile(r"(?:^|\s)(\./[A-Za-z0-9_./-]+|(?:python3?|node|bash|sh|ruby)\s+([A-Za-z0-9_./-]+\.[A-Za-z0-9]+))")
 
-MD_LINK = re.compile(r"!?\[[^\]]*\]\(([^)\s]+)")
+MD_LINK = re.compile(r"!?\[[^\]]*\]\((?:<([^>\n]+)>|([^)\s]+))")
 BACKTICK = re.compile(r"`([^`\n]+)`")
 
 # Placeholder shapes that are not meant to resolve.
 PLACEHOLDER = re.compile(
-    r"[<>{}$*]|^\.{3}|\.{3}$|(^|/)(path/to|your[-_]|my[-_]|example|foo|bar|baz|placeholder)",
+    r"[<>{}$*]|^\.{3}|\.{3}$|(^|/)(path/to|your[-_]|my[-_]|example|foo|bar|baz|placeholder)|^(?:url|link|path|href|file)$",
     re.I)
 
 ENV_IN_CODE = [
@@ -81,7 +82,32 @@ ENV_IN_CODE = [
     re.compile(r"""getenv\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
     re.compile(r"""ENV\[\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
     re.compile(r"""Deno\.env\.get\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
+    # The languages CODE_EXTS lists and the patterns above did not read: Go, Rust, Elixir,
+    # C#, Java, Vite/Astro, and a destructured process.env. Without these every documented
+    # variable in a Go or Rust repository was "a knob that does not exist".
+    re.compile(r"""os\.(?:Getenv|LookupEnv)\(\s*"([A-Z][A-Z0-9_]*)\""""),
+    re.compile(r"""env::var(?:_os)?\(\s*"([A-Z][A-Z0-9_]*)\""""),
+    re.compile(r"""System\.(?:get_env|fetch_env!?)\(\s*"([A-Z][A-Z0-9_]*)\""""),
+    re.compile(r"""GetEnvironmentVariable\(\s*"([A-Z][A-Z0-9_]*)\""""),
+    re.compile(r"""System\.getenv\(\s*"([A-Z][A-Z0-9_]*)\""""),
+    re.compile(r"""import\.meta\.env\.([A-Z][A-Z0-9_]*)"""),
+    re.compile(r"""\benv\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
 ]
+# const { A, B } = process.env - one line, several names.
+ENV_DESTRUCTURE = re.compile(r"\{([^}]*)\}\s*=\s*process\.env\b")
+# Variables the platform, the shell or the runtime sets. Reading them is not a documentation
+# promise, and reporting each one as undocumented was most of the noise on a Node repository.
+PLATFORM_ENV = {
+    "NODE_ENV", "CI", "HOME", "PATH", "PWD", "TERM", "SHELL", "USER", "LANG", "TZ", "TMPDIR", "TEMP", "TMP",
+    "DEBUG", "PORT", "HOSTNAME", "HOST", "NODE_OPTIONS", "npm_package_version", "npm_lifecycle_event",
+    "GITHUB_ACTIONS", "GITHUB_TOKEN", "GITHUB_SHA", "GITHUB_REF", "GITHUB_REPOSITORY", "GITHUB_WORKSPACE",
+    "GITHUB_OUTPUT", "GITHUB_ENV", "RUNNER_OS", "VERCEL", "VERCEL_ENV", "VERCEL_URL", "NEXT_RUNTIME",
+    "RAILWAY_ENVIRONMENT", "RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL", "PYTHONPATH", "VIRTUAL_ENV",
+    "RUST_LOG", "RUST_BACKTRACE", "CARGO_MANIFEST_DIR", "GOPATH", "GOFLAGS", "JAVA_HOME", "MIX_ENV",
+    "DOCKER_HOST", "KUBERNETES_SERVICE_HOST", "AWS_REGION", "AWS_DEFAULT_REGION", "LOG_LEVEL",
+    "COLUMNS", "LINES", "NO_COLOR", "FORCE_COLOR", "EDITOR", "VISUAL", "XDG_CONFIG_HOME", "APPDATA",
+    "LOCALAPPDATA", "USERPROFILE", "SYSTEMROOT", "COMSPEC", "OS", "PROCESSOR_ARCHITECTURE",
+}
 ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
 
 # Import forms across the languages handled above. Four alternatives, so findall
@@ -93,6 +119,7 @@ IMPORT_SPEC = re.compile(
     r"""|^\s*import\s+([A-Za-z0-9_.]+)""",
     re.M)
 
+NL = chr(10)
 warnings: list[str] = []
 
 
@@ -122,11 +149,43 @@ def list_files(repo: Path) -> list[str]:
     return sorted(files)
 
 
+_LISTING: dict[str, set[str]] = {}
+
+
+def exists_exact(path: Path) -> bool:
+    """Exists with this exact spelling. Path.exists() is case-insensitive on Windows and macOS,
+    so a link to Guide.md pointing at guide.md passed here and broke on the Linux runner."""
+    try:
+        p = Path(os.path.normpath(str(path)))
+        if not p.exists():
+            return False
+        cur = p
+        for _ in range(64):
+            parent = cur.parent
+            if parent == cur or not cur.name:
+                return True
+            key = str(parent)
+            if key not in _LISTING:
+                try:
+                    _LISTING[key] = {e.name for e in os.scandir(parent)}
+                except OSError:
+                    return True
+            if cur.name not in _LISTING[key]:
+                return False
+            cur = parent
+        return True
+    except (OSError, ValueError):
+        return False
+
+
 def read(path: Path) -> str:
     try:
         if path.stat().st_size > MAX_READ:
             return ""
-        return path.read_text(encoding="utf-8", errors="replace")
+        raw = path.read_bytes()
+        if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+            return raw.decode("utf-16", errors="replace")
+        return raw.decode("utf-8-sig", errors="replace")
     except OSError:
         return ""
 
@@ -177,6 +236,9 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
             for pattern in ENV_IN_CODE:
                 for name in pattern.findall(line):
                     found.setdefault(name, []).append(f"{rel}:{i}")
+            for group in ENV_DESTRUCTURE.findall(line):
+                for name in ENV_NAME.findall(group):
+                    found.setdefault(name, []).append(f"{rel}:{i}")
     return found
 
 
@@ -207,13 +269,44 @@ def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
             for part in re.split(r"[./\:]", ref):
                 if part:
                     imported.add(part.lower())
+    # A script nothing imports is still live when something runs it by name: a package.json
+    # script, a Makefile, a Dockerfile, a workflow, a compose file, or a command in a doc.
+    # docs/verify-deploy.mjs read RAILWAY_TOKEN and was called dead because it is run with
+    # `node docs/verify-deploy.mjs`, not imported - so the docs were told the knob did nothing.
+    # Invocation is a command, not a mention. "see src/config.js" in a README is prose; `node
+    # docs/verify-deploy.mjs` in a fenced block or a backticked command, a package.json script
+    # value, a Makefile or Dockerfile line, a workflow step - those run the file.
+    runner = re.compile(r"`((?:node|python3?|bash|sh|ruby|deno|bun|npx|pnpm|npm|yarn|make|\./)[^`]*)`")
+    invoked_text = []
+    for rel in files:
+        if any(p in SKIP_DIRS for p in Path(rel).parts):
+            continue
+        name = Path(rel).name
+        suffix = Path(rel).suffix
+        if name == "package.json":
+            try:
+                scripts = json.loads(read(repo / rel)).get("scripts") or {}
+            except (ValueError, AttributeError):
+                scripts = {}
+            invoked_text.extend(str(v) for v in scripts.values())
+        elif (name in ("Makefile", "Dockerfile", "Procfile", "Justfile") or name.startswith(("docker-compose", "compose.", "Dockerfile."))
+              or suffix in (".yml", ".yaml", ".sh", ".ps1")):
+            invoked_text.append(read(repo / rel))
+        elif suffix in DOC_EXTS:
+            text = read(repo / rel)
+            invoked_text.extend(line for _, line in fenced_blocks(text))
+            invoked_text.extend(runner.findall(text))
+    invoked = NL.join(invoked_text).replace(chr(92), "/")
     out = set()
     for rel in code:
         if entrypoint.search(rel):
             continue
         stem = Path(rel).stem.lower()
-        if stem not in imported and Path(rel).name.lower() not in imported:
-            out.add(rel)
+        if stem in imported or Path(rel).name.lower() in imported:
+            continue
+        if Path(rel).name in invoked or rel in invoked:
+            continue
+        out.add(rel)
     return out
 
 
@@ -237,7 +330,7 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                 stripped = line.strip()
                 if not stripped or stripped.startswith("#") or "=" not in stripped:
                     continue
-                key = stripped.split("=", 1)[0].strip().lstrip("export ").strip()
+                key = re.sub(r"^export\s+", "", stripped.split("=", 1)[0].strip()).strip()
                 if ENV_NAME.fullmatch(key or ""):
                     documented.setdefault(key, f"{rel}:{i}")
             else:
@@ -249,8 +342,8 @@ def env_names_documented(repo: Path, files: list[str]) -> dict[str, str]:
                     if "." in chunk or "/" in chunk:
                         continue
                     for name in ENV_NAME.findall(chunk):
-                        if "_" not in name:
-                            continue
+                        if "_" not in name or name.endswith("_") or (name + "*") in chunk or (name + "_*") in chunk:
+                            continue  # PODCAST_S3_* names a family of variables, not one
                         documented.setdefault(name, f"{rel}:{i}")
     return documented
 
@@ -267,14 +360,27 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
 
     def add(kind: str, severity: str, doc: str, line: int | None, detail: str,
             source: str | None = None) -> None:
+        if doc != "(docs)" and in_record(doc) and severity != "low":
+            severity = "low"
+            detail += " (in a record folder: history, not a live promise)"
         findings.append({"kind": kind, "severity": severity, "doc": doc, "line": line,
                          "detail": detail, "source": source})
 
     file_set = set(files)
     npm_scripts, make_targets = available_commands(repo, files)
     all_npm = set().union(*npm_scripts.values()) if npm_scripts else set()
+    # A dot-folder holds tooling - .claude/skills, .agents, .cursor - whose Markdown speaks to an
+    # agent, not to a reader of this repository; .github is the one GitHub itself documents.
     docs = [f for f in files
-            if Path(f).suffix in DOC_EXTS and not any(p in SKIP_DIRS for p in Path(f).parts)]
+            if Path(f).suffix in DOC_EXTS and not any(p in SKIP_DIRS for p in Path(f).parts)
+            and not any(p.startswith(".") and p != ".github" for p in Path(f).parts[:-1])]
+    # An archived report or a dated plan described the repository accurately at the time; its
+    # commands and links are history, not promises. Findings there are advice and staleness is
+    # expected. Same heuristic as docs-structure's record folders.
+    record = re.compile(r"(^|/)(archive|archived|plans|specs|log|logs|builds|adr|adrs|decisions|rfcs|changelogs|audit-[^/]*|[^/]*\d{4}-\d{2}-\d{2}[^/]*)/", re.I)
+
+    def in_record(path: str) -> bool:
+        return bool(record.search(path))
 
     for doc in docs:
         text = read(repo / doc)
@@ -304,19 +410,29 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 if candidate.endswith("/") or any(part in SKIP_DIRS
                                                   for part in Path(candidate).parts):
                     continue
-                if candidate not in file_set and not (repo / candidate).exists():
+                # Written relative to the doc as often as to the repo root, and a shape that repeats
+                # (scripts/x.py under a package) is the tail of a real path.
+                here = (repo / Path(doc).parent / candidate)
+                if (candidate not in file_set and not exists_exact(repo / candidate) and not exists_exact(here)
+                        and not any(f.endswith("/" + candidate) for f in file_set)):
                     add("missing-script-file", "high", doc, lineno,
                         f"documents running `{candidate}`, which does not exist.")
 
         # 2 and 3. links and backticked paths
         for i, line in enumerate(text.splitlines(), start=1):
-            for target in MD_LINK.findall(line):
-                t = target.split("#")[0].strip()
+            for angled, plain in MD_LINK.findall(line):
+                t = (angled or plain).split("#")[0].split("?")[0].strip()
                 if not t or t.startswith(("http://", "https://", "mailto:", "#", "tel:", "data:")):
                     continue
                 if PLACEHOLDER.search(t):
                     continue
-                if not (repo / Path(doc).parent / t).exists():
+                # A leading slash is root-relative on GitHub, not a path on this machine - and
+                # with no file extension it is an application route (/dashboard/notifications
+                # in a site's own content), which no file could satisfy.
+                if t.startswith("/") and "." not in Path(t).name:
+                    continue
+                base = repo if t.startswith("/") else repo / Path(doc).parent
+                if not exists_exact(base / t.lstrip("/")):
                     add("broken-link", "high", doc, i,
                         f"relative link `{t}` does not resolve.")
             for chunk in (BACKTICK.findall(line) if check_paths else []):
@@ -357,9 +473,37 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     in_code = env_names_from_code(repo, files)
     in_docs = env_names_documented(repo, files)
     dead = unreferenced_modules(repo, files)
+    # A config module - a zod schema, a pydantic Settings class, a struct with env tags, a
+    # compose file with ${NAME} - reads a variable without any of the patterns above. Before
+    # saying nothing reads a documented name, look for the bare token anywhere outside the
+    # docs. A negative claim from one regex is not evidence; SKILL.md says the same.
+    non_doc = [f for f in files if Path(f).suffix not in DOC_EXTS and not Path(f).name.startswith(".env")
+               and not any(p in SKIP_DIRS for p in Path(f).parts)]
+    _token_cache: dict[str, str] = {}
+
+    def mentioned_in_code(name: str) -> str | None:
+        if name not in _token_cache:
+            hit = None
+            pat = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"(?![A-Za-z0-9_])")
+            for rel in non_doc:
+                text = read(repo / rel)
+                if text and pat.search(text):
+                    hit = rel
+                    break
+            _token_cache[name] = hit or ""
+        return _token_cache[name] or None
+
+    if in_docs and not in_code:
+        warnings.append("no environment reads were recognised in this repository's code, so documented "
+                        "names were not compared against readers; the languages or the access pattern "
+                        "are outside what this script parses")
     for name, where in sorted(in_docs.items()):
         readers = in_code.get(name, [])
         doc_path, _, doc_line = where.rpartition(":")
+        if not readers and not in_code:
+            continue
+        if not readers and mentioned_in_code(name):
+            continue  # read through a mechanism the patterns do not parse; not a missing knob
         if not readers:
             add("documented-unused-env", "medium", doc_path, int(doc_line),
                 f"`{name}` is documented but nothing in the code reads it. "
@@ -371,12 +515,20 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 f"`{name}` is read only in a module nothing imports, so the documented setting "
                 "cannot take effect. The docs describe a working knob that does nothing.",
                 source=where_read)
+    # Example, fixture and test code reads variables the product never does - a vendored sample
+    # under examples/ read ANTHROPIC_API_KEY and the whole repository was told it was
+    # undocumented. Those folders still count as readers for the other direction.
+    sample = re.compile(r"(^|/)(examples?|fixtures?|__fixtures__|testdata|tests?|__tests__|specs?|samples?|demos?|benchmarks?)/", re.I)
     for name, readers in sorted(in_code.items()):
+        if all(sample.search(r.rsplit(":", 1)[0]) for r in readers):
+            continue
+        if name in PLATFORM_ENV or name.startswith(("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_")):
+            continue
         if name not in in_docs:
             add("undocumented-env", "medium", "(docs)", None,
                 f"`{name}` is read by the code but is not documented anywhere, "
                 "and is not in an env sample file.",
-                source=readers[0])
+                source=sorted(readers, key=lambda r: bool(sample.search(r)))[0])
 
     # 5. staleness
     code_dirs = {str(Path(f).parent).replace("\\", "/") for f in files
@@ -384,20 +536,36 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     newest_code = max((e for e in (newest_commit_epoch(repo, d) for d in list(code_dirs)[:40])
                        if e), default=None)
     if newest_code:
+        stale: list[tuple[int, str]] = []
         for doc in docs:
+            if in_record(doc):
+                continue  # a record is supposed to be old
             doc_epoch = newest_commit_epoch(repo, doc)
             if not doc_epoch:
                 continue
             days = (newest_code - doc_epoch) / 86400
             if days > STALE_DAYS:
+                stale.append((int(days), doc))
+        # One row per doc drowned every other finding on a repository with a long history:
+        # 305 of eclipse_fm's 376 findings were this. Past a handful it is one finding that
+        # names the oldest, and the JSON keeps the full list under "stale_docs".
+        stale.sort(reverse=True)
+        if len(stale) <= 8:
+            for days, doc in stale:
                 add("stale-doc", "low", doc, None,
-                    f"last changed {int(days)} days before the most recent code change. "
+                    f"last changed {days} days before the most recent code change. "
                     "Not wrong by itself, but worth reading against current behavior.")
+        else:
+            oldest = ", ".join(f"{d} ({n}d)" for n, d in stale[:5])
+            add("stale-doc", "low", stale[0][1], None,
+                f"{len(stale)} docs last changed more than {STALE_DAYS} days before the most recent code "
+                f"change; the oldest: {oldest}. Not wrong by itself; the full list is in --format json.")
 
     order = {"high": 0, "medium": 1, "low": 2}
     findings.sort(key=lambda f: (order.get(f["severity"], 3), f["doc"], f["line"] or 0))
     return {
         "repo": str(repo),
+        "stale_docs": [{"doc": d, "days": n} for n, d in (stale if newest_code else [])],
         "totals": {"docs_checked": len(docs), "findings": len(findings),
                    "npm_scripts_found": len(all_npm), "make_targets_found": len(make_targets),
                    "env_names_in_code": len(in_code), "env_names_documented": len(in_docs)},
