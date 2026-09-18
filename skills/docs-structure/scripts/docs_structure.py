@@ -223,9 +223,10 @@ def _plan_evidence(inv: dict) -> str | None:
     """
     tree = inv.get("tree") or {}
     planish = list(tree.get("plan_like_docs") or [])
+    # adr, rfcs and decisions are dated records, which the record-folder rules already handle;
+    # a phase checklist is the wrong apparatus for them.
     folders = [f for f in (tree.get("top_level") or [])
-               if str(f).lower() in ("adr", "adrs", "rfcs", "rfc", "decisions", "plans",
-                                     "roadmap", "tasklist", "tasks")]
+               if str(f).lower() in ("plans", "roadmap", "tasklist", "tasks")]
     if planish:
         return "plan-like docs: " + ", ".join(str(p) for p in planish[:3])
     if folders:
@@ -1035,7 +1036,7 @@ INDEX_TEMPLATE = """# Docs index
 
 > **This document owns:** the list of every doc in this repository, what each one owns, and its state.
 
-Pick the one file you need here; do not read the folder. One doc owns each fact; the others link to it. State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.
+Pick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.
 """
 
 # The index is grouped by what a reader came to do, not by concern id: a new engineer wants
@@ -1472,6 +1473,10 @@ LICENCE_FILES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "LICENCE", "LICENCE.md"
                  "COPYING", "COPYING.txt", "LICENSE-MIT", "LICENSE-APACHE")
 
 
+def is_start_here_heading(text: str) -> bool:
+    return any(w in text.lower() for w in START_HERE_WORDS)
+
+
 def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> list[str]:
     """What a reader landing here cannot find anywhere. Each gap is real, not a missing heading:
     the intro paragraph answers what this is; the Start here block's link answers how to run it
@@ -1562,14 +1567,39 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
                 continue  # no known heading to point at; say nothing rather than invent one
             stops.append(f"[{label}](#{slug(head)})")
             continue
+        if state == "skeleton":
+            continue  # a skeleton is not a first stop; the index says it exists
         stops.append(f"[{label}]({path})" + ("" if state == "reviewed" else f" ({state})"))
     lines = [START_HERE_OPEN, "## Start here", "",
              f"{'Three' if agent else 'Two'} files, in this order. Everything else is one hop from the {'second' if agent else 'last'} one.", ""]
     lines += steps
-    lines += ["", "From the index, the usual first stops: " + ", ".join(stops) + ". The index says which file is which; this README keeps no list of its own, so the two cannot drift.", "",
+    first_stops = ("From the index, the usual first stops: " + ", ".join(stops) + ". " if stops
+                   else "The docs a reader starts with are still skeletons; the index says which. ")
+    lines += ["", first_stops + "The index says which file is which; this README keeps no list of its own, so the two cannot drift.", "",
               f"The docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `{docs_root}/structure.json` is its manifest.",
               START_HERE_CLOSE]
     return "\n".join(lines) + "\n"
+
+
+def package_description(repo: Path, folder: Path) -> str:
+    """What a package says it is, from its own manifest: package.json description, pyproject
+    description, Cargo.toml description. A README's first sentence was prose written for another
+    context and came out as half a sentence with a link inside a table cell."""
+    pj = folder / "package.json"
+    if pj.is_file():
+        try:
+            d = json.loads(read(pj)).get("description")
+            if isinstance(d, str) and d.strip():
+                return d.strip()
+        except ValueError:
+            pass
+    for name in ("pyproject.toml", "Cargo.toml"):
+        f = folder / name
+        if f.is_file():
+            m = re.search(r"^description\s*=\s*\"([^\"\n]+)\"", read(f), re.M)
+            if m:
+                return m.group(1).strip()
+    return ""
 
 
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
@@ -1603,13 +1633,19 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         "frontDoor": front_rel,
         "ignore": [],
     }
+    # Empty lists are the defaults; writing them out made the manifest look like eleven decisions
+    # when it was four. {} is a valid manifest and the proposal reads like one.
+    manifest = {k: v for k, v in manifest.items() if v not in ([], {}, None)}
     if not have_manifest:
         files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
     rows = []
     groups: dict[str, list[str]] = {}
     custom = manifest_groups if isinstance(manifest_groups, dict) and manifest_groups else None
-    group_of = ({cid: name for name, cids in custom.items() for cid in (cids or [])} if custom
+    group_of = ({cid: name for name, cids in custom.items() for cid in (cids or []) if "/" not in cid and not cid.endswith(".md")} if custom
                 else {cid: name for name, cids in INDEX_GROUPS for cid in cids})
+    # A team groups by topic as often as by concern: a value that is a path or a glob places
+    # that doc, so a hand-written doc lands in the table the team keeps for it.
+    path_group = {pat: name for name, cids in (custom or {}).items() for pat in (cids or []) if "/" in pat or pat.endswith(".md")}
     order = list(custom.keys()) + ["Packages"] if custom else None
     for c in uncovered:
         t = template_for(c["template"])
@@ -1633,15 +1669,17 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         if "/" not in p or not (repo / p).is_file():
             continue
         pd = Doc(repo / p, repo)
-        first = next((l.strip() for l in pd.clean[1:60] if l.strip() and not l.startswith(("#", "!", "[", "<", ">", "|", "-", "*", "`"))), "")
         h1 = next((t for _, lvl, t in pd.headings if lvl == 1), Path(p).parent.name)
-        owns = (first[:140].rstrip(".") if first else h1)
+        owns = package_description(repo, (repo / p).parent) or h1
+        owns = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", owns).replace("|", "/")
+        owns = (owns[:77].rsplit(" ", 1)[0] + "...") if len(owns) > 80 else owns
         rel_link = ("../" * (docs_root.count("/") + 1)) + p if not root_docs else p
         # A commit is not a review. A hand-written doc nobody has reviewed under this shape
         # is unreviewed until a person dates it.
         row = f"| [{p}]({rel_link}) | {owns} | unreviewed |"
         rows.append(row)
-        groups.setdefault("Packages", []).append(row)
+        placed = next((name for pat, name in path_group.items() if fnmatch.fnmatch(p, pat) or p == pat), "Packages")
+        groups.setdefault(placed, []).append(row)
     if not have_index and not root_docs:
         # With the content, not just a name. SKILL.md says the template is in the checker's
         # output; it was a module constant nothing emitted, so two agents wrote two indexes.
@@ -2433,6 +2471,24 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     if front_doc is not None:
         for gap in front_door_gaps(front_doc, repo, coverage, inv):
             add("R11", front_rel, 1, f"front door does not answer {gap} - advice, apply writes none of it", "warn")
+        # "One doc owns each fact" was a sentence in the index and nothing checked it at the one
+        # file every reader lands on: a README kept its own deployment section while
+        # DEPLOYMENT.md sat beside it. A README H2 whose words match a concern another doc owns
+        # is that drift in the making; the README keeps a line and a link.
+        for cid, applies, default_file, keywords, template, companions in CONCERNS:
+            row = next((r for r in coverage if r["concern"] == cid), None)
+            if not row or not row.get("covered_by") or row["covered_by"] == front_rel:
+                continue
+            kw = {tokens(k).strip() for k in keywords}
+            for ln, lvl, text in front_doc.headings:
+                if lvl != 2:
+                    continue
+                t = tokens(text)
+                if sum(1 for k in kw if f" {k} " in t) >= 1 and not is_start_here_heading(text):
+                    body = [l for l in front_doc.lines[ln:ln + 40] if l.strip() and not l.startswith("#")]
+                    if len(body) > 6:
+                        add("R11", front_rel, ln, f"section '{text}' is a second home for {cid}, which {row['covered_by']} owns - keep a line and a link, move the rest", "warn")
+                    break
     if generator is None:
         for c in coverage:
             if c["covered_by"]:

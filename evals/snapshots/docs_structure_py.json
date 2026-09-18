@@ -184,7 +184,7 @@
         "why": "data (schema: alembic/versions/0001_initial.py)"
       },
       "docs/INDEX.md": {
-        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. One doc owns each fact; the others link to it. State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
+        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
         "lines": 13,
         "template": "INDEX.md (built in)"
       },
@@ -197,9 +197,7 @@
       "docs/structure.json": {
         "content": {
           "centralIndex": "docs/INDEX.md",
-          "counts": [],
           "frontDoor": "README.md",
-          "ignore": [],
           "indexConvention": "sibling",
           "ownerLine": {
             "enforce": false,
@@ -212,19 +210,18 @@
             "alembic",
             "app"
           ],
-          "recordFolders": [],
           "roots": [
             "docs",
             "README.md"
           ],
           "splitAt": 1000
         },
-        "lines": 24,
+        "lines": 21,
         "template": "generated"
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](#getting-started), [the architecture](docs/ARCHITECTURE.md) (skeleton). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](#getting-started). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"

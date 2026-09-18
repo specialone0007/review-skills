@@ -195,7 +195,7 @@ attributed. Tokens high, taste question.
 High. Coverage gaps are questions.
 
 **operate**: health routes and probes, cron schedules, alert rule files; each with its file.
-"When something is wrong" from `fix(prod|incident|outage)` commits until a human writes it. Partial.
+"When something is wrong" is one open question until a person who has run the system writes it; fix commits are DEPLOYMENT's Known traps, not a runbook. Partial.
 
 **contribute**: governance files present, PR template, CI checks that must pass, commit convention
 if a config declares it. Review process is a question.
