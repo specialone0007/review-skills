@@ -75,6 +75,7 @@ CMD_SCRIPT = re.compile(r"(?:^|\s)(\./[A-Za-z0-9_./-]+|(?:python3?|node|bash|sh|
 # `dotnet run --project src/Api` names a folder or a project file; `cargo run --bin worker`
 # names a [[bin]] target or src/bin/worker.rs. Both are checkable, and both were silent.
 CMD_DOTNET = re.compile(r"\bdotnet\s+(?:run|test|build|publish)\s+(?:[^\s]+\s+)*?--project\s+([A-Za-z0-9_./-]+)")
+CMD_GO = re.compile(r"\bgo\s+(?:run|build|test|install)\s+(?:-\S+\s+)*(\./[A-Za-z0-9_./-]+)")
 CMD_CARGO_BIN = re.compile(r"\bcargo\s+(?:run|build|install)\s+(?:[^\s]+\s+)*?--bin\s+([A-Za-z0-9_-]+)")
 
 MD_LINK = re.compile(r"!?\[[^\]]*\]\((?:<([^>\n]+)>|([^)\s]+))")
@@ -132,13 +133,16 @@ PLATFORM_ENV = {
     "GOOGLE_APPLICATION_CREDENTIALS", "AZURE_CLIENT_ID", "AZURE_TENANT_ID", "AZURE_CLIENT_SECRET",
     "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES", "NEXT_PHASE",
     "DJANGO_SETTINGS_MODULE", "FLASK_APP", "FLASK_ENV", "FLASK_DEBUG", "DISPLAY", "WAYLAND_DISPLAY",
+    # import.meta.env built-ins, set by Vite, not by an operator.
+    "DEV", "PROD", "MODE", "SSR", "BASE_URL", "LANGUAGE",
+    "JAVA_HOME", "JAVA_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS",
 }
 # Prefixes that belong to a tool or a CI system wholesale; nothing an application names starts
 # with these. Vendor names (AWS_, GOOGLE_, SENTRY_, HF_) are deliberately absent: an application
 # names its own bucket AWS_S3_UPLOAD_BUCKET and its own token SENTRY_ORG_TOKEN.
-PLATFORM_PREFIXES = ("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_", "LC_", "LANG", "WERKZEUG_",
+PLATFORM_PREFIXES = ("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_", "LC_", "WERKZEUG_",
                      "PLAYWRIGHT_", "PYTEST_", "JEST_", "VITEST", "TERM_", "SSH_", "XDG_", "CARGO_", "RUSTUP_",
-                     "JAVA_", "MAVEN_", "GRADLE_", "DOTNET_", "ASPNETCORE_", "KUBERNETES_", "LITELLM_", "TORCH_")
+                     "MAVEN_", "GRADLE_", "DOTNET_", "ASPNETCORE_", "KUBERNETES_", "LITELLM_", "TORCH_")
 ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
 DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid|its [^.]{0,30}variable)\b", re.I)
 # (?<![\w-]) not \b: "zero-config" is not a word about configuration.
@@ -293,6 +297,9 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
         if not text or "env" not in text.lower():
             continue
         for i, line in enumerate(text.splitlines(), start=1):
+            # A JSDoc line "* The values above use `process.env.X`" is prose, not a read.
+            if line.lstrip().startswith(("//", "* ", "*/", "/*", "#")):
+                continue
             for pattern in ENV_IN_CODE:
                 for name in pattern.findall(line):
                     found.setdefault(name, []).append(f"{rel}:{i}")
@@ -454,7 +461,18 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
         text = read(repo / rel)
         if not text:
             continue
+        # `export KENER_URL=https://...` in a README fence is how a variable is most often
+        # documented outside an env sample. The sample parser read that shape; the prose
+        # path only read backticks and table cells, and reported the variable undocumented.
+        fenced = set() if is_env_sample else {ln for ln, _ in fenced_blocks(text)}
         for i, line in enumerate(text.splitlines(), start=1):
+            if i in fenced:
+                m_f = re.match(r"^\s*(?:export\s+|set\s+|\$env:)?([A-Z][A-Z0-9_]{2,})=", line)
+                if m_f and "_" in m_f.group(1):
+                    # Weak: a blog post's `export ZSH_THEME=` and a prompt template's
+                    # `QUERY_PLAN_FILE=` are not promises this repository makes.
+                    weak.setdefault(m_f.group(1), f"{rel}:{i}")
+                continue
             if is_env_sample:
                 stripped = line.strip()
                 # "# KENER_API_KEY=" is how an optional variable is documented in an env sample;
@@ -599,6 +617,14 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                         or any(f == p_ or f.startswith(p_ + "/") for f in file_set)):
                     add("missing-script-file", "high", doc, lineno,
                         f"documents `dotnet run --project {proj}`, and no such project exists.")
+            for pkg in set(CMD_GO.findall(line)):
+                p_ = pkg.rstrip("/").lstrip("./")
+                if p_.endswith("...") or PLACEHOLDER.search(p_) or not p_:
+                    continue
+                if not (exists_exact(repo / p_) or exists_exact(repo / Path(doc).parent / p_)
+                        or any(f.startswith(p_ + "/") for f in file_set)):
+                    add("missing-script-file", "high", doc, lineno,
+                        f"documents `go run {pkg}`, and no such package directory exists.")
             for bin_ in set(CMD_CARGO_BIN.findall(line)):
                 if cargo_bins and bin_ not in cargo_bins and not PLACEHOLDER.search(bin_):
                     add("missing-script-file", "high", doc, lineno,
@@ -642,6 +668,10 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 # with no file extension it is an application route (/dashboard/notifications
                 # in a site's own content), which no file could satisfy.
                 if t.startswith("/") and "." not in Path(t).name:
+                    continue
+                if "\\" in t:
+                    add("broken-link", "high", doc, i,
+                        f"relative link `{t}` uses a backslash; it resolves on Windows only, and not on GitHub.")
                     continue
                 base = repo if t.startswith("/") else repo / Path(doc).parent
                 target = base / t.lstrip("/")
