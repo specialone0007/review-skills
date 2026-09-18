@@ -439,6 +439,36 @@ CITE_ADVICE = re.compile(r"\bnever (?:cite|write|use)\b|\binstead of\b|\brather 
 HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
 
+def root_names_lower(repo: Path) -> set[str]:
+    try:
+        return {p.name.lower() for p in repo.iterdir() if p.is_file()}
+    except OSError:
+        return set()
+
+
+def owner_marker_hit(line: str, markers: list[str]) -> bool:
+    """An owner line opens with its marker - `**This document owns:**`, `> **Part of** ...`.
+
+    A substring test let "Part of the reason we chose Postgres" in an ordinary first
+    paragraph satisfy R2, so a document with no owner line at all passed silently while its
+    neighbour warned. Blockquote and emphasis markup come off, then the marker has to be the
+    first thing on the line.
+    """
+    # Emphasis is the signal: the templates write `**This document owns:**` and `> **Part
+    # of** ...`, and a sentence that merely begins "Part of the reason" is not bold. A marker
+    # that ends in a colon is unambiguous on its own.
+    # A blockquote is the other deliberate shape: a split part opens `> Part of [X](x.md)`.
+    quoted = line.strip().startswith(">")
+    low = line.strip().lstrip(">").strip().lower()
+    for m in markers:
+        ml = m.lower()
+        if low.startswith(("**" + ml, "__" + ml)) or (ml.endswith(":") and low.startswith(ml)):
+            return True
+        if quoted and low.startswith(ml):
+            return True
+    return False
+
+
 def strip_html_comments(text: str) -> str:
     """Commenting a stale link out is how people park one; reporting it as dead is noise."""
     return HTML_COMMENT.sub(lambda m: "\n" * m.group(0).count("\n"), text)
@@ -849,7 +879,9 @@ def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
     # a public repository - read as "the docs live at the root". Every skeleton then landed
     # beside the code instead of in docs/, and the index was dropped for the README.
     extra = [n for n in top_md if n not in ROOT_FILES and not is_community_file(n)]
-    if len(extra) >= 2 and (repo / "README.md").is_file():
+    # exists_exact: the roots and the front door are found case-exactly, so discovery has to
+    # agree with them, or a lowercase readme.md is a root-docs index here and not on Linux.
+    if len(extra) >= 2 and exists_exact(repo / "README.md"):
         # The repository's docs live at its root (an ops-notes repo, say). The README is the index.
         return {"rule": "c", "status": "root-docs", "roots": top_md, "candidates": {}, "package_docs": pkg}
     return {"rule": "c", "status": "root-files-only", "roots": [], "candidates": {}, "package_docs": pkg}
@@ -1361,7 +1393,11 @@ def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> 
             and not any(f" {tokens(w).strip()} " in text for w in RUN_WORDS)):
         gaps.append("how to run it - no doc covers `develop` and the front door has no setup section")
     if ((inv.get("decisions") or {}).get("public_host")
-            and not any((repo / n).is_file() for n in LICENCE_FILES)
+            # A listing, compared case-insensitively on every platform: is_file() accepted a
+            # lowercase `license` on Windows and not on Linux, so the same repository was told
+            # it had no licence by CI and not by the developer. Either answer is defensible;
+            # two different ones are not.
+            and not any(n.lower() in root_names_lower(repo) for n in LICENCE_FILES)
             and " licence " not in text and " license " not in text):
         gaps.append("its licence - the remote is on a public forge and no LICENSE file exists; if the repository itself is private, say so or set a licence")
     return gaps
@@ -1918,7 +1954,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 if not line.strip():
                     continue
                 seen += 1
-                if any(m in line for m in markers):
+                if owner_marker_hit(line, markers):
                     has_owner = True
                     break
                 if seen >= 12:
