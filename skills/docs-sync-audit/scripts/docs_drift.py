@@ -70,7 +70,9 @@ FENCE = re.compile(r"^(?:```|~~~)")
 CMD_NPM = re.compile(r"\b(?:npm|pnpm|yarn|bun)\s+run\s+([A-Za-z0-9:_.-]+)")
 # `make VAR=value target` and `make -j4 target`: the target is the first word that is neither
 # an assignment nor a flag.
-CMD_MAKE = re.compile(r"\bmake\s+(?:(?:[A-Za-z0-9_.-]+=\S*|-\S+)\s+)*([A-Za-z0-9_.-]+)(?![=A-Za-z0-9_.-])")
+# An assignment starts with a name character and a flag with a dash, so the two alternatives never
+# match the same text; both starting with `-` let `-= -= -=` backtrack exponentially (CodeQL).
+CMD_MAKE = re.compile(r"\bmake\s+(?:(?:[A-Za-z0-9_.][A-Za-z0-9_.-]*=\S*|-\S+)\s+)*([A-Za-z0-9_.-]+)(?![=A-Za-z0-9_.-])")
 CMD_SCRIPT = re.compile(r"(?:^|\s)(\./[A-Za-z0-9_./-]+|(?:python3?|node|bash|sh|ruby|elixir|php|perl|mix\s+run|deno\s+run|bun)\s+([A-Za-z0-9_./-]+\.[A-Za-z0-9]+))")
 # `dotnet run --project src/Api` names a folder or a project file; `cargo run --bin worker`
 # names a [[bin]] target or src/bin/worker.rs. Both are checkable, and both were silent.
