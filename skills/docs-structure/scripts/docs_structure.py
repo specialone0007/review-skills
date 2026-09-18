@@ -302,7 +302,10 @@ CONCERNS = [
      {"testing", "tests", "test", "qa", "coverage", "e2e"}, "TESTING.md", []),
     ("operate", lambda inv: _first([o for o in inv.get("ops") or [] if not o.get("hint")], "ops"), lambda inv: "RUNBOOK.md",
      {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, "RUNBOOK.md", []),
-    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else ("a github.com or gitlab.com remote" if (inv.get("decisions") or {}).get("public_host") else None)), lambda inv: "CONTRIBUTING.md",
+    # Only a governance file opens a repository to contributions. A github.com remote does not:
+    # most such repositories are private, and a CONTRIBUTING.md drafted into an unlicensed one
+    # invites what the owner never offered.
+    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else None), lambda inv: "CONTRIBUTING.md",
      {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, "CONTRIBUTING.md", []),
     ("research", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
@@ -1426,7 +1429,8 @@ LICENCE_FILES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "LICENCE", "LICENCE.md"
 def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> list[str]:
     """What a reader landing here cannot find anywhere. Each gap is real, not a missing heading:
     the intro paragraph answers what this is; the Start here block's link answers how to run it
-    when a doc covers `develop`; a licence is only asked of a repo with a public remote."""
+    when a doc covers `develop`; the licence is asked about only when a LICENSE file exists and the
+    front door never mentions it - a remote host says nothing about whether a repo is public."""
     gaps = []
     if not [l for l in doc.lines[:12] if l.strip() and not l.lstrip().startswith("#")]:
         gaps.append("what this is - the first lines under the H1 are a heading, not a sentence")
@@ -1435,19 +1439,13 @@ def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> 
     if (develop is not None and not develop.get("covered_by")
             and not any(f" {tokens(w).strip()} " in text for w in RUN_WORDS)):
         gaps.append("how to run it - no doc covers `develop` and the front door has no setup section")
-    if ((inv.get("decisions") or {}).get("public_host")
-            # A listing, compared case-insensitively on every platform: is_file() accepted a
-            # lowercase `license` on Windows and not on Linux, so the same repository was told
-            # it had no licence by CI and not by the developer. Either answer is defensible;
-            # two different ones are not.
-            and not any(n.lower() in root_names_lower(repo) for n in LICENCE_FILES)
+    # A listing, compared case-insensitively on every platform: is_file() accepted a
+    # lowercase `license` on Windows and not on Linux, so the same repository was told
+    # it had no licence by CI and not by the developer. Either answer is defensible;
+    # two different ones are not.
+    if (any(n.lower() in root_names_lower(repo) for n in LICENCE_FILES)
             and " licence " not in text and " license " not in text):
-        # A LICENSING.md is a document about licensing, not a licence; the gap stands, but the
-        # message says what was seen so nobody goes looking for a file the checker missed.
-        seen = [n for n in root_names_lower(repo) | root_names_lower(repo / "docs") if "licen" in n]
-        extra = f" ({', '.join(sorted(seen)[:3])} exists, which describes licensing but is not a licence file)" if seen else ""
-        gaps.append("its licence - the remote points at github.com or gitlab.com and no LICENSE file exists" + extra
-                    + "; if the repository itself is private, say so or set a licence")
+        gaps.append("its licence - a LICENSE file exists at the root and the front door never mentions it")
     return gaps
 
 

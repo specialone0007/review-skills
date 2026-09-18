@@ -35,7 +35,7 @@ Check the shape of a repository's documentation, build the docs it is missing, a
 | R8 | the same distinctive measurement (`12.3%`, `$4.10`, `0.512`) in three or more docs | warning only; skipped in record folders | P3 |
 | R9 | a checklist index's todo / doing / done counts equal the boxes in the file it links | opt-in via manifest `counts` | P2 |
 | R10 | every doc under folder X is linked from table Y | opt-in via manifest `registries` | P2 |
-| R11 | the front door answers what this is, how to run it and where the licence is (advice), and hands off to the index: the root README (manifest `frontDoor`) links the central index from a `Start here` section (three files in order: the README, the index, the agent file if one is tracked; then the usual first stops); no such section is a warning, and a README that links eight or more docs directly is a second index and gets a warning | on when a central index exists and no site generator is detected | P1 |
+| R11 | the front door answers what this is, how to run it and, when a LICENSE file exists, where it is (advice; no file means the checker cannot tell private from public and says nothing), and hands off to the index: the root README (manifest `frontDoor`) links the central index from a `Start here` section (three files in order: the README, the index, the agent file if one is tracked; then the usual first stops); no such section is a warning, and a README that links eight or more docs directly is a second index and gets a warning | on when a central index exists and no site generator is detected | P1 |
 | R12 | every concern the repo has is covered by a doc (the concern model below); an uncovered concern is one skeleton apply can create | **warning** unless the manifest sets `requireConcerns: true`; on for repos with code and no site generator | P2 |
 | R13 | a fact that lives outside the repo (a platform setting, a dashboard, who is on call) carries a dated line, `verified against <source> on YYYY-MM-DD`; the line warns when the date is older than `verifiedStaleDays` (default 90). No script can check the fact; this says when nobody has looked | warning only | P3 |
 
@@ -64,7 +64,7 @@ The inventory says what the repo **is** (kinds: application, library, cli, infra
 | design | a frontend framework or styles exist | `DESIGN_GUIDELINES.md` | frontend, packages, tree |
 | testing | a test runner or tests folder exists | `TESTING.md` | tests, ci, packages |
 | operate | health checks, cron or alerts exist in configs or routes | `RUNBOOK.md` | ops, services, env, decisions |
-| contribute | a LICENSE, CONTRIBUTING or CODE_OF_CONDUCT exists, or the remote points at github.com or gitlab.com | `CONTRIBUTING.md` | tree, ci, tests, packages |
+| contribute | a LICENSE, CONTRIBUTING or CODE_OF_CONDUCT exists - never inferred from the remote host, since a github.com repository is as often private as public, and a CONTRIBUTING.md in a private, unlicensed repository invites what the owner never offered | `CONTRIBUTING.md` | tree, ci, tests, packages |
 | research | manifest opt-in only | `research/LOG.md` + `log/` | never drafted |
 
 The "drafted from" column repeats each template's `<!-- concern: x; fill: ... -->` line, which is the authority.
