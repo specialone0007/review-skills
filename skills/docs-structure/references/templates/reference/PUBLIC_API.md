@@ -2,6 +2,8 @@
 
 > **This document owns:** what importers of this library get — the exported surface, how to call it, and what is considered stable. *(skeleton, write me)*
 
+*Read this if you import this library.*
+
 <!-- concern: exports; fill: exports, packages, tests, decisions -->
 
 ## Install and import

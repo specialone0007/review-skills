@@ -1,0 +1,15 @@
+# Integrations
+
+> **This document owns:** every third party this repository talks to - what it is for, which unit calls it, the environment names that point at it, and what breaks when it is down. *(skeleton, write me)*
+
+*Read this if you need to know what talks to whom outside this repository.*
+
+<!-- concern: integrations; fill: integrations, env, services -->
+
+## Integrations
+
+*One H3 per third party, from the SDK dependencies and the outward-pointing environment names. Under each: purpose in one line, the unit that calls it, the environment names (never values), the failure mode - what a user sees when it is down, and whether the code degrades or stops.*
+
+## Not integrated
+
+*What the repository deliberately does not talk to, dated, when a decision says so.*

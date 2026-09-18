@@ -3,10 +3,12 @@
     "dependencies",
     "endpoints",
     "handlers",
+    "integrations",
     "keys",
     "names",
     "packages",
     "routes",
+    "sdks",
     "variables"
   ],
   "docs": [

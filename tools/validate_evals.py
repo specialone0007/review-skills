@@ -61,6 +61,10 @@ SNAPSHOT_SCRIPTS = {
     # proof block is part of the snapshot, so a reversal that stops being line-identical shows.
     "docs_split": {"path": "skills/docs-structure/scripts/docs_split.py", "drop": [],
                    "args": ["--doc", "docs/drafted.md", "--split-at", "30"]},
+    # A move to the shape's canonical path: the doc's own links rebased, inbound links rewritten,
+    # the proof that every one resolves.
+    "docs_move": {"path": "skills/docs-structure/scripts/docs_split.py", "drop": [],
+                  "args": ["--move", "docs/setup.md", "docs/getting-started/SETUP.md"]},
 }
 # The mini-app fixture carries a planted .env.local canary. No script may ever print it.
 CANARY = "canary-7f3a9c1e2b4d5f6a-do-not-print"

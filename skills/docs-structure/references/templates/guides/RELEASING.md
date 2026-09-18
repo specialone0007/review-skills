@@ -2,6 +2,8 @@
 
 > **This document owns:** how a version of this package reaches its users — versioning, the publish steps, and what a release must contain. *(skeleton, write me)*
 
+*Read this if you are cutting a version.*
+
 <!-- concern: release; fill: release, packages, ci, decisions -->
 
 ## Versioning

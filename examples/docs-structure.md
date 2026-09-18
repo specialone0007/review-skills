@@ -1,7 +1,7 @@
 # `docs-structure` on this repository
 
 **Prompt:** "is our docs folder organised"  
-**Repository:** `specialone0007/review-skills`, branch `fix/docs-structure-layout` on top of `5597942`, with the removal of `feature-brainstorm` and `pr-branch-summary` applied  
+**Repository:** `specialone0007/review-skills`, branch `fix/docs-structure-layout` on top of `5597942`, with the removal of `feature-brainstorm` and `pr-branch-summary` applied. This run predates the bucketed shape (`references/shape.md`); on the current checker the same repository is asked for `AGENTS.md`, `docs/SETUP.md` and `docs/DEVELOPMENT.md`, and the report below is kept as the example of a clean plan report  
 **Files changed by the run:** none — the skill is read-only
 
 Structure check of the review-skills repo's own Markdown, using the skill's bundled checker and inventory. This repository now commits a manifest, so discovery did not have to guess:
@@ -39,7 +39,7 @@ Concerns that do not apply here, and why: the inventory found 0 packages, 0 serv
 
 | rule | severity | failures | warnings | first |
 | --- | --- | --- | --- | --- |
-| — | — | 0 | 0 | all fourteen rules clean |
+| — | — | 0 | 0 | all rules clean |
 
 **No structural findings.** What follows is advice the checker separates from findings on purpose, because acting on either is a judgment call rather than a fix.
 

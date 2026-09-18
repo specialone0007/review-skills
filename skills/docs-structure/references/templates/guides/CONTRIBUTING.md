@@ -2,6 +2,8 @@
 
 > **This document owns:** how a change gets into this repository — branches, review, checks that must pass, and the license contributions fall under. *(skeleton, write me)*
 
+*Read this if you want to land a change here.*
+
 <!-- concern: contribute; fill: tree, ci, tests, packages -->
 
 ## Before you start

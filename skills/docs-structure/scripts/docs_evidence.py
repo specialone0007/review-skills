@@ -28,6 +28,12 @@ Keys, the same for every stack:
   ci          pipelines and their jobs
   ops         health checks, cron, alerts
   decisions   dated decision-like commits, tags, ADR folders
+  auth        authentication and authorisation: libraries, middleware files, roles in the schema
+  jobs        background work: queue, worker and scheduler libraries, cron signals, worker files
+  integrations third parties the code talks to: SDK dependencies by service, the env names that
+              point outside (`_API_KEY`, `_DSN`, `_WEBHOOK_URL`, `_CLIENT_ID`), the count
+  changelog   CHANGELOG.md presence, its first headings, the tag count
+  env_count   distinct environment names across every source
   readme      the README's headings and first paragraph
   tree        top-level layout and governance files
 
@@ -84,10 +90,10 @@ ENV_ALLOW = re.compile(r"^(?:\.env(\.[A-Za-z0-9_-]+)?\.(example|sample|template)
 SECRET_NAME = re.compile(r"(SECRET|TOKEN|PASSWORD|PASSWD|PRIVATE|API_KEY|APIKEY|CREDENTIAL|AUTH)", re.I)
 
 REDACT = [
-    re.compile(r"(sk|pk|rk)[-_][A-Za-z0-9_-]{12,}"),        # Stripe writes sk_live_, not sk-
-    re.compile(r"AIza[A-Za-z0-9_-]{20,}"),                   # Google
-    re.compile(r"glpat-[A-Za-z0-9_-]{16,}"),                 # GitLab
-    re.compile(r"(hf|npm)_[A-Za-z0-9]{20,}"),                # Hugging Face, npm
+    re.compile(r"\b(sk|pk|rk)[-_][A-Za-z0-9_-]{12,}"),        # Stripe writes sk_live_, not sk-
+    re.compile(r"\bAIza[A-Za-z0-9_-]{20,}"),                   # Google
+    re.compile(r"\bglpat-[A-Za-z0-9_-]{16,}"),                 # GitLab
+    re.compile(r"\b(hf|npm)_[A-Za-z0-9]{20,}"),                # Hugging Face, npm
     re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
@@ -102,6 +108,52 @@ REDACT = [
     # unbroken run of hex or base64, and let hyphenated lowercase words through.
     re.compile(r"(?<=/)(?=[A-Za-z0-9_-]{24,}(?:/|$))(?![a-z0-9]+(?:-[a-z0-9]+)+(?:/|$))(?:[A-Za-z0-9_-]*[A-Z][A-Za-z0-9_-]*\d|[A-Za-z0-9_-]*\d[A-Za-z0-9_-]*[A-Z]|[0-9a-f]{24,})[A-Za-z0-9_-]*"),
 ]
+
+# Surfaces read off dependency names. A name in these tables is a fact about the manifest, not
+# about how the code uses it, so every hit carries its package as evidence and nothing more.
+AUTH_LIBS = {
+    "passport", "next-auth", "@auth/core", "better-auth", "lucia", "@clerk/nextjs", "@clerk/clerk-sdk-node",
+    "auth0", "@auth0/nextjs-auth0", "jose", "jsonwebtoken", "express-jwt", "@fastify/jwt", "firebase-admin",
+    "@supabase/auth-helpers-nextjs", "@supabase/ssr", "bcrypt", "bcryptjs", "argon2", "oauth4webapi",
+    "authlib", "python-jose", "pyjwt", "django-allauth", "djangorestframework-simplejwt", "flask-login",
+    "flask-jwt-extended", "fastapi-users", "passlib", "devise", "omniauth", "warden", "spring-boot-starter-security",
+    "spring-security-core", "laravel/sanctum", "laravel/passport", "microsoft.aspnetcore.authentication.jwtbearer",
+    "guardian", "pow", "golang.org/x/oauth2", "github.com/golang-jwt/jwt", "github.com/golang-jwt/jwt/v5",
+}
+JOB_LIBS = {
+    "bullmq", "bull", "bee-queue", "agenda", "node-cron", "cron", "croner", "@temporalio/worker", "inngest",
+    "@trigger.dev/sdk", "kafkajs", "amqplib", "@aws-sdk/client-sqs", "sqs-consumer", "graphile-worker", "pg-boss",
+    "celery", "rq", "dramatiq", "huey", "apscheduler", "arq", "temporalio", "kombu", "pika", "aiokafka",
+    "sidekiq", "resque", "delayed_job", "good_job", "solid_queue", "oban", "broadway", "quartz",
+    "spring-boot-starter-batch", "hangfire", "quartz.net", "github.com/hibiken/asynq", "github.com/robfig/cron",
+}
+# third-party services by the package that talks to them; the value is the service name a doc uses
+INTEGRATION_LIBS = {
+    "stripe": "Stripe", "@stripe/stripe-js": "Stripe", "twilio": "Twilio", "@sendgrid/mail": "SendGrid",
+    "sendgrid": "SendGrid", "resend": "Resend", "postmark": "Postmark", "nodemailer": "SMTP mail",
+    "openai": "OpenAI", "@anthropic-ai/sdk": "Anthropic", "anthropic": "Anthropic", "@google/generative-ai": "Google AI",
+    "google-generativeai": "Google AI", "cohere-ai": "Cohere", "replicate": "Replicate", "@elevenlabs/elevenlabs-js": "ElevenLabs",
+    "elevenlabs": "ElevenLabs", "aws-sdk": "AWS", "boto3": "AWS", "@google-cloud/storage": "Google Cloud",
+    "google-cloud-storage": "Google Cloud", "firebase": "Firebase", "firebase-admin": "Firebase",
+    "@supabase/supabase-js": "Supabase", "supabase": "Supabase", "@zep-cloud/zep-js": "Zep", "zep-cloud": "Zep",
+    "zep-python": "Zep", "langchain": "LangChain", "@langchain/core": "LangChain", "langchain-core": "LangChain",
+    "@sentry/node": "Sentry", "@sentry/nextjs": "Sentry", "sentry-sdk": "Sentry", "dd-trace": "Datadog",
+    "posthog-js": "PostHog", "posthog-node": "PostHog", "posthog": "PostHog", "analytics-node": "Segment",
+    "@segment/analytics-node": "Segment", "mixpanel": "Mixpanel", "@slack/web-api": "Slack", "@slack/bolt": "Slack",
+    "slack-sdk": "Slack", "discord.js": "Discord", "discord.py": "Discord", "telegraf": "Telegram",
+    "python-telegram-bot": "Telegram", "grammy": "Telegram", "@octokit/rest": "GitHub", "pygithub": "GitHub",
+    "algoliasearch": "Algolia", "@pinecone-database/pinecone": "Pinecone", "pinecone-client": "Pinecone",
+    "weaviate-client": "Weaviate", "@upstash/redis": "Upstash", "ioredis": "Redis", "redis": "Redis",
+    "@aws-sdk/client-s3": "AWS S3", "@aws-sdk/client-ses": "AWS SES", "cloudinary": "Cloudinary",
+    "@vercel/blob": "Vercel Blob", "mapbox-gl": "Mapbox", "@googlemaps/google-maps-services-js": "Google Maps",
+    "plaid": "Plaid", "@paypal/checkout-server-sdk": "PayPal", "braintree": "Braintree", "razorpay": "Razorpay",
+    "intercom-client": "Intercom", "hubspot": "HubSpot", "@hubspot/api-client": "HubSpot", "airtable": "Airtable",
+    "notion": "Notion", "@notionhq/client": "Notion", "twitter-api-v2": "X/Twitter", "tweepy": "X/Twitter",
+    "spotify-web-api-node": "Spotify", "spotipy": "Spotify", "expo-server-sdk": "Expo push", "web-push": "Web push",
+    "onesignal-node": "OneSignal", "@onesignal/node-onesignal": "OneSignal", "kener": "Kener",
+}
+OUTWARD_ENV = re.compile(r"_(API_KEY|APIKEY|DSN|WEBHOOK_URL|WEBHOOK_SECRET|CLIENT_ID|CLIENT_SECRET|ACCESS_TOKEN|BUCKET|PROJECT_ID)$")
+ROLE_RE = re.compile(r"\b(enum\s+\w*(Role|Permission)\w*|role\s*[:=]|permissions?\s*[:=]|is_admin|isAdmin)\b", re.I)
 
 DECISION_RE = re.compile(r"\b(decid|switch|migrat|replace|remov|adopt|revert|drop|deprecat|instead)", re.I)
 DEPLOY_ISH = re.compile(r"(deploy|railway|fly|vercel|netlify|heroku|render|kubectl|helm|terraform|docker/build-push|aws-actions|gcloud|azure/)", re.I)
@@ -156,8 +208,13 @@ def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 14,
         if pruned is not None:
             pruned.extend((d / n).as_posix() for n in dirnames
                           if n in (skip_names or set()) and n not in rescued)
+        # A folder holding a SKILL.md and no build manifest is an agent skill: its templates, fixtures
+        # and scripts describe other repositories, and reading them as this one's evidence proposed
+        # a decisions folder and a changelog to the skill collection itself. A service that also
+        # ships a SKILL.md beside its Dockerfile is a service.
         dirnames[:] = sorted(n for n in dirnames
-                             if (n not in skip or n in rescued) and not n.startswith("."))
+                             if (n not in skip or n in rescued) and not n.startswith(".")
+                             and not ((d / n / "SKILL.md").is_file() and not any((d / n / m).is_file() for m in MANIFEST_NAMES)))
         yield d, dirnames, sorted(filenames)
 
 
@@ -1164,6 +1221,76 @@ def det_git(ctx: Ctx, inv: dict) -> None:
                         "public_host": bool(re.search(r"github\.com|gitlab\.com|bitbucket\.org", remote)), "remote_host": re.sub(r"^.*?([A-Za-z0-9.-]+\.(com|org|io)).*$", r"\1", remote.strip()) if remote.strip() else ""}
 
 
+def det_surfaces(ctx: Ctx, inv: dict) -> None:
+    """Auth, jobs, integrations and the changelog, read from what the other detectors collected.
+    Runs last on purpose: it needs every package's dependency list and every env source."""
+    deps: dict[str, list[str]] = {}
+    manifest_of: dict[str, str] = {}
+    for p in inv["packages"]:
+        manifest_of.setdefault(p["path"], p["evidence"])
+        for d in p.get("dependencies") or []:
+            deps.setdefault(d.lower(), []).append(p["path"])
+    env_names: dict[str, list[str]] = {}
+    for e in inv["env"]:
+        for n in e.get("names") or []:
+            env_names.setdefault(n, []).append(e["source"])
+    inv["env_count"] = len(env_names)
+
+    auth_libs = sorted({d: pk for d, pk in deps.items() if d in AUTH_LIBS}.items())
+    middleware = sorted(ctx.rel(p) for p in ctx.code_files if not TEST_FILE.search(p.name)
+                        and re.search(r"(^|/)(auth|authn|authz|guard|guards|middleware|session|permissions?|rbac)(\.|/|_)", ctx.rel(p), re.I))[:40]
+    roles: list[str] = []
+    for t in ((inv.get("schema") or {}).get("tables") or []):
+        text = read(ctx.repo / t["evidence"]) if t.get("evidence") else ""
+        if text and ROLE_RE.search(text):
+            roles.append(t["evidence"])
+            if len(roles) >= 5:
+                break
+    secret_env = sorted(n for n in env_names if re.search(r"_(SECRET|TOKEN|PASSWORD)$", n))
+    if auth_libs or middleware or roles or secret_env:
+        inv["auth"] = {"libraries": [{"name": d, "packages": sorted(set(pk))} for d, pk in auth_libs][:20],
+                       "middleware_files": middleware, "roles_in_schema": sorted(set(roles)),
+                       "secret_env_names": secret_env[:40], "evidence": (manifest_of[auth_libs[0][1][0]] if auth_libs else (middleware or roles or [env_names[secret_env[0]][0]])[0])}
+    else:
+        inv["auth"] = None
+
+    job_libs = sorted({d: pk for d, pk in deps.items() if d in JOB_LIBS}.items())
+    cron = [o for o in inv["ops"] if o.get("kind") == "scheduler"]
+    workers = sorted(ctx.rel(p) for p in ctx.code_files if not TEST_FILE.search(p.name)
+                     and re.search(r"(^|/)(workers?|jobs?|queues?|schedulers?|tasks|consumers?|cron)(\.|/|_)", ctx.rel(p), re.I))[:40]
+    scheduled_ci = [c["evidence"] for c in inv["ci"] if "schedule" in (c.get("on") or [])]
+    if job_libs or cron or scheduled_ci:
+        inv["jobs"] = {"libraries": [{"name": d, "packages": sorted(set(pk))} for d, pk in job_libs][:20],
+                       "cron": [c["evidence"] for c in cron][:20], "worker_files": workers, "scheduled_workflows": scheduled_ci[:10],
+                       "evidence": (manifest_of[job_libs[0][1][0]] if job_libs else (cron[0]["evidence"] if cron else scheduled_ci[0]))}
+    else:
+        inv["jobs"] = None
+
+    sdks: dict[str, dict] = {}
+    for d, pk in sorted(deps.items()):
+        svc = INTEGRATION_LIBS.get(d)
+        if svc:
+            row = sdks.setdefault(svc, {"service": svc, "packages": [], "units": set()})
+            row["packages"].append(d)
+            row["units"].update(pk)
+    outward = sorted(n for n in env_names if OUTWARD_ENV.search(n))
+    if sdks or outward:
+        inv["integrations"] = {"sdks": [{"service": r["service"], "packages": sorted(set(r["packages"])), "units": sorted(r["units"])} for r in sdks.values()],
+                               "count": len(sdks), "outward_env_names": outward[:60],
+                               "evidence": manifest_of[sorted(next(iter(sdks.values()))["units"])[0]] if sdks else env_names[outward[0]][0]}
+    else:
+        inv["integrations"] = None
+
+    ch = next((p for p in ctx.named("CHANGELOG.md") if p.parent == ctx.repo or p.parent.name.lower() in ("docs", "history")), None)
+    tag_count = (inv.get("decisions") or {}).get("tag_count", 0) if isinstance(inv.get("decisions"), dict) else 0
+    if ch or tag_count:
+        heads = [redact(l.lstrip("# ").strip()) for l in read(ch).splitlines() if l.startswith("## ")][:3] if ch else []
+        inv["changelog"] = {"file": ctx.rel(ch) if ch else "", "headings": heads, "tag_count": tag_count,
+                            "evidence": ctx.rel(ch) if ch else "(git tags)"}
+    else:
+        inv["changelog"] = None
+
+
 DETECTORS = [
     ("node", det_node), ("python", det_python), ("go", det_go), ("rust", det_rust), ("java", det_java),
     ("ruby", det_ruby), ("php", det_php), ("dotnet", det_dotnet), ("elixir", det_elixir), ("move", det_move),
@@ -1171,6 +1298,7 @@ DETECTORS = [
     ("terraform", det_terraform), ("ci", det_ci), ("envfiles", det_envfiles), ("code_reads", det_code_reads),
     ("schema", det_schema), ("routes", det_routes), ("cli_parsers", det_cli_parsers), ("frontend", det_frontend_tokens),
     ("tests", det_tests_folders), ("ops", det_ops_signals), ("readme_tree", det_readme_tree), ("git", det_git),
+    ("surfaces", det_surfaces),
 ]
 
 
@@ -1209,7 +1337,8 @@ def inventory(repo: Path, cap_n: int = 400, use_git: bool = True) -> dict:
     ctx = Ctx(repo, cap_n, use_git)
     inv: dict = {"packages": [], "services": [], "env": [], "schema": None, "routes": None, "cli": [], "exports": [],
                  "frontend": [], "tests": [], "ci": [], "ops": [], "decisions": None, "readme": None, "tree": {},
-                 "release": [], "_eco": set(), "_mono": False, "_infra": False}
+                 "release": [], "auth": None, "jobs": None, "integrations": None, "changelog": None, "env_count": 0,
+                 "_eco": set(), "_mono": False, "_infra": False}
     for name, fn in DETECTORS:
         try:
             fn(ctx, inv)
@@ -1248,6 +1377,15 @@ def render(d: dict, top: int = 20) -> str:
     for key in ("cli", "exports", "frontend", "tests", "ci", "ops", "release"):
         if d[key]:
             L.append(f"{key}: {len(d[key])} item(s)  e.g. {d[key][0]['evidence']}")
+    L.append(f"Env names: {d.get('env_count', 0)} distinct")
+    if d.get("auth"):
+        L.append(f"Auth: {', '.join(x['name'] for x in d['auth']['libraries']) or 'no library'}; {len(d['auth']['middleware_files'])} middleware file(s)")
+    if d.get("jobs"):
+        L.append(f"Jobs: {', '.join(x['name'] for x in d['jobs']['libraries']) or 'no library'}; {len(d['jobs']['cron'])} cron signal(s)")
+    if d.get("integrations"):
+        L.append(f"Integrations: {d['integrations']['count']} ({', '.join(x['service'] for x in d['integrations']['sdks'][:8])}); {len(d['integrations']['outward_env_names'])} outward env name(s)")
+    if d.get("changelog"):
+        L.append(f"Changelog: {d['changelog']['file'] or 'none'}; {d['changelog']['tag_count']} tags")
     if d["decisions"]:
         L.append(f"Decisions: {len(d['decisions']['decision_like'])} decision-like commits of {d['decisions']['commits_scanned']} ({d['decisions']['first']} .. {d['decisions']['last']}), {d['decisions']['tag_count']} tags")
     elif d["decisions"] is None:

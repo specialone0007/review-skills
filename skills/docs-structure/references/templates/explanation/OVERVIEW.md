@@ -2,6 +2,8 @@
 
 > **This document owns:** what this library or tool does, who uses it, the concepts a user needs, and what it deliberately does not do. *(skeleton, write me)*
 
+*Read this if you are deciding whether to use this.*
+
 <!-- concern: purpose; fill: readme, packages, exports, cli, decisions, tree -->
 
 ## What it does

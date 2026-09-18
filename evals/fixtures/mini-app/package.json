@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "left-pad": "*",
-    "local-helper": "file:../local-helper"
+    "local-helper": "file:../local-helper",
+    "passport": "*",
+    "stripe": "*",
+    "bullmq": "*"
   },
   "devDependencies": {
     "vitest": "^2.0.0"

@@ -3,100 +3,166 @@
   "concerns": [
     {
       "applies": "always",
+      "bucket": null,
+      "companions": [
+        "CLAUDE.md"
+      ],
+      "concern": "agent",
+      "covered_by": null,
+      "default_path": "AGENTS.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "AGENTS.md",
+      "unit": null,
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "always",
+      "bucket": "getting-started",
+      "companions": [],
+      "concern": "setup",
+      "covered_by": null,
+      "default_path": "docs/getting-started/SETUP.md",
+      "matched_by": "README.md has a section to seed from",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": "README.md",
+      "template": "getting-started/SETUP.md",
+      "unit": null,
+      "universal": true,
+      "weak": false
+    },
+    {
+      "applies": "seven or more docs",
+      "bucket": "getting-started",
+      "companions": [],
+      "concern": "onboarding",
+      "covered_by": null,
+      "default_path": "docs/getting-started/ONBOARDING.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "getting-started/ONBOARDING.md",
+      "unit": null,
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "always",
+      "bucket": "guides",
+      "companions": [],
+      "concern": "develop",
+      "covered_by": null,
+      "default_path": "docs/DEVELOPMENT.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "guides/DEVELOPMENT.md",
+      "unit": null,
+      "universal": true,
+      "weak": false
+    },
+    {
+      "applies": "always",
+      "bucket": "reference",
+      "companions": [],
+      "concern": "architecture",
+      "covered_by": null,
+      "default_path": "docs/reference/ARCHITECTURE.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "reference/ARCHITECTURE.md",
+      "unit": null,
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "schema: alembic/versions/0001_initial.py",
+      "bucket": "reference",
+      "companions": [],
+      "concern": "data",
+      "covered_by": null,
+      "default_path": "docs/reference/DATA_MODEL.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "reference/DATA_MODEL.md",
+      "unit": null,
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "2 routes (fastapi-flask 2)",
+      "bucket": "reference",
+      "companions": [],
+      "concern": "http",
+      "covered_by": null,
+      "default_path": "docs/reference/API.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "reference/API.md",
+      "unit": null,
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "cli: pyproject.toml",
+      "bucket": "reference",
+      "companions": [],
+      "concern": "commands",
+      "covered_by": null,
+      "default_path": "docs/reference/CLI.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "reference/CLI.md",
+      "unit": null,
+      "universal": false,
+      "weak": false
+    },
+    {
+      "applies": "always",
+      "bucket": "explanation",
       "companions": [],
       "concern": "purpose",
       "covered_by": null,
       "default_path": "docs/PRODUCT.md",
       "matched_by": "",
       "matched_heading": null,
+      "misplaced": null,
       "near_name": null,
       "runner_up": null,
       "seed": null,
-      "template": "PRODUCT.md",
+      "template": "explanation/PRODUCT.md",
+      "unit": null,
       "universal": true,
-      "weak": false
-    },
-    {
-      "applies": "always",
-      "companions": [],
-      "concern": "architecture",
-      "covered_by": null,
-      "default_path": "docs/ARCHITECTURE.md",
-      "matched_by": "",
-      "matched_heading": null,
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "template": "ARCHITECTURE.md",
-      "universal": false,
-      "weak": false
-    },
-    {
-      "applies": "always",
-      "companions": [],
-      "concern": "develop",
-      "covered_by": "README.md",
-      "default_path": "docs/DEVELOPMENT.md",
-      "matched_by": "README sections: getting started",
-      "matched_heading": "Getting started",
-      "missing_sections": [
-        "Prerequisites",
-        "Setup",
-        "Daily commands",
-        "How to know it works",
-        "Common problems"
-      ],
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "state": "reviewed",
-      "template": "DEVELOPMENT.md",
-      "universal": true,
-      "weak": true
-    },
-    {
-      "applies": "schema: alembic/versions/0001_initial.py",
-      "companions": [],
-      "concern": "data",
-      "covered_by": null,
-      "default_path": "docs/DATA_MODEL.md",
-      "matched_by": "",
-      "matched_heading": null,
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "template": "DATA_MODEL.md",
-      "universal": false,
-      "weak": false
-    },
-    {
-      "applies": "2 routes (fastapi-flask 2)",
-      "companions": [],
-      "concern": "http",
-      "covered_by": null,
-      "default_path": "docs/API_REFERENCE.md",
-      "matched_by": "",
-      "matched_heading": null,
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "template": "API_REFERENCE.md",
-      "universal": false,
-      "weak": false
-    },
-    {
-      "applies": "cli: pyproject.toml",
-      "companions": [],
-      "concern": "commands",
-      "covered_by": null,
-      "default_path": "docs/CLI_REFERENCE.md",
-      "matched_by": "",
-      "matched_heading": null,
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "template": "CLI_REFERENCE.md",
-      "universal": false,
       "weak": false
     }
   ],
@@ -115,39 +181,71 @@
     {
       "level": "warn",
       "line": 1,
+      "message": "no doc covers 'agent' (always) - apply creates AGENTS.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'setup' (always; README.md has a section to seed from) - apply creates docs/getting-started/SETUP.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'onboarding' (the repo has seven or more docs) - apply creates docs/getting-started/ONBOARDING.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'develop' (always) - apply creates docs/DEVELOPMENT.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'architecture' (always) - apply creates docs/reference/ARCHITECTURE.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'data' (the repo has schema: alembic/versions/0001_initial.py) - apply creates docs/reference/DATA_MODEL.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'http' (the repo has 2 routes (fastapi-flask 2)) - apply creates docs/reference/API.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'commands' (the repo has cli: pyproject.toml) - apply creates docs/reference/CLI.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
       "message": "no doc covers 'purpose' (always) - apply creates docs/PRODUCT.md from the template",
-      "path": "README.md",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "no doc covers 'architecture' (always) - apply creates docs/ARCHITECTURE.md from the template",
-      "path": "README.md",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "no doc covers 'data' (the repo has schema: alembic/versions/0001_initial.py) - apply creates docs/DATA_MODEL.md from the template",
-      "path": "README.md",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "no doc covers 'http' (the repo has 2 routes (fastapi-flask 2)) - apply creates docs/API_REFERENCE.md from the template",
-      "path": "README.md",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
-      "message": "no doc covers 'commands' (the repo has cli: pyproject.toml) - apply creates docs/CLI_REFERENCE.md from the template",
       "path": "README.md",
       "rule": "R12",
       "severity": "P2"
@@ -159,40 +257,66 @@
   "init": {
     "agent_file": null,
     "files": {
-      "docs/API_REFERENCE.md": {
-        "concern": "http",
-        "lines": 25,
-        "template": "references/templates/API_REFERENCE.md",
-        "why": "http (2 routes (fastapi-flask 2))"
+      "AGENTS.md": {
+        "concern": "agent",
+        "content": "# mini-py - for agents\n\n> **This document owns:** the commands that build, test, run and lint mini-py, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the docs index holds everything else. *(skeleton, write me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
+        "lines": 19,
+        "template": "references/templates/AGENTS.md",
+        "why": "agent (always)"
       },
-      "docs/ARCHITECTURE.md": {
-        "concern": "architecture",
-        "lines": 25,
-        "template": "references/templates/ARCHITECTURE.md",
-        "why": "architecture (always)"
-      },
-      "docs/CLI_REFERENCE.md": {
-        "concern": "commands",
-        "lines": 21,
-        "template": "references/templates/CLI_REFERENCE.md",
-        "why": "commands (cli: pyproject.toml)"
-      },
-      "docs/DATA_MODEL.md": {
-        "concern": "data",
-        "lines": 21,
-        "template": "references/templates/DATA_MODEL.md",
-        "why": "data (schema: alembic/versions/0001_initial.py)"
+      "docs/DEVELOPMENT.md": {
+        "concern": "develop",
+        "lines": 27,
+        "template": "references/templates/guides/DEVELOPMENT.md",
+        "why": "develop (always)"
       },
       "docs/INDEX.md": {
-        "content": "# Docs index\n\n> **This document owns:** the list of every doc in this repository, what each one owns, and its state.\n\nPick the one file you need here; do not read the folder. Each doc's owner line says what it owns; a number has one home (R8 flags a third copy) and the README keeps no second home for what a doc here owns (R11). State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n| doc | owns | state |\n| --- | --- | --- |\n| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |\n| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |\n| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |\n| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |\n| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |\n",
-        "lines": 13,
-        "template": "INDEX.md (built in)"
+        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n\n## Explanation\n\n- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n",
+        "lines": 25,
+        "template": "INDEX.md (built in)",
+        "why": "the central index"
       },
       "docs/PRODUCT.md": {
         "concern": "purpose",
-        "lines": 33,
-        "template": "references/templates/PRODUCT.md",
+        "lines": 35,
+        "template": "references/templates/explanation/PRODUCT.md",
         "why": "purpose (always)"
+      },
+      "docs/getting-started/ONBOARDING.md": {
+        "concern": "onboarding",
+        "lines": 19,
+        "template": "references/templates/getting-started/ONBOARDING.md",
+        "why": "onboarding (seven or more docs)"
+      },
+      "docs/getting-started/SETUP.md": {
+        "concern": "setup",
+        "lines": 27,
+        "template": "references/templates/getting-started/SETUP.md",
+        "why": "setup (always)"
+      },
+      "docs/reference/API.md": {
+        "concern": "http",
+        "lines": 27,
+        "template": "references/templates/reference/API.md",
+        "why": "http (2 routes (fastapi-flask 2))"
+      },
+      "docs/reference/ARCHITECTURE.md": {
+        "concern": "architecture",
+        "lines": 31,
+        "template": "references/templates/reference/ARCHITECTURE.md",
+        "why": "architecture (always)"
+      },
+      "docs/reference/CLI.md": {
+        "concern": "commands",
+        "lines": 23,
+        "template": "references/templates/reference/CLI.md",
+        "why": "commands (cli: pyproject.toml)"
+      },
+      "docs/reference/DATA_MODEL.md": {
+        "concern": "data",
+        "lines": 23,
+        "template": "references/templates/reference/DATA_MODEL.md",
+        "why": "data (schema: alembic/versions/0001_initial.py)"
       },
       "docs/structure.json": {
         "content": {
@@ -214,34 +338,40 @@
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nTwo files, in this order. Everything else is one hop from the last one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n\nFrom the index, the usual first stops: [how to run it](#getting-started). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nThree files, in this order. Everything else is one hop from the second one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n3. **[AGENTS.md](AGENTS.md)** - the commands and conventions a coding agent or a new contributor needs, forty lines at most.\n\nThe docs a reader starts with are still skeletons; the index says which. The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one index, five buckets by what a reader came to do, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
     },
     "index_groups": {
-      "Product and decisions": [
-        "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
-        "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |"
+      "Explanation": [
+        "- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton"
+      ],
+      "Getting started": [
+        "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton",
+        "- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton"
+      ],
+      "Guides": [
+        "- [Development](DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton"
       ],
       "Reference": [
-        "| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |",
-        "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
-        "| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |"
+        "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
+        "- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton",
+        "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
+        "- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton"
       ]
     },
-    "index_groups_existing": {},
-    "index_rows": [
-      "| [PRODUCT](PRODUCT.md) | what the product is, who it is for, where it is going, and what it has said no to. | skeleton |",
-      "| [ARCHITECTURE](ARCHITECTURE.md) | the services, their boundaries, the data flow between them, and the key decisions with their dates. | skeleton |",
-      "| [DATA_MODEL](DATA_MODEL.md) | the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. | skeleton |",
-      "| [API_REFERENCE](API_REFERENCE.md) | the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. | skeleton |",
-      "| [CLI_REFERENCE](CLI_REFERENCE.md) | the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. | skeleton |"
+    "index_lines": [
+      "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton",
+      "- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton",
+      "- [Development](DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton",
+      "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
+      "- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton",
+      "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
+      "- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton",
+      "- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton"
     ],
-    "index_tables": [],
-    "print_only": {
-      "AGENTS.md": "## Docs routing - where a change gets written down\n\nOne doc owns each fact; the others link. Every doc's header says what it owns. When you change\none of these, update the owner in the same change.\n\n| you changed... | update |\n|---|---|\n| what the product is for, who it serves, or something it decided not to do | `docs/PRODUCT.md` *(apply creates this)* |\n| a service boundary, a link between services, or a decision worth a date | `docs/ARCHITECTURE.md` *(apply creates this)* |\n| a setup step, a prerequisite version, or a daily command | [README.md](README.md) *(one heading only - confirm this is the right home)* |\n| a table, a column, a migration, or what a row means | `docs/DATA_MODEL.md` *(apply creates this)* |\n| a route, its method or path, its auth guard, its request or response shape | `docs/API_REFERENCE.md` *(apply creates this)* |\n| a command, a subcommand or a flag | `docs/CLI_REFERENCE.md` *(apply creates this)* |\n\nRules that keep this true:\n\n- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.\n- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.\n- `python <path to the docs-structure skill>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.\n"
-    },
+    "moves": [],
     "then": "run the checker again; skeletons show up in the section states until written or filled"
   },
   "kinds": [
@@ -290,7 +420,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 5
+      "warnings": 9
     },
     "R13": {
       "failures": 0,
@@ -304,6 +434,13 @@
       "first": [],
       "severity": "P3",
       "title": "index state vocabulary",
+      "warnings": 0
+    },
+    "R15": {
+      "failures": 0,
+      "first": [],
+      "severity": "P1",
+      "title": "layout - canonical paths",
       "warnings": 0
     },
     "R2": {
@@ -363,38 +500,24 @@
       "warnings": 0
     }
   },
-  "sections": {
-    "README.md": {
-      "concern": "develop",
-      "missing": [
-        "Prerequisites",
-        "Setup",
-        "Daily commands",
-        "How to know it works",
-        "Common problems"
-      ],
-      "owner": "reviewed",
-      "sections": {
-        "Getting started": "reviewed"
-      }
-    }
-  },
+  "sections": {},
   "split_candidates": [],
   "totals": {
-    "concerns_covered": 1,
-    "concerns_missing": 5,
+    "concerns_covered": 0,
+    "concerns_missing": 9,
     "docs_checked": 1,
     "failures": 0,
+    "moves": 0,
     "non_doc_files": 0,
     "placeholders": 0,
     "split_candidates": 0,
     "states": {
       "draft": 0,
-      "missing": 5,
-      "reviewed": 1,
+      "missing": 0,
+      "reviewed": 0,
       "skeleton": 0
     },
-    "warnings": 5
+    "warnings": 9
   },
   "unreachable": [],
   "warnings": []

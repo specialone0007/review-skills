@@ -17,6 +17,14 @@
       "source": null
     },
     {
+      "detail": "`REDIS_HOST` is read by the code but is not documented anywhere, and is not in an env sample file.",
+      "doc": "(docs)",
+      "kind": "undocumented-env",
+      "line": null,
+      "severity": "medium",
+      "source": "src/jobs/export-worker.js:5"
+    },
+    {
       "detail": "`API_TOKEN` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
       "doc": ".env.example",
       "kind": "documented-env-in-unreferenced-module",
@@ -52,11 +60,11 @@
   "repo": "<fixture>",
   "stale_docs": [],
   "totals": {
-    "docs_checked": 14,
+    "docs_checked": 15,
     "env_names_documented": 4,
-    "env_names_in_code": 2,
+    "env_names_in_code": 3,
     "env_names_skipped_as_platform": 0,
-    "findings": 6,
+    "findings": 7,
     "make_targets_found": 0,
     "npm_scripts_found": 4
   },

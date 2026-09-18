@@ -28,6 +28,11 @@ What it checks, per section that carries the draft marker:
       or the draft names the scan behind it, or cites the inventory key it counted
   G10 a negative claim names a search: a grep, a scanned path, or an inventory key. Citing a
       file is not a search - it says the file was read, never that anything was looked for
+  G11 an `[inventory: key]` bracket names a key the doc's own `fill:` comment allows
+  G12 a table column that reads the same in every row is said once above the table
+  G13 the two grammars the shape fixes: a decision record (explanation/decisions/ADR-*.md)
+      carries its status-and-date line and its four sections; an index line carries its state
+  G14 the agent file (AGENTS.md) stays under its line cap; it is commands, conventions and gotchas
 
 G1 to G8 check the shape of a sentence. G9 and G10 are the two shapes that were actually
 wrong when drafts were read by hand: a number a second scanner disagrees with, and an
@@ -186,7 +191,12 @@ INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 # The keys docs_evidence actually emits.
 INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exports", "frontend",
                   "tests", "ci", "ops", "decisions", "readme", "tree", "release", "kinds",
-                  "ecosystems", "warnings"}
+                  "ecosystems", "warnings", "auth", "jobs", "integrations", "changelog", "env_count"}
+ADR_STATUS = re.compile(r"^>\s*[*]{2}Status[:][*]{2}\s*(proposed|accepted|rejected|deprecated|superseded)\b.*[*]{2}Date[:][*]{2}\s*\d{4}-\d{2}-\d{2}", re.I)
+ADR_SECTIONS = ("Context", "Options", "Decision", "Consequences")
+INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.*?)|(.*?))\s*$")
+INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
+AGENT_MAX_LINES = 40
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
 # Source extensions only: ".com:5432" and "redis.io:6379" are a host and a port, and a
@@ -275,7 +285,7 @@ def is_template_text(candidate: list[str]) -> bool:
     if _TEMPLATE_LINES is None:
         _TEMPLATE_LINES = set()
         try:
-            for p in sorted(TEMPLATES_DIR.glob("*.md")):
+            for p in sorted(TEMPLATES_DIR.rglob("*.md")):
                 for l in read(p).splitlines():
                     t = l.strip()
                     if not t:
@@ -601,6 +611,7 @@ COUNT_FIELDS: dict[str, tuple] = {
     # runner config and one per workflow *file*, so it answers a different question from the
     # one a sentence counting jobs or test files is asking, and blocked true counts.
     "dependencies": ("#deps",), "names": ("#env",), "variables": ("#env",), "keys": ("#env",),
+    "integrations": ("integrations", "count"), "sdks": ("integrations", "count"),
 }
 
 
@@ -771,6 +782,27 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
 
     if len(lines) > max_lines:
         add("G8", 1, f"{len(lines)} lines, over the {max_lines}-line draft cap; a draft must not become a split candidate")
+    # G13: the two grammars the shape fixes. A decision record without its status line is a note;
+    # an index line without a state tells a reader nothing about whether to trust the doc.
+    name = Path(rel).name
+    if name.upper().startswith("ADR-") and "decisions" in Path(rel).parts:
+        if not any(ADR_STATUS.match(l.strip()) for l in lines[:6]):
+            add("G13", 1, "a decision record carries `> **Status:** <proposed|accepted|rejected|deprecated|superseded> · **Date:** YYYY-MM-DD` under its title")
+        h2s = {HEADING.match(l).group(2).strip() for l in lines if HEADING.match(l) and len(HEADING.match(l).group(1)) == 2}
+        for sec in ADR_SECTIONS:
+            if sec not in h2s:
+                add("G13", 1, f"a decision record has a `## {sec}` section")
+    if name.upper() in ("INDEX.MD",) or (name.upper() == "README.MD" and "decisions" in Path(rel).parts):
+        for i_, l in enumerate(lines, start=1):
+            m_ = INDEX_LINE.match(l)
+            if m_ and not INDEX_STATE.match((m_.group(4) or "").strip("*` ").lower()):
+                add("G13", i_, "an index line ends with its state: ' - skeleton', ' - draft', ' - unreviewed', ' - reviewed YYYY-MM-DD' or ' - stale YYYY-MM-DD'")
+    # G14: the agent file is read by every agent on every run; past forty lines it is a document,
+    # and documents have an index to live in
+    if name.upper() == "AGENTS.MD":
+        n_ = sum(1 for l in lines if l.strip())
+        if n_ > AGENT_MAX_LINES:
+            add("G14", 1, f"{n_} non-blank lines in the agent file, over {AGENT_MAX_LINES}; keep commands, conventions and gotchas, move the rest to a doc the index lists")
     # G12: a column that says the same thing in every row is not a column. 'meaning: not
     # documented' was printed fifty times under a sentence that had already said it once.
     i = 0
