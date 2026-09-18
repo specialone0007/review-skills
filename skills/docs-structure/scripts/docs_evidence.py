@@ -64,7 +64,10 @@ MAX_CODE_FILES = 6000
 
 ALWAYS_SKIP = {"node_modules", ".venv", "venv", "__pycache__", ".git", "dist", "build", "target",
                "vendor", ".next", ".nuxt", "coverage", ".terraform", "site-packages", ".tox", ".mypy_cache"}
-EVIDENCE_SKIP = {"fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests",
+# A documentation website is about the repository, not part of it: counting its Tailwind
+# config as frontend turned a Go command-line tool into an application needing a design doc.
+EVIDENCE_SKIP = {"website", "site", "docs-site", "doc-site", "www",
+                 "fixtures", "fixture", "__fixtures__", "testdata", "examples", "example", "test", "tests",
                  "__tests__", "spec", "specs", "__mocks__", "mocks", "benches", "bench", "benchmarks"}
 CODE_EXTS = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte", ".go", ".rs", ".rb",
              ".php", ".java", ".kt", ".swift", ".cs", ".ex", ".exs", ".move"}

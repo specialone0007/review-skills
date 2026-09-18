@@ -6,6 +6,12 @@
   "findings": [
     {
       "doc": "docs/drafted.md",
+      "line": 1,
+      "message": "101 lines, over the 50-line draft cap; a draft must not become a split candidate",
+      "rule": "G8"
+    },
+    {
+      "doc": "docs/drafted.md",
       "line": 20,
       "message": "paragraph does not end with an evidence bracket: This sentence states something about the repository and name",
       "rule": "G1"
@@ -102,6 +108,6 @@
     }
   ],
   "repo": "<fixture>",
-  "total": 16,
+  "total": 17,
   "warnings": []
 }

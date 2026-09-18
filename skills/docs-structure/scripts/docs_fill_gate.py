@@ -120,6 +120,7 @@ PATH_SPAN = re.compile(r"`[\w.-]*[\w-]/[\w./*-]+`")
 LINE_CITE = re.compile(r"\.[A-Za-z]{1,5}:\d+")
 SHA_REF = re.compile(r"^[0-9a-f]{7,40} \d{4}-\d{2}-\d{2}$")
 FENCE = re.compile(r"^ {0,3}(```|~~~)")
+BULLET = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
 CODESPAN = re.compile(r"`[^`]*`")
 TABLE_RULE = re.compile(r"^\|[\s:|-]+\|?$")
 HEADING = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
@@ -350,14 +351,17 @@ def sections(lines: list[str]) -> list[tuple[str, int, int]]:
 
 
 def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
-              numbers: set[str] | None = None) -> list[dict]:
+              numbers: dict[str, set[str]] | None = None) -> list[dict]:
     """Findings for one doc. Only sections carrying the draft marker are judged."""
     path = repo / rel
     text = read(path)
     if not text:
         return [{"doc": rel, "line": 1, "rule": "G0", "message": "unreadable or empty"}]
     if DRAFT_MARK not in text:
-        return []
+        # Not judged. Returning nothing made the report print OK for a document whose draft
+        # marker was mistyped, and silent approval is the one failure a gate must not have.
+        return [{"doc": rel, "line": 1, "rule": "G0", "level": "skipped",
+                 "message": f"no {DRAFT_MARK} marker; this document was not judged"}]
     lines = text.splitlines()
     found: list[dict] = []
 
@@ -380,26 +384,16 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # bracket belongs at the end of the paragraph's last line.
         para: list[tuple[int, str]] = []
 
-        def flush() -> None:
-            if not para:
-                return
-            first = para[0][0]
-            joined = " ".join(t for _, t in para)
-            last = para[-1][1]
+        def semantics(joined: str, first: int) -> None:
+            """G4 to G10, over any drafted text: a paragraph, a bullet, or a table row.
+
+            These used to live inside the paragraph handler, so the format fill is told to write
+            for endpoints, services and env names - a table - was judged on G1 to G3 alone. An
+            evaluative word, a modal, an invented count and an unscoped negative all reached a
+            clean report inside table cells.
+            """
             bare = CODESPAN.sub("", joined)
-            if not joined.lower().startswith("open question:"):
-                if not BRACKET_END.search(last):
-                    add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")
-                breaks = [m for m in BAD_BREAK.finditer(bare)
-                          if not ABBREV.search(bare[:m.end(0)].rstrip()[:m.end(0)])]
-                if breaks:
-                    add("G1", first, "a sentence inside this paragraph ends without an evidence bracket")
-                for ref in BRACKET_ANY.findall(joined):
-                    why = resolve_bracket(repo, ref)
-                    if why:
-                        add("G2", first, why)
-                if LINE_CITE.search(joined) and "://" not in joined:
-                    add("G3", first, f"line-number citation: {LINE_CITE.search(joined).group(0)}")
+            if True:
                 # `bare` has code spans removed: a file named fast.js or a dependency called
                 # simple-git is a name, not a claim about quality.
                 if BANNED.search(bare):
@@ -443,6 +437,28 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                           or KEY_BRACKET.search(joined))
                 if neg and not scoped:
                     add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")
+
+        def flush() -> None:
+            if not para:
+                return
+            first = para[0][0]
+            joined = " ".join(t for _, t in para)
+            last = para[-1][1]
+            bare = CODESPAN.sub("", joined)
+            if not joined.lower().startswith("open question:"):
+                if not BRACKET_END.search(last):
+                    add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")
+                breaks = [m for m in BAD_BREAK.finditer(bare)
+                          if not ABBREV.search(bare[:m.end(0)].rstrip())]
+                if breaks:
+                    add("G1", first, "a sentence inside this paragraph ends without an evidence bracket")
+                for ref in BRACKET_ANY.findall(joined):
+                    why = resolve_bracket(repo, ref)
+                    if why:
+                        add("G2", first, why)
+                if LINE_CITE.search(joined) and "://" not in joined:
+                    add("G3", first, f"line-number citation: {LINE_CITE.search(joined).group(0)}")
+                semantics(joined, first)
             para.clear()
 
         in_fence = False
@@ -481,16 +497,29 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                         add("G2", n, why)
                 if LINE_CITE.search(s_) and "://" not in s_:
                     add("G3", n, f"line-number citation: {LINE_CITE.search(s_).group(0)}")
+                semantics(" ".join(cells), n)
                 continue
+            # A bullet is its own claim. Treated as a continuation of the paragraph above, a
+            # list of five fabricated statements needed one bracket on the last line to pass
+            # G1 - and ARCHITECTURE and DEPLOYMENT both ask fill for exactly that shape.
+            if BULLET.match(s_):
+                flush()
             para.append((n, s_))
         flush()
     return found
 
 
-def drafted_docs(repo: Path) -> list[str]:
+NEAR_MARK = re.compile(r"draft\s*,\s*review\s+me", re.I)
+
+
+def drafted_docs(repo: Path, near: list[str] | None = None) -> list[str]:
     """Every doc carrying the draft marker. Prunes on the way down: a repository with a
-    node_modules tree costs half a minute to walk and holds nothing this gate judges."""
-    out = []
+    node_modules tree costs half a minute to walk and holds nothing this gate judges.
+
+    Docs whose marker is close but not exact are appended to `near` rather than ignored.
+    """
+    out: list[str] = []
+    near = near if near is not None else []
     base = len(repo.parts)
     for dirpath, dirnames, filenames in os.walk(repo):
         here = Path(dirpath)
@@ -502,8 +531,14 @@ def drafted_docs(repo: Path) -> list[str]:
             path = here / name
             if path.suffix.lower() not in DOC_EXTS:
                 continue
-            if DRAFT_MARK in read(path):
+            text = read(path)
+            if DRAFT_MARK in text:
                 out.append(path.relative_to(repo).as_posix())
+            elif NEAR_MARK.search(text):
+                # Meant to be a draft and spelled the marker wrong. Left out of the run it
+                # was silently approved: the report printed nothing and the operator read
+                # zero findings as permission to write.
+                near.append(path.relative_to(repo).as_posix())
     return out
 
 
@@ -542,7 +577,7 @@ def main() -> int:
     ap.add_argument("--repo", default=".", help="repository path (default: current directory)")
     ap.add_argument("--all", action="store_true", help="gate every doc carrying the draft marker")
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
-    ap.add_argument("--max-lines", type=int, default=DEFAULT_MAX_LINES, help=f"draft line cap (default {DEFAULT_MAX_LINES})")
+    ap.add_argument("--max-lines", type=int, default=0, help="draft line cap (default: half the manifest's splitAt, else 250)")
     ap.add_argument("--cap", type=int, default=40, help="findings printed per doc in text mode (default 40)")
     ap.add_argument("--fail-on-findings", action="store_true", help="exit 1 when any finding stands")
     ap.add_argument("--format", choices=("text", "json"), default="text")
@@ -555,8 +590,23 @@ def main() -> int:
     if not args.no_git_root:
         repo = git_root(repo) or repo
 
+    # SKILL.md says a draft stays under splitAt/2 so it never becomes a split candidate. The
+    # gate hardcoded 250 and never read the manifest, so a repo with splitAt 800 got 250.
+    if not args.max_lines:
+        args.max_lines = DEFAULT_MAX_LINES
+        for name in ("docs/structure.json", "docs-structure.json"):
+            f = repo / name
+            if f.is_file():
+                try:
+                    split_at = int(json.loads(read(f)).get("splitAt") or 0)
+                except Exception:  # a malformed manifest is the checker's finding, not the gate's
+                    split_at = 0
+                if split_at:
+                    args.max_lines = max(50, split_at // 2)
+                break
+    near_misses: list[str] = []
     if args.all or not args.docs:
-        targets = drafted_docs(repo)
+        targets = drafted_docs(repo, near_misses)
     else:
         targets = []
         for d in args.docs:
@@ -568,6 +618,10 @@ def main() -> int:
 
     names, numbers = gate_inventory(repo) if targets else (set(), {})
     findings: list[dict] = []
+    for rel in near_misses:
+        findings.append({"doc": rel, "line": 1, "rule": "G0", "level": "skipped",
+                         "message": f"the draft marker is misspelled here, so this document was "
+                                    f"not judged; write it exactly as {DRAFT_MARK}"})
     for rel in targets:
         findings.extend(check_doc(repo, rel, names, args.max_lines, numbers))
 

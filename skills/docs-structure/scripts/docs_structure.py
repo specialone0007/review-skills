@@ -135,6 +135,10 @@ DEFAULT_MANIFEST = {
     "ownerLine": {"markers": ["This document owns:", "Part of"], "enforce": False},
     "splitAt": 500,
     "maxParts": 30,
+    # An uncovered concern warns by default; a team that wants a missing doc to fail the build
+    # sets this. Absent from the defaults it was rejected as an unknown key, so the escape
+    # hatch SKILL.md documents stopped the tool from running at all.
+    "requireConcerns": False,
     "pathPrefixes": [],
     "citationExtensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "sql", "go", "rs", "java", "rb"],
     "recordFolders": [],
@@ -260,6 +264,8 @@ def walk(root: Path, skip_names: set[str] | None = None, max_depth: int = 12):
     for dirpath, dirnames, filenames in os.walk(root):
         d = Path(dirpath)
         if len(d.parts) - base_depth >= max_depth:
+            if dirnames:
+                warnings.append(f"depth cap {max_depth} reached under {d.name}; anything below it was not checked")
             dirnames[:] = []
         dirnames[:] = sorted(n for n in dirnames if n not in skip and not n.startswith("."))
         yield d, dirnames, filenames
@@ -563,6 +569,12 @@ def discover(repo: Path, skills: set[Path], ignore: list[str]) -> dict:
     # discovered here and not on Linux - the same repo, two sets of findings, and CI is Linux.
     for name in DOCS_FOLDER_NAMES:
         d = repo / name
+        if exists_exact(d) and d.is_dir() and is_package_dir(d):
+            # A docs site that builds itself is a package that happens to be called docs. Taking
+            # it as the repo's docs folder found its generator config and switched R1, R4, R11
+            # and R12 off for the whole repository - a published SDK reported a clean bill of
+            # health because its marketing site lives here.
+            continue
         if exists_exact(d) and d.is_dir() and docs_under(d, repo, skills, ignore):
             return {"rule": "a", "status": "resolved", "roots": [name], "candidates": {}, "package_docs": pkg}
     linked = linked_folders(repo, skills, ignore)
@@ -777,7 +789,10 @@ def repo_inventory(repo: Path, cap_n: int = 100) -> dict:
                 "routes": None, "cli": [], "exports": [], "frontend": [], "tests": [], "ci": [], "ops": [], "decisions": None,
                 "readme": None, "tree": {}, "release": [], "code_files_scanned": 0}
     saved = list(docs_evidence.warnings)
-    inv = docs_evidence.inventory(repo, cap_n, use_git=False)
+    # use_git=True: the licence gap in R11 and the contribute concern's public-remote fallback
+    # both read `decisions`, which det_git leaves as None when git is skipped, so neither could
+    # ever fire. A public repo with no LICENSE was never told.
+    inv = docs_evidence.inventory(repo, cap_n, use_git=True)
     for w in inv.get("warnings", []):
         if w not in saved:
             warnings.append(f"evidence: {w}")
@@ -880,7 +895,8 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 covered_by = d.rel
                 if len(scored) > 1 and scored[1][0][0] >= 3 and scored[1][0][0] >= sc - 1:
                     runner_up = scored[1][1].rel
-        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "template": template(inv) if callable(template) else template,
+        weak = bool(covered_by) and how.startswith("README sections") and how.count(",") == 0
+        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "weak": weak, "template": template(inv) if callable(template) else template,
                      "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up, "seed": seed,
                      "universal": cid in UNIVERSAL})
     return rows
@@ -1041,7 +1057,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         "splitAt": 500,
         "pathPrefixes": top_level_dirs(repo),
         "recordFolders": [c["default_path"].rsplit("/", 1)[0] + "/log" for c in uncovered if c["concern"] == "research"],
-        "counts": [{"index": c["default_path"], "folder": c["default_path"].rsplit(".", 1)[0].lower().replace("tasklist", "tasklist")} for c in uncovered if c["concern"] == "plan"],
+        "counts": [],  # filled below, once, for the plan concern
         "frontDoor": front_rel,
         "ignore": [],
     }
@@ -1317,7 +1333,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
 
     convention = manifest.get("indexConvention") or detect_convention(folders, repo)
     central_rel = manifest.get("centralIndex")
-    if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2 and not any(r.is_dir() for r in roots):
+    if roots and all(r.is_file() and r.parent == repo for r in roots) and len(roots) > 2:
         root_docs = True  # every root is a top-level file: the docs live at the repo root and the README is their index
     if not central_rel and root_docs:
         central_rel = "README.md"
@@ -1786,7 +1802,7 @@ def render(d: dict, top: int) -> str:
         for c in d["concerns"]:
             cov = c["covered_by"] or f"none - apply creates {c['default_path']}" + (f" (seed: {c['seed']})" if c.get("seed") else "")
             extra = f" (also {c['runner_up']})" if c.get("runner_up") else ""
-            L.append(f"| {c['concern']} | {c['applies']} | {cov}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
+            L.append(f"| {c['concern']} | {c['applies']} | {cov}{" (weak)" if c.get("weak") else ""}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
     L.append("")
     L.append("| rule | severity | failures | warnings | first |")
     L.append("|---|---|---|---|---|")

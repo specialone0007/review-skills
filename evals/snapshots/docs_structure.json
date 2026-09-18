@@ -11,7 +11,8 @@
       "runner_up": null,
       "seed": null,
       "template": "PRODUCT.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "always",
@@ -23,7 +24,8 @@
       "runner_up": null,
       "seed": null,
       "template": "ARCHITECTURE.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "always",
@@ -43,7 +45,8 @@
       "seed": null,
       "state": "reviewed",
       "template": "DEVELOPMENT.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "always",
@@ -57,7 +60,8 @@
       "runner_up": null,
       "seed": null,
       "template": "TASKLIST.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "Dockerfile: Dockerfile",
@@ -69,7 +73,8 @@
       "runner_up": null,
       "seed": null,
       "template": "DEPLOYMENT.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "4 routes (next-app-router 1, spring 3)",
@@ -81,7 +86,8 @@
       "runner_up": null,
       "seed": null,
       "template": "API_REFERENCE.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "tests: package.json",
@@ -93,7 +99,8 @@
       "runner_up": null,
       "seed": null,
       "template": "TESTING.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "ops: src/routes/health.js",
@@ -112,7 +119,8 @@
       "seed": null,
       "state": "reviewed",
       "template": "RUNBOOK.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "governance: LICENSE.md",
@@ -124,7 +132,8 @@
       "runner_up": null,
       "seed": null,
       "template": "CONTRIBUTING.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     }
   ],
   "discovery": null,

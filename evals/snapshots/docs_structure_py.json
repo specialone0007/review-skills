@@ -11,7 +11,8 @@
       "runner_up": null,
       "seed": null,
       "template": "PRODUCT.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "always",
@@ -23,7 +24,8 @@
       "runner_up": null,
       "seed": null,
       "template": "ARCHITECTURE.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "always",
@@ -43,7 +45,8 @@
       "seed": null,
       "state": "reviewed",
       "template": "DEVELOPMENT.md",
-      "universal": true
+      "universal": true,
+      "weak": true
     },
     {
       "applies": "always",
@@ -57,7 +60,8 @@
       "runner_up": null,
       "seed": null,
       "template": "TASKLIST.md",
-      "universal": true
+      "universal": true,
+      "weak": false
     },
     {
       "applies": "schema: alembic/versions/0001_initial.py",
@@ -69,7 +73,8 @@
       "runner_up": null,
       "seed": null,
       "template": "DATA_MODEL.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "2 routes (fastapi-flask 2)",
@@ -81,7 +86,8 @@
       "runner_up": null,
       "seed": null,
       "template": "API_REFERENCE.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     },
     {
       "applies": "cli: pyproject.toml",
@@ -93,7 +99,8 @@
       "runner_up": null,
       "seed": null,
       "template": "CLI_REFERENCE.md",
-      "universal": false
+      "universal": false,
+      "weak": false
     }
   ],
   "discovery": {
@@ -203,12 +210,7 @@
       "docs/structure.json": {
         "content": {
           "centralIndex": "docs/INDEX.md",
-          "counts": [
-            {
-              "folder": "docs/tasklist",
-              "index": "docs/TASKLIST.md"
-            }
-          ],
+          "counts": [],
           "frontDoor": "README.md",
           "ignore": [],
           "indexConvention": "sibling",
@@ -230,7 +232,7 @@
           ],
           "splitAt": 500
         },
-        "lines": 29,
+        "lines": 24,
         "template": "generated"
       },
       "docs/tasklist/phase-00-foundations.md": {
