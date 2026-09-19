@@ -1017,6 +1017,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         # scripts/x.py setup`" is how a setup step is often written, and it was never read.
         fenced_lines = fenced_blocks(text, skip_away=True)
         fenced_nos = {ln for ln, _ in fenced_blocks(text)}
+        doc_lines = text.splitlines()
         cmd_lines: list[tuple[int, str, bool]] = [(ln, line, False) for ln, line in fenced_lines]
         # A relative `cd apps/web` earlier in the same fence moves every later command there.
         fence_cwd: dict[int, str] = {}
@@ -1059,8 +1060,9 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                     holders = sorted(k for k, v in npm_scripts.items() if script in v)[:3]
                     # A table row or sentence that names the unit the command runs in - `apps/web` ...
                     # `pnpm build` - is not a claim that it runs here.
-                    named_here = any(h != "." and (h in line or Path(h).name in line) for h in holders)
-                    if where and script not in own and not PM_ELSEWHERE.search(" " + line) and not named_here:
+                    full = doc_lines[lineno - 1] if 0 < lineno <= len(doc_lines) else line
+                    named_here = any(h != "." and (h in full or Path(h).name in full) for h in holders)
+                    if where and script not in own and not PM_ELSEWHERE.search(" " + full) and not named_here:
                         add("missing-script", "low", doc, lineno,
                             f"documents `{script}`, which is not a script in the package nearest this doc "
                             f"({where}/package.json); it exists in {', '.join(h + '/package.json' for h in holders)}. "
