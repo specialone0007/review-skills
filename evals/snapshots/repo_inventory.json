@@ -148,12 +148,12 @@
       "path": "docs/quoted.md"
     },
     {
-      "bytes": 625,
+      "bytes": 603,
       "lines": 22,
       "path": "README.md"
     },
     {
-      "bytes": 595,
+      "bytes": 567,
       "lines": 28,
       "path": "docs/history.md"
     },
@@ -188,7 +188,7 @@
       "path": "docs/guide/advanced.md"
     },
     {
-      "bytes": 351,
+      "bytes": 334,
       "lines": 17,
       "path": "docs/setup.md"
     },
@@ -215,12 +215,12 @@
     {
       "bytes": 241,
       "lines": 7,
-      "path": "src/config.js"
+      "path": "docs/crlf-sample.md"
     },
     {
-      "bytes": 241,
+      "bytes": 234,
       "lines": 7,
-      "path": "docs/crlf-sample.md"
+      "path": "src/config.js"
     },
     {
       "bytes": 227,

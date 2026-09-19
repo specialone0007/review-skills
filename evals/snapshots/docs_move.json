@@ -48,7 +48,7 @@
   },
   "mentions": [],
   "move_folder": null,
-  "newline": "crlf",
+  "newline": "lf",
   "proof": {
     "ok": true,
     "problems": [],

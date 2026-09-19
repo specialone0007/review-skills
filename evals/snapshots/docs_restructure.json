@@ -229,8 +229,8 @@
     ]
   },
   "newline": {
-    "README.md": "crlf",
-    "docs/getting-started/SETUP.md": "crlf",
+    "README.md": "lf",
+    "docs/getting-started/SETUP.md": "lf",
     "docs/guides/OPERATIONS.md": "lf",
     "docs/history/CHANGELOG.md": "lf",
     "docs/limits.md": "lf"
