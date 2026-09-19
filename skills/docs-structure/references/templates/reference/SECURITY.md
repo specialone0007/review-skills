@@ -8,7 +8,7 @@
 
 ## Authentication
 
-*The library or scheme, the middleware file, which routes require it. From the dependencies and the route files.*
+*The library or scheme, the middleware file, which routes require it. From the dependencies and the route files. When the inventory found no auth library, middleware or roles, one sentence says so with the scan behind it - public by design is a fact worth writing down.*
 
 ## Authorisation and roles
 

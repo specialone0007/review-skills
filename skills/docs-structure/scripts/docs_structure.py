@@ -314,6 +314,8 @@ def _integrations(inv):
 
 
 def _security(inv):
+    # Always: secrets handling and data classes apply to any repo; "no authentication, public by
+    # design" is a sentence worth having in writing. The evidence found is the reason shown.
     a = inv.get("auth") or {}
     if a.get("libraries"):
         return "auth library: " + ", ".join(x["name"] for x in a["libraries"][:3])
@@ -321,7 +323,9 @@ def _security(inv):
         return f"auth middleware: {a['middleware_files'][0]}"
     if a.get("roles_in_schema"):
         return f"roles in schema: {a['roles_in_schema'][0]}"
-    return None
+    if a.get("secret_env_names"):
+        return f"secret-shaped env names: {', '.join(a['secret_env_names'][:3])}"
+    return "always"
 
 
 def _pipelines(inv):
@@ -437,7 +441,7 @@ CONCERNS = [
     ("plan", "history", lambda inv: _plan_evidence(inv), lambda inv: "plans/TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
 ]
-UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration", "deploy", "integrations"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration", "deploy", "integrations", "security"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",

@@ -260,7 +260,7 @@
       "seed": null,
       "template": "reference/SECURITY.md",
       "unit": null,
-      "universal": false,
+      "universal": true,
       "weak": false
     },
     {
