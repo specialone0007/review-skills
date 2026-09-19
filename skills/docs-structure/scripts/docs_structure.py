@@ -28,11 +28,11 @@ Fifteen mechanical rules, each with a fixed severity. None of them judges prose.
   R11 the front door points at the index: the root README links the central index, and
       does not keep a parallel list of docs that would drift from it
   R12 every concern the repo has is covered by the doc at its canonical path. Concerns come
-      from the evidence inventory (docs_evidence.py beside this script): setup, develop,
-      purpose, architecture and the agent file always; deploy, operate, testing, contribute,
+      from the evidence inventory (docs_evidence.py beside this script): setup, onboarding,
+      develop, purpose, architecture, the README and the agent file always; deploy, operate, testing, contribute,
       release, configuration, data, http, commands, exports, integrations, security, design,
       pipelines, decisions, changelog and plan when the repo contains the thing they describe;
-      onboarding once seven docs are earned; research on request. The path is fixed by
+      research on request. The path is fixed by
       references/shape.md: a bucket folder (getting-started, guides, reference, explanation,
       history) once it would hold two docs, flat under seven docs in all. An uncovered concern
       is one P2 and a skeleton the apply workflow creates from references/templates/ - never
@@ -383,7 +383,7 @@ CONCERNS = [
      set(), ["CLAUDE.md"]),
     ("setup", "getting-started", lambda inv: "always", lambda inv: "SETUP.md",
      {"setup", "install", "installation", "getting started", "quickstart", "quick start", "prerequisites", "first run"}, []),
-    ("onboarding", "getting-started", lambda inv: "seven or more docs", lambda inv: "ONBOARDING.md",
+    ("onboarding", "getting-started", lambda inv: "always", lambda inv: "ONBOARDING.md",
      {"onboarding", "glossary", "reading order", "new here", "start here"}, []),
     ("develop", "guides", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
      {"development", "developing", "local", "locally", "run locally", "daily commands", "hacking", "contributing code", "workflow"}, []),
@@ -435,7 +435,7 @@ CONCERNS = [
     ("plan", "history", lambda inv: _plan_evidence(inv), lambda inv: "plans/TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
 ]
-UNIVERSAL = {"purpose", "develop", "setup"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",
@@ -1468,10 +1468,6 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 continue
         rows.append({"concern": cid, "bucket": bucket, "applies": reason, "file": default_file(inv), "keywords": keywords,
                      "companions": list(companions), "pin": pin, "unit": None})
-    # onboarding is earned by the size of the set, not by evidence: under seven docs its glossary folds into SETUP
-    others = [r for r in rows if r["bucket"] and r["concern"] != "onboarding"]
-    if len(others) < COLLAPSE_BELOW and not isinstance(pin_map.get("onboarding"), (str, bool)):
-        rows = [r for r in rows if r["concern"] != "onboarding"]
     # per-unit rows in a monorepo: a package that deploys on its own owns its deployment and operations
     units = unit_dirs(inv, repo)
     unit_rows: list[dict] = []

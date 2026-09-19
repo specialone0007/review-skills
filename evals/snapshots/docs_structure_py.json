@@ -67,7 +67,7 @@
       "weak": false
     },
     {
-      "applies": "seven or more docs",
+      "applies": "always",
       "bucket": "getting-started",
       "companions": [],
       "concern": "onboarding",
@@ -81,7 +81,7 @@
       "seed": null,
       "template": "getting-started/ONBOARDING.md",
       "unit": null,
-      "universal": false,
+      "universal": true,
       "weak": false
     },
     {
@@ -224,7 +224,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'onboarding' (the repo has seven or more docs) - apply creates docs/getting-started/ONBOARDING.md from the template",
+      "message": "no doc covers 'onboarding' (always) - apply creates docs/getting-started/ONBOARDING.md from the template",
       "path": "README.md",
       "rule": "R12",
       "severity": "P2"
@@ -313,7 +313,7 @@
         "concern": "onboarding",
         "lines": 19,
         "template": "references/templates/getting-started/ONBOARDING.md",
-        "why": "onboarding (seven or more docs)"
+        "why": "onboarding (always)"
       },
       "docs/getting-started/SETUP.md": {
         "concern": "setup",

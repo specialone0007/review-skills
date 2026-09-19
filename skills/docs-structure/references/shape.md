@@ -110,7 +110,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | doc | concern | read this if you | owns | earned by | sections · fill |
 | --- | --- | --- | --- | --- | --- |
 | `SETUP.md` | setup | have never run it | prerequisites, install, run, the first visible success, what to do when it fails | always | Prerequisites · Install · Run it · First success · If it fails · fill: packages, tree, ci, env, services |
-| `ONBOARDING.md` | onboarding | joined this week | the reading order, the path per role, the vocabulary | when seven or more other docs are earned (it is the eighth); else its Glossary folds into SETUP | Read in this order · By role · Glossary · fill: readme, packages, schema, routes |
+| `ONBOARDING.md` | onboarding | joined this week | the reading order, the path per role, the vocabulary | always; the glossary is worth having at any size, and the reading order is five lines | Read in this order · By role · Glossary · fill: readme, packages, schema, routes |
 
 ### guides
 
@@ -167,11 +167,11 @@ what a typical repository of each kind ends up with, so a reader can sanity-chec
 
 | kind | always | earned by evidence | never |
 | --- | --- | --- | --- |
-| application | README block, AGENTS.md, SETUP, DEVELOPMENT, PRODUCT, ARCHITECTURE | ONBOARDING (seven or more docs), DEPLOYMENT, OPERATIONS, TESTING, CONTRIBUTING, CONFIGURATION, DATA_MODEL, API, INTEGRATIONS, SECURITY, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
-| library | README block, AGENTS.md, SETUP, DEVELOPMENT, OVERVIEW | TESTING, CONTRIBUTING, RELEASING, PUBLIC_API, ARCHITECTURE (more than one package), CONFIGURATION (a config file), CHANGELOG, decisions/ | PRODUCT, DEPLOYMENT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
+| application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, PRODUCT, ARCHITECTURE | DEPLOYMENT, OPERATIONS, TESTING, CONTRIBUTING, CONFIGURATION, DATA_MODEL, API, INTEGRATIONS, SECURITY, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
+| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, OVERVIEW | TESTING, CONTRIBUTING, RELEASING, PUBLIC_API, ARCHITECTURE (more than one package), CONFIGURATION (a config file), CHANGELOG, decisions/ | PRODUCT, DEPLOYMENT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
 | cli | as library, with CLI instead of PUBLIC_API; both when both entries exist | | |
 | monorepo | the application set at the root as the map; per unit: README.md and AGENTS.md | per unit with a Dockerfile or deploy config: `<unit>/docs/DEPLOYMENT.md`; per unit with health or cron: `<unit>/docs/OPERATIONS.md`; the root DEPLOYMENT and OPERATIONS become the map variant (a table of units and links) | a unit never owns architecture, product, security or data; those stay at the root |
-| infrastructure | README block, AGENTS.md, SETUP, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONFIGURATION | SECURITY, decisions/, CHANGELOG, TESTING | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
+| infrastructure | README, AGENTS.md, SETUP, ONBOARDING, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONFIGURATION | SECURITY, decisions/, CHANGELOG, TESTING | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
 | docs-only | nothing | only what the manifest pins | everything else |
 
 Worked examples from real runs, so the numbers mean something:
@@ -179,12 +179,13 @@ Worked examples from real runs, so the numbers mean something:
 - A three-service application with a Prisma schema, 130 routes, a React frontend, `better-auth`, a
   cron job and OpenAI, Railway and Zep SDKs: sixteen docs plus the index, AGENTS.md and two unit
   deployment guides. Every bucket folder exists.
-- A two-route Python service with alembic and a CLI entry: PRODUCT, SETUP, DEVELOPMENT, ARCHITECTURE,
-  DATA_MODEL, API, CLI, and ONBOARDING as the eighth. Buckets exist; `guides/` holds only DEVELOPMENT and
+- A two-route Python service with alembic and a CLI entry: PRODUCT, SETUP, ONBOARDING, DEVELOPMENT,
+  ARCHITECTURE, DATA_MODEL, API, CLI. Eight docs, so buckets exist; `guides/` holds only DEVELOPMENT and
   `explanation/` only PRODUCT, so those two stay flat: `docs/DEVELOPMENT.md`, `docs/PRODUCT.md`,
   `docs/getting-started/{SETUP,ONBOARDING}.md`, `docs/reference/{ARCHITECTURE,DATA_MODEL,API,CLI}.md`.
-- A single-package library with tests and a publish script: OVERVIEW, SETUP, DEVELOPMENT, TESTING,
-  RELEASING, PUBLIC_API. Six docs, flat in `docs/`, index with bucket headings.
+- A single-package library with tests and a publish script: OVERVIEW, SETUP, ONBOARDING, DEVELOPMENT,
+  TESTING, RELEASING, PUBLIC_API. Seven docs, so buckets exist; `explanation/` holds only OVERVIEW and
+  stays flat.
 
 ## The index grammar
 
