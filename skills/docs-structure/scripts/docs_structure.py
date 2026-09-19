@@ -1597,8 +1597,8 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 # is not a cover and not a move, but the skeleton and the index name it as the text to fold in
                 unit_hits = []
                 for d in candidates:
-                    if not any(d.rel.startswith(u + "/") for u in units) or d.path.name.upper().startswith("README"):
-                        continue
+                    if not any(d.rel.startswith(u + "/") for u in units) or d.path.name.upper().startswith("README") or d.path.name in ("CLAUDE.md", AGENT_FILE):
+                        continue  # a unit's agent file is not a doc that covers a concern
                     sc = concern_score(d, keywords, r["file"])
                     if sc[0] >= 3:
                         unit_hits.append((sc[0], d.rel))
@@ -1981,7 +1981,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     units_here = [] if unit else [u for u in unit_dirs(inv, repo) if any(str(Path(p.get("path", ".")).as_posix()) == u for p in inv.get("packages") or [])]
     index_link = central_rel if not unit else os.path.relpath(central_rel, unit).replace("\\", "/")
     lines = [f"# {name} - for agents", "",
-             f"> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of {name}, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*",
+             f"> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of {name}, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. " + ("*(draft, review me)* - the commands are read from the manifests; conventions and gotchas are open questions" if cmds else "*(skeleton, write me)*"),
              "", "## Commands", ""]
     lines += cmds or ["- open question: no install, run, test or lint script found in a manifest or task runner - write the commands as they are typed, each with its source in brackets"]
     if units_here:
