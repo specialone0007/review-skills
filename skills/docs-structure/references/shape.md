@@ -101,7 +101,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 
 | doc | concern | read this if you | owns | earned by | sections |
 | --- | --- | --- | --- | --- | --- |
-| `README.md` | readme | arrived from anywhere - a person skimming, an agent parsing | what it is, the quickstart, the hand-off, the layout, the commands, the licence; one line and a link for anything a doc owns | always. Missing: written from the template with the Start-here block in its slot. Existing: never rewritten; the sections it lacks are advice, and `apply readme` appends them as skeletons after the text | What it is · Quickstart · Start here (the block) · Repository layout (table) · Commands (table: task, command, source) · Configuration (one line + link) · Status · fill: readme, packages, tree, services, env, ci, tests |
+| `README.md` | readme | arrived from anywhere - a person skimming, an agent parsing | what it is, the quickstart, the hand-off, the layout, the commands, the licence; one line and a link for anything a doc owns | always. Missing: written from the template with the Start-here block in its slot. Existing: fitted into the template order on apply, every line kept, sections a doc owns re-homed with a pointer left behind | What it is · Quickstart · Start here (the block) · Repository layout (table) · Commands (table: task, command, source) · Configuration (one line + link) · Status · fill: readme, packages, tree, services, env, ci, tests |
 | `AGENTS.md` | agent | are a coding agent or a new contributor with ten minutes | the conventions an agent cannot infer; the gotchas; links to the README's commands and the index | always. A skeleton; the gate never judges it, a person finishes it | Commands (a link to README § Commands, nothing repeated) · Conventions · Gotchas · Docs (a link to the index) |
 | `CLAUDE.md` | agent | use Claude Code | nothing; it imports AGENTS.md | a `.claude/` folder or an existing CLAUDE.md | the single line `@AGENTS.md`; an existing CLAUDE.md with content is left alone and warned |
 
@@ -317,12 +317,14 @@ command verbatim with its source, and one line plus a link for anything a doc ow
 ```
 
 A README that does not exist is written from the template, filled from the manifests, marked a
-draft. A README that exists is never rewritten: R11 lists the template sections it lacks as advice,
-and `apply readme` appends those as skeleton sections after the existing text, nothing else moved
-or changed. A README that has the information under other headings is left alone. The template's own
-headings are never a second home, whatever they contain; any other README H2 that matches a concern
-a doc owns still gets the R11 warning. `AGENTS.md` links the README's Commands table and repeats
-none of it.
+draft. A README that exists is fitted into the template on apply: its sections land under the
+template headings they match (a `## Setup` under Quickstart, a `## Project structure` under
+Repository layout), text verbatim; template sections it lacks get their guidance line; sections
+that match nothing stay after, in their order; the Start-here block moves whole into its slot; and
+a section that a doc owns - an env table, deploy steps - is pasted into that doc and replaced by
+one line and a link. Nothing is deleted or reworded, and the proof says so line by line. R11 lists
+the lacking sections as advice in plan mode. The template's own headings are never a second home,
+whatever they contain. `AGENTS.md` links the README's Commands table and repeats none of it.
 
 ## Migration from the flat shape
 
@@ -346,10 +348,18 @@ list grammar, and writes the AGENTS.md skeleton; the user reviews the diff and c
 Owner lines, review markers and source brackets survive a move untouched. Split parts folders move
 with their doc. Nothing is deleted.
 
+Every doc that covers a concern is also fitted into its template's section order by
+`docs_restructure.py` (existing headings mapped to template headings, text verbatim, unmatched
+sections kept after, ambiguous mappings marked for review), and the README gives away what other
+docs own. The proof is line-for-line: what went in comes out, plus only the pointer, owner and
+guidance lines the restructure itself adds.
+
 ## What this shape refuses
 
 - A doc that mixes intents: a reference with a tutorial in it, a guide that explains. The checker
   cannot read intent, so this is advice in the report and a review question, never a finding.
+- Deleting or rewording a person's sentence. The shape reorders and re-homes; it never edits. A
+  restructure that would lose a line refuses instead.
 - More than one home for a fact. The owner line says which doc has it; the others link.
 - A bucket folder for one file, or five folders for six files (the collapse rule).
 - A second index in the README, a routing block in the agent file, or any list of docs outside

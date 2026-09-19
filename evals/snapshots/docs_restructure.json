@@ -1,0 +1,246 @@
+{
+  "delete": [
+    "docs/setup.md",
+    "docs/h3-style.md",
+    "CHANGELOG.md"
+  ],
+  "docs": {
+    "CHANGELOG.md": {
+      "concern": "changelog",
+      "given": [],
+      "kept": [
+        "0.0.0 - 2026-01-01"
+      ],
+      "mapping": [
+        {
+          "ambiguous": false,
+          "from": "Unreleased",
+          "to": "Unreleased"
+        }
+      ],
+      "template": "history/CHANGELOG.md",
+      "to": "docs/CHANGELOG.md"
+    },
+    "README.md": {
+      "concern": "readme",
+      "given": [],
+      "kept": [],
+      "mapping": [
+        {
+          "ambiguous": false,
+          "from": "Running",
+          "to": "Quickstart"
+        },
+        {
+          "ambiguous": false,
+          "from": "Configuration",
+          "to": "Configuration"
+        }
+      ],
+      "template": "README.md",
+      "to": "README.md"
+    },
+    "docs/h3-style.md": {
+      "concern": "operate",
+      "given": [],
+      "kept": [],
+      "mapping": [],
+      "template": "guides/OPERATIONS.md",
+      "to": "docs/guides/OPERATIONS.md"
+    },
+    "docs/limits.md": {
+      "inbound_links_rewritten": true
+    },
+    "docs/setup.md": {
+      "concern": "setup",
+      "given": [],
+      "kept": [
+        "Config"
+      ],
+      "mapping": [
+        {
+          "ambiguous": false,
+          "from": "Install",
+          "to": "Install"
+        }
+      ],
+      "template": "getting-started/SETUP.md",
+      "to": "docs/getting-started/SETUP.md"
+    }
+  },
+  "files": {
+    "README.md": [
+      "# mini-app",
+      "",
+      "> **This document owns:** the front door - what this repository is, the quickstart to a first success, the hand-off to the docs, the layout of the tree, the commands as the manifests name them, and where the licence is. Facts a doc owns are one line and a link here. *(auto, review me)*",
+      "",
+      "<!-- concern: readme; fill: readme, packages, tree, services, env, ci, tests -->",
+      "",
+      "[![tests](../../actions/workflows/test.yml/badge.svg)](../../actions/workflows/test.yml)",
+      "",
+      "An intentionally defective fixture. See ../README.md for why.",
+      "",
+      "## What it is",
+      "",
+      "*Three sentences at most: what it does, for whom, and the one idea it hangs on. The long form is PRODUCT's; link it.*",
+      "",
+      "## Quickstart",
+      "",
+      "Start the dev server:",
+      "",
+      "```bash",
+      "npm run dev",
+      "```",
+      "",
+      "## Repository layout",
+      "",
+      "*A table, one row per top-level folder or unit: folder, what lives there, its own README when it has one. From the tree, never invented.*",
+      "",
+      "## Commands",
+      "",
+      "*A table: task, command, source - install, run, test, lint, build, deploy. The command as it is typed, the file it comes from. AGENTS.md links here and repeats none of it.*",
+      "",
+      "## Configuration",
+      "",
+      "| Variable | Purpose |",
+      "| --- | --- |",
+      "| `API_TOKEN` | Auth token for the upstream API |",
+      "| `MAX_EXPORT_ROWS` | Caps export size |",
+      "",
+      "## Status",
+      "",
+      "*Version from the manifest, the licence file by name, the CI workflow by name. One line each.*"
+    ],
+    "docs/CHANGELOG.md": [
+      "# Changelog",
+      "",
+      "> **This document owns:** the user-visible changes by version, newest first. Keep a Changelog headings; never drafted from commits. *(auto, review me)*",
+      "",
+      "<!-- concern: changelog; fill: none -->",
+      "",
+      "All notable changes to this fixture. Kept to give the evidence inventory a changelog to find.",
+      "",
+      "## Unreleased",
+      "",
+      "- Added: a queue worker for exports.",
+      "",
+      "## 0.0.0 - 2026-01-01",
+      "",
+      "- Added: the fixture."
+    ],
+    "docs/getting-started/SETUP.md": [
+      "# Setup",
+      "",
+      "> **This document owns:** the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. *(auto, review me)*",
+      "",
+      "<!-- concern: setup; fill: packages, tree, ci, env, services -->",
+      "",
+      "Install the app, then read the [configuration](#configuration) section below.",
+      "",
+      "## Prerequisites",
+      "",
+      "*Runtimes and tools with the versions the repo pins or its CI installs. Name the file that pins each one.*",
+      "",
+      "## Install",
+      "",
+      "Clone the repository and install dependencies. The export cap defaults to 42.5% of the",
+      "row budget; see [limits](../limits.md#the-cap) for why.",
+      "",
+      "## Run it",
+      "",
+      "*The one command that starts it, and the URL, port or prompt that appears. From the manifest, never paraphrased.*",
+      "",
+      "## First success",
+      "",
+      "*The smallest thing a new person can do to see it work: a request, a page, a command and its output.*",
+      "",
+      "## If it fails",
+      "",
+      "*Dated bullets. Symptom, cause, fix, the file that was wrong.*",
+      "",
+      "## Config",
+      "",
+      "The token is read in `src/config.js:12` and nowhere else."
+    ],
+    "docs/guides/OPERATIONS.md": [
+      "# Operations",
+      "",
+      "> **Part of** the operations notes. *(auto, review me)*",
+      "",
+      "<!-- concern: operate; fill: ops, jobs, services, env, decisions -->",
+      "",
+      "This file uses third-level headings for its sections, which is an ordinary Markdown style",
+      "and used to make the whole document invisible to concern matching.",
+      "",
+      "### Health checks",
+      "",
+      "The server answers on a health path.",
+      "",
+      "### Alerts",
+      "",
+      "Failures page whoever is on call.",
+      "",
+      "### On-call runbook",
+      "",
+      "Restart the process, then read the queue depth.",
+      "",
+      "## Health",
+      "",
+      "*Every health or readiness endpoint and what it checks. From the configs and route files. A library or a repo nothing runs says in one sentence that it is not operated, and the doc ends there.*",
+      "",
+      "## Scheduled jobs",
+      "",
+      "*Every cron or scheduler entry: schedule, what it runs, what happens if it is missed.*",
+      "",
+      "## Alerts",
+      "",
+      "*Alert rules or the absence of them. Each rule with its file.*",
+      "",
+      "## When something is wrong",
+      "",
+      "*One subsection per known failure: symptom, where to look, what to do. Until a person who has run it writes one, a single open question; a list of fix commits is not a runbook.*",
+      "",
+      "## On call",
+      "",
+      "*Who, how they are reached, and what they are expected to do first. Facts outside the repo carry a verified-against line with a date.*"
+    ],
+    "docs/limits.md": [
+      "# Limits",
+      "",
+      "> **This document owns:** the export row cap and where it is enforced.",
+      "",
+      "## The cap",
+      "",
+      "Verified against the billing dashboard on 2024-01-15. Verified against the ops board on 2099-01-01.",
+      "",
+      "Exports stop at 42.5% of the row budget. The number is also quoted in",
+      "[setup](getting-started/SETUP.md#install) and in the [history](history.md), and the CRLF sample keeps a",
+      "copy under its [notes](crlf-sample.md#notes).",
+      "",
+      "## One very long token",
+      "",
+      "A citation inside a token longer than the scan limit is not a citation; it is minified code",
+      "or a signed URL. The checker skips such tokens, because scanning them backtracks.",
+      "",
+      "`segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x/segment-name_x//deep.ts:42`"
+    ]
+  },
+  "newline": {
+    "README.md": "lf",
+    "docs/CHANGELOG.md": "lf",
+    "docs/getting-started/SETUP.md": "lf",
+    "docs/guides/OPERATIONS.md": "lf",
+    "docs/limits.md": "lf"
+  },
+  "proof": {
+    "docs": 5,
+    "lines_in": 22,
+    "lines_out": 22,
+    "ok": false,
+    "problems": [
+      "README.md: link ../../actions/workflows/test.yml/badge.svg does not resolve after restructure"
+    ]
+  },
+  "refuse": null,
+  "repo": "<fixture>"
+}

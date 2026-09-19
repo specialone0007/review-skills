@@ -353,6 +353,35 @@ and the nearest one wins. A gitignored agent file is one person's copy - it reac
 clones the repo, and the report says so. The routing table that used to be printed for pasting is
 gone: the index is the routing table, and an agent that reads it needs no second copy.
 
+## The restructure, exactly
+
+`scripts/docs_restructure.py` runs the checker, takes every concern row with a doc (covered, or
+misplaced and about to move) plus the README, and for each:
+
+1. Parses fence-aware: the lead before the first H2, then one block per H2 with its H3s inside.
+   A Start-here block between the markers is lifted out whole first.
+2. Scores every existing H2 against every template H2: shared heading words, the template
+   section's synonym list (`SYNONYMS` in the script: "Services" answers to "Units" and
+   "Containers", "Troubleshooting" to "If it fails" and "When something is wrong"), an exact match
+   most of all. The best template section takes the block; a tie goes to the earlier template
+   section and the mapping is marked `ambiguous`. No score at all: the block is kept.
+3. Writes the doc in template order: the title, the owner line (the doc's own with
+   `*(auto, review me)*` added, else the template's), the concern comment, the lead's own prose,
+   then each template H2 with its matched block verbatim (two blocks under one heading keep their
+   old headings as H3s), or the guidance line when nothing matched; the Start-here block in its
+   slot; then every unmatched block in its original order.
+4. For the README only: an H2 that is not a template section, holds more than one line, and whose
+   words match a concern another doc covers (the concern keywords of the checker) is cut, its body
+   pasted into that doc's best-matching section as an `### <heading> (from README.md)` block with
+   its links rebased, and replaced in the README by one line: See, then a link to the doc's section.
+5. Rebases a moved doc's relative links to its new folder and rewrites every tracked Markdown file
+   that linked the old path.
+6. Proves: the multiset of content lines (not blank, not a heading, not the owner line or concern
+   comment, link targets normalised) across every input equals the multiset across every output
+   minus the pointer, owner and guidance lines it added, each counted; every original heading is
+   still a heading or recorded as renamed; every relative link in an output resolves against the
+   output tree. Any problem: `proof.ok` is false and `--out` writes nothing.
+
 ## Writing into a file somebody else wrote
 
 Apply edits three kinds of existing file: the central index (a row), the front door (the block
