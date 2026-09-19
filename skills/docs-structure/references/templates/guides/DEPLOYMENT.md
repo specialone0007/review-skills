@@ -8,7 +8,7 @@
 
 ## Units
 
-*A table: unit, root directory, build and start command, public or private, health check. One row per deployable unit, including data stores.*
+*A table: unit, root directory, build and start command, public or private, health check. One row per deployable unit, including data stores. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured.*
 
 ## Environment per unit
 

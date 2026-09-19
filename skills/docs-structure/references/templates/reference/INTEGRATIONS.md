@@ -8,7 +8,7 @@
 
 ## Integrations
 
-*One H3 per third party, from the SDK dependencies and the outward-pointing environment names. Under each: purpose in one line, the unit that calls it, the environment names (never values), the failure mode - what a user sees when it is down, and whether the code degrades or stops.*
+*When the inventory found no SDK and no outward env name, this section is one sentence saying so with the scan behind it. Otherwise one H3 per third party, from the SDK dependencies and the outward-pointing environment names. Under each: purpose in one line, the unit that calls it, the environment names (never values), the failure mode - what a user sees when it is down, and whether the code degrades or stops.*
 
 ## Not integrated
 

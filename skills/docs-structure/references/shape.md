@@ -117,7 +117,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | doc | concern | read this if you | owns | earned by | sections · fill |
 | --- | --- | --- | --- | --- | --- |
 | `DEVELOPMENT.md` | develop | change code here every day | the daily loop: branch, run, debug, lint, test, open a PR | always | Daily loop · Branch and PR · Run and debug · Lint and format · Common problems · fill: packages, tree, ci, tests, env |
-| `DEPLOYMENT.md` | deploy | ship it | every deployable unit, its environment, the steps, the rollback | a Dockerfile, compose file, platform config or deploy workflow | Units · Environment per unit · Deploy steps · Rollback · Known traps · fill: services, env, ci, ops, decisions. Monorepo root: the map variant (Units · Order · Rollback), each unit's own guide holding the steps |
+| `DEPLOYMENT.md` | deploy | ship it | every deployable unit, its environment, the steps, the rollback | always; with no deploy config in the repo the doc says where deployment is configured instead (an open question until a person answers) | Units · Environment per unit · Deploy steps · Rollback · Known traps · fill: services, env, ci, ops, decisions. Monorepo root: the map variant (Units · Order · Rollback), each unit's own guide holding the steps |
 | `OPERATIONS.md` | operate | are on call or something is down | health checks, scheduled jobs, alerts, what to do when a thing breaks | a health route, cron, alert rules, or a platform healthcheck | Health · Scheduled jobs · Alerts · When something is wrong · On call · fill: ops, jobs, services, env, decisions |
 | `TESTING.md` | testing | are writing or running tests | runners, layout, how to run, what CI runs, gaps | always; with no runner or tests folder the doc says so under Coverage and gaps, which is the fact a newcomer needs most | Runners and layout · Running tests · What CI runs · Coverage and gaps · fill: tests, ci, packages |
 | `CONTRIBUTING.md` | contribute | want to land a change | branch and commit rules, checks that must pass, review | LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, a `.github` PR template, or a github.com/gitlab.com remote | Before you start · Making a change · Checks that must pass · Review · fill: tree, ci, tests, packages |
@@ -133,7 +133,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | `API.md` | http | call it over HTTP | authentication, endpoints, errors, one end-to-end call | HTTP routes or an OpenAPI file (a library's own examples do not count) | Authentication · Endpoints · Errors · Typical end-to-end call · Notes · fill: routes, auth, env, packages |
 | `CLI.md` | commands | run it from a shell | install and invoke, commands, exit codes, configuration | a CLI entry point | Install and invoke · Commands · Exit codes and output · Configuration · fill: cli, packages, readme |
 | `PUBLIC_API.md` | exports | import it | install and import, the exported surface, usage, stability | library kind with a public entry | Install and import · Exported surface · Usage · Stability and versioning · fill: exports, packages, tests, decisions |
-| `INTEGRATIONS.md` | integrations | need to know what talks to whom outside the repo | one section per third party: what for, which unit, the env names, what breaks when it is down | three or more third-party SDKs, or env names ending `_API_KEY`, `_DSN`, `_WEBHOOK_URL`, `_CLIENT_ID` | one H2 per integration, each: purpose, unit, env names, failure mode · fill: integrations, env, services |
+| `INTEGRATIONS.md` | integrations | need to know what talks to whom outside the repo | one section per third party: what for, which unit, the env names, what breaks when it is down | always; the SDKs and outward env names found are listed, and a repo that talks to nothing says so | one H2 per integration, each: purpose, unit, env names, failure mode · fill: integrations, env, services |
 | `SECURITY.md` | security | handle auth, secrets or personal data | authentication, authorisation and roles, secrets handling, data classes, known gaps | an auth library or middleware, roles in the schema, or env names ending `_SECRET`, `_TOKEN`, `_PASSWORD` | Authentication · Authorisation and roles · Secrets handling · Data classes · Known gaps · fill: auth, env, routes, schema |
 | `DESIGN_SYSTEM.md` | design | build a screen | tokens, the component library, patterns, do and do not, the pre-flight checklist | a frontend framework plus tokens, a `ui/` or `components/` folder | Foundations · Components - reuse, do not rebuild · Patterns · Do and do not · Pre-flight checklist · fill: frontend, packages, tree |
 
@@ -167,11 +167,11 @@ what a typical repository of each kind ends up with, so a reader can sanity-chec
 
 | kind | always | earned by evidence | never |
 | --- | --- | --- | --- |
-| application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, PRODUCT, ARCHITECTURE, CONFIGURATION | DEPLOYMENT, OPERATIONS, CONTRIBUTING, DATA_MODEL, API, INTEGRATIONS, SECURITY, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
-| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, OVERVIEW, ARCHITECTURE, CONFIGURATION | CONTRIBUTING, RELEASING, PUBLIC_API, CHANGELOG, decisions/ | PRODUCT, DEPLOYMENT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
+| application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT, PRODUCT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS | OPERATIONS, CONTRIBUTING, DATA_MODEL, API, SECURITY, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
+| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT (one line: published, not deployed), OVERVIEW, ARCHITECTURE, CONFIGURATION, INTEGRATIONS | CONTRIBUTING, RELEASING, PUBLIC_API, CHANGELOG, decisions/ | PRODUCT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
 | cli | as library, with CLI instead of PUBLIC_API; both when both entries exist | | |
 | monorepo | the application set at the root as the map; per unit: README.md and AGENTS.md | per unit with a Dockerfile or deploy config: `<unit>/docs/DEPLOYMENT.md`; per unit with health or cron: `<unit>/docs/OPERATIONS.md`; the root DEPLOYMENT and OPERATIONS become the map variant (a table of units and links) | a unit never owns architecture, product, security or data; those stay at the root |
-| infrastructure | README, AGENTS.md, SETUP, ONBOARDING, TESTING, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONFIGURATION | SECURITY, decisions/, CHANGELOG | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
+| infrastructure | README, AGENTS.md, SETUP, ONBOARDING, TESTING, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONFIGURATION, INTEGRATIONS | SECURITY, decisions/, CHANGELOG | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
 | docs-only | nothing | only what the manifest pins | everything else |
 
 Worked examples from real runs, so the numbers mean something:
@@ -180,11 +180,11 @@ Worked examples from real runs, so the numbers mean something:
   cron job and OpenAI, Railway and Zep SDKs: sixteen docs plus the index, AGENTS.md and two unit
   deployment guides. Every bucket folder exists.
 - A two-route Python service with alembic and a CLI entry: PRODUCT, SETUP, ONBOARDING, DEVELOPMENT,
-  TESTING, ARCHITECTURE, CONFIGURATION, DATA_MODEL, API, CLI. Ten docs, so buckets exist; `guides/` holds only DEVELOPMENT and
+  TESTING, DEPLOYMENT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, DATA_MODEL, API, CLI. Twelve docs, so buckets exist; `guides/` holds only DEVELOPMENT and
   `explanation/` only PRODUCT, so those two stay flat: `docs/DEVELOPMENT.md`, `docs/PRODUCT.md`,
   `docs/getting-started/{SETUP,ONBOARDING}.md`, `docs/reference/{ARCHITECTURE,DATA_MODEL,API,CLI}.md`.
 - A single-package library with tests and a publish script: OVERVIEW, SETUP, ONBOARDING, DEVELOPMENT,
-  TESTING, ARCHITECTURE, CONFIGURATION, RELEASING, PUBLIC_API. Nine docs, so buckets exist; `explanation/` holds only
+  TESTING, DEPLOYMENT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, RELEASING, PUBLIC_API. Eleven docs, so buckets exist; `explanation/` holds only
   OVERVIEW and stays flat.
 
 ## The index grammar

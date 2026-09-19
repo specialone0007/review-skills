@@ -96,7 +96,7 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "registries": [{ "folder": "docs/experiments", "table": "docs/REGISTRY.md", "except": ["LOG.md"] }],
   "requiredDocs": { "deploy": "docs/ops/shipping.md", "research": true, "operate": false },
   "requireConcerns": false,
-  "heavyEvidence": { "http": 20, "data": 10, "deploy": 3, "architecture": 3, "integrations": 3 },
+  "heavyEvidence": { "http": 20, "data": 10, "deploy": 3, "architecture": 3 },
   "templatesDir": null,
   "agentFile": "AGENTS.md",
   "agentFileMaxLines": 40,

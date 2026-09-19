@@ -201,7 +201,7 @@ DEFAULT_MANIFEST = {
     "requiredDocs": None,
     # A README section stops counting as coverage once the evidence behind a concern is this large:
     # routes for http, tables for data, deployable units for deploy and architecture. 0 turns it off.
-    "heavyEvidence": {"http": 20, "data": 10, "deploy": 3, "architecture": 3, "integrations": 3},
+    "heavyEvidence": {"http": 20, "data": 10, "deploy": 3, "architecture": 3},
     "templatesDir": None,
     # Accepted so an older manifest still loads; the index is grouped by bucket now and this is ignored.
     "indexGroups": None,
@@ -302,14 +302,15 @@ def _n(inv, *path, default=0):
 
 
 def _integrations(inv):
+    # Always: a repo that talks to nothing says so; one that does lists them. The count is the reason shown.
     it = inv.get("integrations") or {}
     n = int(it.get("count") or 0)
     outward = it.get("outward_env_names") or []
-    if n >= 3:
+    if n:
         return f"{n} third-party SDKs: " + ", ".join(x["service"] for x in (it.get("sdks") or [])[:4])
-    if len(outward) >= 3:
+    if outward:
         return f"{len(outward)} outward env names: " + ", ".join(outward[:3])
-    return None
+    return "always"
 
 
 def _security(inv):
@@ -388,7 +389,8 @@ CONCERNS = [
      {"onboarding", "glossary", "reading order", "new here", "start here"}, []),
     ("develop", "guides", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
      {"development", "developing", "local", "locally", "run locally", "daily commands", "hacking", "contributing code", "workflow"}, []),
-    ("deploy", "guides", _svc, lambda inv: "DEPLOYMENT.md",
+    # Always: code runs somewhere; a repo with no deploy config in it says where the config lives instead.
+    ("deploy", "guides", lambda inv: _svc(inv) or "always", lambda inv: "DEPLOYMENT.md",
      {"deploy", "deployment", "deploying", "production", "hosting", "railway", "kubernetes", "helm", "docker", "release to"}, []),
     ("operate", "guides", _operate, lambda inv: "OPERATIONS.md",
      {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, []),
@@ -435,7 +437,7 @@ CONCERNS = [
     ("plan", "history", lambda inv: _plan_evidence(inv), lambda inv: "plans/TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
 ]
-UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration", "deploy", "integrations"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",
@@ -1458,8 +1460,6 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             reason = "manifest"
         elif docs_only:
             continue  # a repo of notes is asked for nothing it did not ask for
-        elif cid == "integrations" and int(heavy_cfg.get("integrations") or 0) and int((inv.get("integrations") or {}).get("count") or 0) < int(heavy_cfg["integrations"]) and len((inv.get("integrations") or {}).get("outward_env_names") or []) < 3:
-            continue
         else:
             reason = applies(inv)
             if reason is None:
