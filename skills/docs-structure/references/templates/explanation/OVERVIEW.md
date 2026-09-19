@@ -20,7 +20,7 @@
 
 ## Non-goals
 
-*What it deliberately does not do, and where a user goes instead. Dated bullets from decision-like commits until a human writes them.*
+*What it deliberately does not do, and where a user goes instead. Dated bullets; when a decision record exists it owns the why - one line and a link per bullet.*
 
 ## Principles
 

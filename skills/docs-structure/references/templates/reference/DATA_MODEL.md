@@ -2,7 +2,7 @@
 
 > **This document owns:** where data lives and what it means - the stores, the entities and their relationships, the conventions, and the migrations. *(skeleton, write me)*
 
-*Read this if you touch the database.*
+*Read this if you touch where data lives - the database, the cache, the object store.*
 
 <!-- concern: data; fill: schema, decisions -->
 

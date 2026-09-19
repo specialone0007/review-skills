@@ -19,7 +19,7 @@ The checker reports every step; apply performs all of them in one run and the us
    evidence brackets survive untouched.
 2. **The index** is rewritten in the list grammar. Every row the table index had is kept under its
    old heading, converted to a line with its state; a hand-grouped topic section (43's "Forecast
-   quality and settlement") sits after the six buckets and before Packages. A person then
+   quality and settlement") sits after the six buckets and before Units. A person then
    reclassifies those topic docs into buckets over time, or leaves them: R15 fires only on docs that
    cover a concern.
 3. **Skeletons** for the concerns the repo never had. Sixteen are always on (README, AGENTS.md,
@@ -113,7 +113,7 @@ theirs); `AGENTS.md` under `apps/web`, `services/ingest-bot`, `services/notifier
 `CHANGELOG.md` pointers. The root `DEPLOYMENT.md` becomes the map variant once the unit guides exist; its eleven
 parts are the merge candidate R3 already names. The index is rewritten (102 lines): the
 buckets, then the hand groups "Product and plan", "Build and run", "Notifications and podcasts",
-"Forecast quality and settlement" and "Research" with every row they had, then Packages with the
+"Forecast quality and settlement" and "Research" with every row they had, then Units with the
 seven unit READMEs. The twelve R14 warnings on `current` rows stay until a person dates them; the
 README is fitted into the template, its env table pasted into `CONFIGURATION.md`.
 

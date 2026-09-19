@@ -222,11 +222,13 @@ def strip_owner(lines: list[str]) -> tuple[list[str], str | None]:
 
 
 def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in: dict[str, list[list[str]]] | None = None,
-                    give_away: dict[str, tuple[str, str]] | None = None) -> dict:
+                    give_away: dict[str, tuple[str, str]] | None = None, defer_empty: bool = False) -> dict:
     """One doc into the template's order.
 
     extra_in: {template section: [lines, ...]} bodies pasted here from other docs (a README's env table).
     give_away: {existing heading: (target doc rel, pointer line)} sections cut out of this doc.
+    defer_empty: template sections nothing filled go after the existing sections (the README: a
+    front door that opens with six guidance lines is a worse front door than the one that was there).
     """
     tsecs = ds.template_sections(template)
     tlines = ds.read(template).splitlines()
@@ -291,14 +293,22 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
         out.extend(body_lead)
         out.append("")
     added_lines = [out[2]] + ([t_comment] if t_comment else [])
-    if block and slot_after == "":
+    deferred: list[tuple[str, str]] = []
+    filled = {h for h, _ in tsecs if placed.get(h) or (extra_in or {}).get(h)}
+    # the block goes after the section the template names; when that section is deferred, the
+    # block goes first, right under the lead, so the hand-off is never below a wall of guidance
+    if block and (slot_after == "" or (defer_empty and slot_after is not None and slot_after not in filled)):
         out.extend(block)
         out.append("")
+        block = []
     for h, guide in tsecs:
-        out.append(f"## {h}")
-        out.append("")
         got = placed.get(h, [])
         extra = (extra_in or {}).get(h, [])
+        if not got and not extra and defer_empty:
+            deferred.append((h, guide))
+            continue
+        out.append(f"## {h}")
+        out.append("")
         if not got and not extra:
             out.append(guide)
             out.append("")
@@ -313,7 +323,9 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
             body = []
             for s_ in got:
                 body.append(f"### {s_['heading']}")
-                body.extend(s_["body"])
+                m_ = fence_mask(s_["body"])
+                body.extend(("#" + l if (not m_[i] and ds.HEADING_RE.match(l) and len(ds.HEADING_RE.match(l).group(1)) < 6) else l)
+                            for i, l in enumerate(s_["body"]))
                 if body and body[-1].strip():
                     body.append("")
             for lines_ in extra:
@@ -344,10 +356,19 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
         out.append("")
         if s_.get("pointer"):
             added_lines.append(s_["body"][1])
+    for h, guide in deferred:
+        out.append(f"## {h}")
+        out.append("")
+        out.append(guide)
+        out.append("")
+        added_lines.append(guide)
     while out and not out[-1].strip():
         out.pop()
     return {"lines": out, "mapping": mapping, "kept": [s_["heading"] for s_ in kept if not s_.get("pointer")],
             "given": given, "added": added_lines, "concern": concern, "template": ds.posix(template, ds.TEMPLATES) if template.is_relative_to(ds.TEMPLATES) else template.name}
+
+
+CITE_REHOME = re.compile(r"\[[^\]\n]+ § ([^\]\n]+?) \(from [^)\]]+\)\]")
 
 
 def content_lines(lines: list[str]) -> Counter:
@@ -364,6 +385,18 @@ def content_lines(lines: list[str]) -> Counter:
             continue
         c[re.sub(r"\]\([^)]*\)", "](#)", l.rstrip())] += 1
     return c
+
+
+def normalise_cites(c: Counter, front_rel: str, give_away: dict) -> Counter:
+    """A bracket that cited a README section now cites the section's new home: the same line."""
+    if not give_away:
+        return c
+    out: Counter = Counter()
+    for l, n in c.items():
+        for s_h, (home_, _) in give_away.items():
+            l = l.replace(f"[{home_} § {s_h} (from {front_rel})]", f"[{front_rel} § {s_h}]")
+        out[l] += n
+    return out
 
 
 def headings_in(lines: list[str]) -> Counter:
@@ -440,12 +473,19 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
             if len([l for l in s_["body"] if l.strip()]) <= 1:
                 continue  # a line and a link is already the shape asked for
             best, best_score = None, 0
+            bmask0 = fence_mask(s_["body"])
+            prose = "\n".join(l for i, l in enumerate(s_["body"]) if not bmask0[i])
+            env_names = len(set(re.findall(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b", prose)))
             for cid, bucket, applies, default_file, keywords, companions in ds.CONCERNS:
                 if cid not in home_of or not keywords:
                     continue
                 kw = {ds.tokens(k).strip() for k in keywords}
                 ht = ds.tokens(s_["heading"])
                 sc = sum(3 for k in kw if f" {k} " in ht)
+                # what the body is about outweighs one word in the heading: a section that sets
+                # three environment names is configuration whatever it is called
+                if cid == "configuration" and env_names >= 3:
+                    sc += min(8, 2 * env_names)
                 if sc > best_score:
                     best, best_score = cid, sc
             if not best:
@@ -458,7 +498,7 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
             if tsec is None:
                 continue
             rel_link = os.path.relpath(repo / home, (repo / front_rel).parent).replace("\\", "/")
-            pointer = f"See [{Path(home).stem.replace('_', ' ')}]({rel_link}#{ds.slug(tsec)})."
+            pointer = f"See [{Path(home).stem.replace('_', ' ')}]({rel_link}#{ds.slug(s_['heading'] + ' (from ' + front_rel + ')')})."
             give_away[s_["heading"]] = (home, pointer)
             # a bare #anchor in the section pointed at a heading of the README; unless that heading
             # travels with the section it now points back at the README from the doc's folder
@@ -476,6 +516,7 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                        for i, l in enumerate(body_rebased)]
             extra_for.setdefault(home, {}).setdefault(tsec, []).append([f"### {s_['heading']} (from {front_rel})"] + shifted)
             out["docs"].setdefault(front_rel, {}).setdefault("rehomed", []).append({"section": s_["heading"], "to": home, "to_section": tsec})
+    rehomed_cites = {f"[{front_rel} § {s_h}]": f"[{home_} § {s_h} (from {front_rel})]" for s_h, (home_, _) in give_away.items()}
     inputs: Counter = Counter()
     outputs: Counter = Counter()
     in_heads: Counter = Counter()
@@ -491,7 +532,16 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
         lines = raw.splitlines()
         if PART_OF.search(raw[:800]):
             continue  # a part of a split: its index is the doc
-        res = restructure_doc(lines, t, c["concern"], extra_for.get(dst) or extra_for.get(src), give_away if src == front_rel else None)
+        res = restructure_doc(lines, t, c["concern"], extra_for.get(dst) or extra_for.get(src), give_away if src == front_rel else None,
+                              defer_empty=(c["concern"] == "readme"))
+        if rehomed_cites:
+            fixed = []
+            for l in res["lines"]:
+                for old, new in rehomed_cites.items():
+                    if old in l:
+                        l = l.replace(old, new)
+                fixed.append(l)
+            res["lines"] = fixed
         out["files"][dst] = res["lines"]
         out["newline"][dst] = "crlf" if nl == "\r\n" else "lf"
         if dst != src:
@@ -499,7 +549,7 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
         d = out["docs"].setdefault(src, {})
         d.update({"to": dst, "concern": c["concern"], "template": res["template"], "mapping": res["mapping"], "kept": res["kept"], "given": res["given"]})
         inputs.update(content_lines(lines))
-        outputs.update(content_lines(res["lines"]))
+        outputs.update(normalise_cites(content_lines(res["lines"]), front_rel, give_away))
         in_heads.update(headings_in(lines))
         out_heads.update(headings_in(res["lines"]))
         for m in res["mapping"]:

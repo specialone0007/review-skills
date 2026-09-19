@@ -12,7 +12,7 @@
 
 ## Running tests
 
-*The exact commands for all tests, one file, and watch mode. Copy script or target names.*
+*The test command is AGENTS.md § Commands'; one line and a link. Here only what AGENTS does not hold: one file, one folder, watch mode, the flags - copied from the runner's own options.*
 
 ## What CI runs
 

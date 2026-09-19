@@ -10,11 +10,11 @@
 
 ## Conventions
 
-*Branch, commit and PR rules; where a change gets written down (the docs index says which doc owns what). Only what an agent would get wrong without being told.*
+*Only what an agent gets wrong without being told: where a change gets written down (the docs index says which doc owns what), a file that is generated, an order things must happen in. The branch, commit and PR rules are CONTRIBUTING's; link them.*
 
 ## Gotchas
 
-*The thing that costs an afternoon: a service that must be up first, a generated file never edited by hand, a test that needs a variable. Dated bullets.*
+*Preconditions an agent trips on: a service that must be up first, a generated file never edited by hand, a test that needs a variable. One dated line each. The symptom-and-fix belongs to the guide of the task (SETUP § If it fails, DEVELOPMENT § Common problems, DEPLOYMENT § Known traps); link it.*
 
 ## Docs
 

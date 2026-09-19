@@ -243,13 +243,25 @@ def _plan_evidence(inv: dict) -> str | None:
     for. A repository that plans in files says so by having one.
     """
     tree = inv.get("tree") or {}
-    planish = list(tree.get("plan_like_docs") or [])
+    planish = [p for p in (tree.get("plan_like_docs") or []) if re.search(r"\b(plan|plans|roadmap|milestones?)\b", Path(str(p)).name, re.I)]
     # adr, rfcs and decisions are dated records, which the record-folder rules already handle;
     # a phase checklist is the wrong apparatus for them.
-    folders = [f for f in (tree.get("top_level_dirs") or [])
-               if str(f).lower() in ("plans", "roadmap", "tasklist", "tasks")]
+    folders = [f for f in (tree.get("top_level_dirs") or []) if str(f).lower() in ("plans", "roadmap")]
     if planish:
         return "plan-like docs: " + ", ".join(str(p) for p in planish[:3])
+    if folders:
+        return "folder: " + ", ".join(folders[:3])
+    return None
+
+
+def _tasks_evidence(inv: dict) -> str | None:
+    """The living checklist: a todo, backlog or tasklist file, or a tasklist/tasks folder. Split
+    from the roadmap so one concern has one canonical doc."""
+    tree = inv.get("tree") or {}
+    taskish = [p for p in (tree.get("plan_like_docs") or []) if re.search(r"\b(todo|backlog|tasklist|tasks)\b", Path(str(p)).name, re.I)]
+    folders = [f for f in (tree.get("top_level_dirs") or []) if str(f).lower() in ("tasklist", "tasks")]
+    if taskish:
+        return "task-like docs: " + ", ".join(str(p) for p in taskish[:3])
     if folders:
         return "folder: " + ", ".join(folders[:3])
     return None
@@ -344,8 +356,7 @@ def _pipelines(inv):
         return "job library: " + ", ".join(x["name"] for x in j["libraries"][:3])
     if j.get("cron"):
         return f"cron: {j['cron'][0]}"
-    if j.get("scheduled_workflows"):
-        return f"scheduled workflow: {j['scheduled_workflows'][0]}"
+    # a scheduled CI workflow is TESTING's (What CI runs), not a pipeline
     return None
 
 
@@ -418,7 +429,10 @@ CONCERNS = [
      {"testing", "tests", "test", "qa", "coverage", "e2e"}, []),
     ("contribute", "guides", _contribute, lambda inv: "CONTRIBUTING.md",
      {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, []),
-    ("release", "guides", lambda inv: (_first(inv.get("release") or [], "release") if _lib_or_cli(inv) else None), lambda inv: "RELEASING.md",
+    # Any kind: an application with release-please or a publish workflow cuts versions too, and
+    # the changelog says what shipped, not how a version is cut.
+    ("release", "guides", lambda inv: (_first(inv.get("release") or [], "release")
+                                        or (f"release tool: {(inv.get('changelog') or {}).get('release_tool')}" if isinstance(inv.get("changelog"), dict) and (inv.get("changelog") or {}).get("release_tool") else None)), lambda inv: "RELEASING.md",
      {"releasing", "release", "releases", "publish", "publishing", "versioning"}, []),
     ("architecture", "reference", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
      {"architecture", "components", "services", "system", "data flow", "how it works", "modules", "structure", "containers"}, []),
@@ -455,14 +469,16 @@ CONCERNS = [
     ("research", "history", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, ["log/YYYY-MM.md"]),
     # Evidence, not habit: a repo that plans in files says so by having one.
-    ("plan", "plans", lambda inv: _plan_evidence(inv), lambda inv: "TASKLIST.md",
-     {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
+    ("plan", "plans", lambda inv: _plan_evidence(inv), lambda inv: "ROADMAP.md",
+     {"roadmap", "plan", "plans", "milestones", "phases", "now", "next", "later"}, []),
+    ("tasks", "plans", lambda inv: _tasks_evidence(inv), lambda inv: "TASKLIST.md",
+     {"tasklist", "task list", "tasks", "todo", "backlog", "checklist"}, ["tasklist/phase-00-foundations.md"]),
 ]
 UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration", "deploy", "integrations", "security", "operate", "contribute"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",
-             "DESIGN_GUIDELINES.md": "design", "TASKLIST.md": "plan", "AUTH.md": "security"}
+             "DESIGN_GUIDELINES.md": "design", "TASKLIST.md": "tasks", "AUTH.md": "security"}
 
 
 def concern_template(cid: str, bucket: str | None, fname: str, variant: str | None = None) -> str:
@@ -1206,7 +1222,7 @@ INDEX_INTRO = """Pick the one file you need here; do not read the folder. Every 
 
 # The index is grouped by the bucket a doc lives in - what a reader came to do - then the
 # per-package docs and the stray root files. A group with no lines is left out.
-INDEX_ORDER = [title for _, title in BUCKETS] + ["Packages", "Root files"]
+INDEX_ORDER = [title for _, title in BUCKETS] + ["Units", "Root files"]
 # One line per doc, llms.txt-shaped: a link, a colon, the owner text, a dash, the state.
 # The state sits after the LAST " - ": owner texts carry dashes of their own. Greedy `.*` before the
 # separator finds the last one; a line with no separator at all has no state.
@@ -1216,12 +1232,12 @@ INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.
 def index_content(groups: dict[str, list[str]], name: str, summary: str = "", extra_order: list[str] | None = None) -> str:
     """The central index from its lines: an H1, one sentence on the project, the intro, then one
     H2 per group that has lines. Groups a hand-made index had that are not buckets come after the
-    buckets, before Packages, so a rewrite keeps every row a team grouped by hand."""
+    buckets, before Units, so a rewrite keeps every row a team grouped by hand."""
     out = f"# {name} docs\n\n"
     out += f"> {summary.strip()}\n\n" if summary.strip() else "> *One sentence on what this project is; the README's first paragraph says it.*\n\n"
     out += INDEX_INTRO + "\n"
     buckets = [t for _, t in BUCKETS]
-    order = buckets + [g for g in (extra_order or []) if g not in INDEX_ORDER] + ["Packages", "Root files"]
+    order = buckets + [g for g in (extra_order or []) if g not in INDEX_ORDER] + ["Units", "Root files"]
     for title in order:
         lines = groups.get(title) or []
         if lines:
@@ -1495,14 +1511,14 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
         if ops:
             unit_rows.append({"concern": "operate", "bucket": "guides", "applies": f"unit {ops}", "file": "OPERATIONS.md",
                               "keywords": next(k for c, b, a, f, k, cs in CONCERNS if c == "operate"), "companions": [], "pin": None, "unit": u})
-    # a unit with scripts of its own gets its own agent file: the nearest one wins, and an agent
-    # working inside the unit needs that unit's commands, not the root's
+    # every unit that deploys on its own gets its own agent file: the nearest one wins, and an
+    # agent working inside the unit needs that unit's commands, not the root's
     if monorepo and pin_map.get("agent") is not False:
         for p in inv.get("packages") or []:
             pp = str(Path(p.get("path", ".")).as_posix())
-            if pp not in units or not p.get("scripts"):
+            if pp not in units:
                 continue  # a unit is a package that deploys on its own; a nested demo package is not one
-            unit_rows.append({"concern": "agent", "bucket": None, "applies": f"unit with its own scripts: {p.get('evidence') or pp}", "file": AGENT_FILE,
+            unit_rows.append({"concern": "agent", "bucket": None, "applies": f"unit that deploys on its own: {p.get('evidence') or pp}", "file": AGENT_FILE,
                               "keywords": set(), "companions": [], "pin": None, "unit": pp})
     # 2. canonical paths
     release_tool = str((inv.get("changelog") or {}).get("release_tool") or "") if isinstance(inv.get("changelog"), dict) else ""
@@ -1534,7 +1550,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             for d in candidates:
                 if not scope(d):
                     continue
-                if matches_any(d.rel, records) and cid not in ("changelog", "research", "plan"):
+                if matches_any(d.rel, records) and cid not in ("changelog", "research", "plan", "tasks"):
                     continue  # a record never covers a living concern
                 if is_community_file(d.rel) and not (cid == "contribute" and d.path.name.upper().startswith(("CONTRIBUTING", "CODE_OF_CONDUCT"))
                                                      or cid == "changelog" and d.path.name.upper().startswith("CHANGELOG")
@@ -1629,6 +1645,43 @@ def in_git_repo(repo: Path) -> bool:
     except (OSError, subprocess.SubprocessError):
         return False
     return p.returncode == 0
+
+
+def all_markdown(repo: Path) -> list[str]:
+    """Every Markdown file the repository tracks (git first, a walk when there is no git), outside
+    the folders the checker never reads: dependencies, virtualenvs, dot-folders, build output,
+    skill trees, fixtures."""
+    rels: list[str] = []
+    git = shutil.which("git")
+    if git is not None and in_git_repo(repo):
+        try:
+            r = subprocess.run([git, "ls-files", "-z", "--", "*.md", "*.mdx", "*.MD"], cwd=str(repo), timeout=GIT_TIMEOUT,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if r.returncode == 0:
+                rels = [x.decode("utf-8", "replace") for x in r.stdout.split(b"\0") if x]
+        except (OSError, subprocess.SubprocessError):
+            rels = []
+    if not rels:
+        for root, dirs, fs in os.walk(repo):
+            dirs[:] = [d for d in dirs if d not in ALWAYS_SKIP and not d.startswith(".")]
+            for f in fs:
+                if f.lower().endswith((".md", ".mdx")):
+                    rels.append(posix(Path(root) / f, repo))
+    skills = skill_dirs(repo)
+    out = []
+    for rel in sorted(set(rels)):
+        p = repo / rel
+        if not p.is_file():
+            continue
+        parts = Path(rel).parts
+        if any(part in ALWAYS_SKIP or part in FIXTURE_DIRS or part.startswith(".") for part in parts[:-1]):
+            continue
+        if parts and parts[0] in TOP_LEVEL_SKIP:
+            continue
+        if any(s == p.parent or s in p.parents for s in skills):
+            continue
+        out.append(rel)
+    return out
 
 
 def tracked_file(repo: Path, name: str) -> bool:
@@ -1806,7 +1859,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     seen: set[str] = set()
 
     def add(label: str, cmd: str, src: str) -> None:
-        if label in seen or len(cmds) >= 8:
+        if label in seen or len(cmds) >= 10:
             return
         seen.add(label)
         cmds.append(f"- {label}: `{cmd}` [{src}]")
@@ -1815,19 +1868,28 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
         path = p.get("path") or "."
         if unit and str(Path(path).as_posix()) != unit:
             continue
+        if not unit and path not in (".", "") and str(Path(path).as_posix()) in unit_dirs(inv, repo):
+            continue  # a unit with its own agent file holds its own commands
         pre = "" if path in (".", "") or unit else f"cd {path} && "
         man = p.get("manifest") or ""
         scripts = p.get("scripts") or []
+        pm = p.get("package_manager") or ("npm" if man == "package.json" else "pip")
         if man == "package.json":
-            add("install", f"{pre}npm ci", f"{p['evidence']}")
-            for label, names in (("run", ("dev", "start", "dev:start", "serve")), ("build", ("build",)), ("test", ("test",)), ("lint", ("lint", "check"))):
+            install = {"pnpm": "pnpm install", "yarn": "yarn install", "bun": "bun install"}.get(pm, "npm ci")
+            runner = {"pnpm": "pnpm run", "yarn": "yarn", "bun": "bun run"}.get(pm, "npm run")
+            add("install", f"{pre}{install}", f"{p['evidence']}")
+            for label, names in (("run", ("dev", "start", "dev:start", "serve")), ("build", ("build",)), ("test", ("test",)),
+                                 ("lint", ("lint",)), ("typecheck", ("typecheck", "type-check", "tsc")), ("check", ("check",)),
+                                 ("migrate", ("db:migrate", "migrate", "prisma:migrate", "migration:run"))):
                 hit = next((n for n in names if n in scripts), None)
                 if hit:
-                    add(label, f"{pre}npm run {hit}", f"{p['evidence']}: scripts.{hit}")
+                    add(label, f"{pre}{runner} {hit}", f"{p['evidence']}: scripts.{hit}")
         elif man == "pyproject.toml":
-            add("install", f"{pre}pip install -e .", p["evidence"])
+            install = {"uv": "uv sync", "poetry": "poetry install"}.get(pm, "pip install -e .")
+            runner = {"uv": "uv run ", "poetry": "poetry run "}.get(pm, "")
+            add("install", f"{pre}{install}", p["evidence"])
             if any(t.get("runners") and "pytest" in t["runners"] for t in inv.get("tests") or [] if t.get("package") == path):
-                add("test", f"{pre}pytest", p["evidence"])
+                add("test", f"{pre}{runner}pytest", p["evidence"])
         elif man in ("requirements.txt",):
             add("install", f"{pre}pip install -r requirements.txt", p["evidence"])
         elif man == "go.mod":
@@ -1845,6 +1907,9 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
              f"> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of {name}, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*",
              "", "## Commands", ""]
     lines += cmds or ["- open question: no install, run, test or lint script found in a manifest or task runner - write the commands as they are typed, each with its source in brackets"]
+    seed = (repo / (unit or ".") / "CLAUDE.md")
+    if seed.is_file() and "```" in read(seed):
+        lines += [f"- [{seed.name}]({seed.name}) holds commands a person wrote in a code block; move the ones an agent runs here, with their source, then make it the one line `@AGENTS.md`"]
     lines += ["", "## Conventions", "", "- open question: branch, commit and PR rules an agent would get wrong without being told",
               "", "## Gotchas", "", "- open question: the thing that costs an afternoon here",
               "", "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
@@ -1860,9 +1925,11 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
     files: dict[str, dict] = {}
     uncovered = [c for c in coverage if not c["covered_by"] and not c.get("misplaced")]
     moves = [{"from": c["misplaced"], "to": c["default_path"], "concern": c["concern"]} for c in coverage if c.get("misplaced")]
-    plan_rows = [c for c in coverage if c["concern"] == "plan"]
+    plan_rows = [c for c in coverage if c["concern"] == "tasks"]
+    unit_docs_dirs = sorted({f"{str(Path(p.get('path', '.')).as_posix())}/{d}" for p in (inv.get("packages") or []) if p.get("path") not in (None, ".", "")
+                             for d in DOCS_FOLDER_NAMES if (repo / p["path"] / d).is_dir()}) if "monorepo" in (inv.get("kinds") or []) else []
     manifest = {
-        "roots": ([docs_root] + [f for f in ROOT_FILES if tracked_file(repo, f)] + list(package_docs or [])) if not root_docs
+        "roots": ([docs_root] + [f for f in ROOT_FILES if tracked_file(repo, f)] + list(package_docs or []) + unit_docs_dirs) if not root_docs
                  else ["*.md"] + [p for p in (package_docs or []) if "/" in p],
         "centralIndex": (central_rel if have_index and central_rel
                          else "README.md" if root_docs else f"{docs_root}/INDEX.md"),
@@ -1895,7 +1962,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
 
     def group_for(c: dict) -> str:
         if c.get("unit"):
-            return "Packages"
+            return "Units"
         return BUCKET_TITLE.get(c.get("bucket") or "", "Root files")
 
     for c in uncovered:
@@ -1969,20 +2036,37 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                             "why": f"GitHub surfaces a root {root_name}; one line pointing at {row['default_path']}",
                             "content": f"See [{label}]({row['default_path']}).\n"}
     agent = agent_file(repo)
-    for p in (package_docs or []):
-        if not (repo / p).is_file() or p in (front_rel, agent, central_rel, AGENT_FILE, "CLAUDE.md") or is_community_file(p):
+    # every Markdown file the repository tracks, not only the linked ones: a unit's own docs folder, a
+    # README beside a service, a doc under ops/ - "one hop from the index" has to hold for all of them
+    placed_paths = {m.group(1) for l in lines_out for m in [re.search(r"\]\(([^)]+)\)", l)] if m}
+    placed_abs = set()
+    for lp in placed_paths:
+        try:
+            placed_abs.add(posix((repo / (central_out.rsplit("/", 1)[0] if "/" in central_out else ".") / lp).resolve(), repo))
+        except ValueError:
+            pass
+    # docs under the checked roots are the checker's business (R1 names each unlisted one); the
+    # extras are the files outside them, which no rule reads and no index used to list
+    extra_md = [rel for rel in all_markdown(repo) if rel not in placed_abs and rel not in files
+                and rel not in (package_docs or []) and not (rel.startswith(docs_root + "/") and not root_docs)]
+    for p in list(package_docs or []) + extra_md:
+        if not (repo / p).is_file() or p in (front_rel, agent, central_rel, AGENT_FILE, "CLAUDE.md") or is_community_file(p) or p in placed_abs:
             continue
+        if Path(p).name in ("CLAUDE.md", "AGENTS.md") and "/" in p:
+            continue  # a unit agent file is listed by its row, or is a person's file
+        placed_abs.add(p)
         pd = Doc(repo / p, repo)
         h1 = next((t for _, lvl, t in pd.headings if lvl == 1), Path(p).stem)
         first = next((l.strip() for l in pd.clean[1:60] if l.strip() and not l.startswith(("#", "!", "<", ">", "|", "-", "*", "`", "["))), "")
         first = first.split(". ")[0].rstrip(".") if first else ""
-        owns = (package_description(repo, (repo / p).parent) if "/" in p else "") or first or h1
+        # a package's description describes its README; any other file says what it is itself
+        owns = (package_description(repo, (repo / p).parent) if "/" in p and Path(p).name.upper().startswith("README") else "") or first or h1
         owns = re.sub(r"[*_`]+", "", owns)
         owns = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", owns).replace("|", "/")
         owns = (owns[:77].rsplit(" ", 1)[0] + "...") if len(owns) > 80 else owns
         line = index_line(p, link_to(p), owns, "unreviewed")
         lines_out.append(line)
-        groups.setdefault("Packages" if "/" in p else "Root files", []).append(line)
+        groups.setdefault("Units" if "/" in p else "Root files", []).append(line)
     extra_order: list[str] = []
     if index_is_table and central_rel and (repo / central_rel).is_file():
         # every row the table index had, under its old heading, in the list grammar; a row whose

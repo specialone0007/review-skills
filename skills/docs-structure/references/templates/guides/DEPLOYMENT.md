@@ -8,11 +8,11 @@
 
 ## Units
 
-*A table: unit, root directory, build and start command, public or private, health check. One row per deployable unit, including data stores. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured.*
+*A table: unit, root directory, platform, public or private, health check. One row per deployable unit, including data stores; the build and start commands are AGENTS.md's, link them. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured.*
 
 ## Environment per unit
 
-*Which variables each unit reads and where its example file lives. Names only, never values; the full reference is CONFIGURATION's.*
+*Where each unit's example file lives and how values reach the unit in each environment - the platform's settings, a vault, a mounted file. The names are CONFIGURATION's: link its section for the unit, never a table here.*
 
 ## Deploy steps
 

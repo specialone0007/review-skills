@@ -122,6 +122,7 @@
       "language": "javascript",
       "manifest": "package.json",
       "name": "@mini/exporter",
+      "package_manager": "npm",
       "path": ".",
       "private": true,
       "scripts": [

@@ -12,4 +12,4 @@
 
 ## Not integrated
 
-*What the repository deliberately does not talk to, dated, when a decision says so.*
+*What the repository deliberately does not talk to, dated; the decision record owns the why - one line and a link.*

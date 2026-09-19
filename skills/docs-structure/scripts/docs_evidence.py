@@ -74,6 +74,8 @@ ALWAYS_SKIP = {"node_modules", ".venv", "venv", "__pycache__", ".git", "dist", "
 # config as frontend turned a Go command-line tool into an application needing a design doc.
 # Skip-list names that can still hold the application itself.
 RESCUABLE = {"www", "site", "public", "app"}
+NODE_LOCKFILES = (("pnpm-lock.yaml", "pnpm"), ("yarn.lock", "yarn"), ("bun.lockb", "bun"), ("bun.lock", "bun"),
+                  ("package-lock.json", "npm"), ("npm-shrinkwrap.json", "npm"))
 MANIFEST_NAMES = ("package.json", "pyproject.toml", "setup.py", "go.mod", "Cargo.toml", "pom.xml",
                   "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs",
                   "Move.toml", "Dockerfile", "requirements.txt")
@@ -475,8 +477,12 @@ def det_node(ctx: Ctx, inv: dict) -> None:
         deps = {**as_dict(data.get("dependencies")), **as_dict(data.get("devDependencies"))}
         scripts = as_dict(data.get("scripts"))
         lang = "typescript" if (p.parent / "tsconfig.json").exists() or "typescript" in deps else "javascript"
+        # the lockfile names the package manager; a nested package inherits the root's. npm is the
+        # answer only when no lockfile says otherwise - `npm ci` without package-lock.json fails.
+        pm = next((m for f, m in NODE_LOCKFILES if (p.parent / f).exists()), None) \
+            or next((m for f, m in NODE_LOCKFILES if (ctx.repo / f).exists()), None) or "npm"
         inv["packages"].append(item(ctx, "node", p, name=str(data.get("name") or p.parent.name), path=ctx.rel(p.parent),
-                                    language=lang, manifest="package.json", scripts=sorted(scripts.keys())[:60],
+                                    language=lang, manifest="package.json", package_manager=pm, scripts=sorted(scripts.keys())[:60],
                                     dependencies=sorted(deps.keys())[:80], private=bool(data.get("private")),
                                     version=str(data.get("version") or ""), workspaces=bool(data.get("workspaces"))))
         inv["_eco"].add("node")
@@ -524,7 +530,8 @@ def det_python(ctx: Ctx, inv: dict) -> None:
         elif isinstance(poetry.get("dependencies"), dict):
             deps = list(poetry["dependencies"].keys())
         scripts = as_dict(proj.get("scripts")) or as_dict(poetry.get("scripts"))
-        inv["packages"].append(item(ctx, "python", p, name=name, path=ctx.rel(p.parent), language="python", manifest="pyproject.toml",
+        pm = "uv" if (p.parent / "uv.lock").exists() else "poetry" if (p.parent / "poetry.lock").exists() else "pip"
+        inv["packages"].append(item(ctx, "python", p, name=name, path=ctx.rel(p.parent), language="python", manifest="pyproject.toml", package_manager=pm,
                                     scripts=sorted(scripts.keys())[:40], dependencies=sorted(set(d for d in deps if d))[:80], version=str(proj.get("version") or poetry.get("version") or "")))
         inv["_eco"].add("python")
         seen.add(ctx.rel(p.parent))

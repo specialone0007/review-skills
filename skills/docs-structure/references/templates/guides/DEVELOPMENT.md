@@ -8,7 +8,7 @@
 
 ## Daily loop
 
-*The handful of commands people actually type, in the order of a working day: run, test, lint, build. Copy the script or target names from the manifest or Makefile; do not paraphrase them. Branch, commit and PR rules are CONTRIBUTING's; one line and a link.*
+*The order of a working day - run, test, lint, build - each step a link to AGENTS.md § Commands, never the command again. Branch, commit and PR rules are CONTRIBUTING's; one line and a link.*
 
 ## Run and debug
 
@@ -16,7 +16,7 @@
 
 ## Lint and format
 
-*The tools, their config files, and the command that runs them all.*
+*The tools and their config files, by name. The command that runs them is AGENTS.md § Commands'; link it.*
 
 ## Common problems
 

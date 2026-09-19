@@ -20,4 +20,4 @@
 
 ## Configuration
 
-*Config files and environment variables the CLI reads. Names only.*
+*The config files the CLI reads, by name and precedence. The environment names are CONFIGURATION's; link them.*

@@ -28,4 +28,4 @@
 
 ## What we said no to
 
-*Dated. A decision that is not written down gets re-argued every quarter.*
+*Dated. A decision that is not written down gets re-argued every quarter; when a decision record exists it owns the why - one line and a link per bullet.*

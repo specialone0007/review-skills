@@ -16,7 +16,7 @@
 
 ## Schedules
 
-*Every cron or scheduled workflow: schedule, what it runs, what happens if it is missed.*
+*Every cron or scheduler entry in the code: schedule, what it runs, what happens if it is missed. A scheduled CI workflow is TESTING's (What CI runs), not a pipeline.*
 
 ## Data flows
 
@@ -24,4 +24,4 @@
 
 ## Failure and retry
 
-*Retry policy, dead letters, idempotency, and what a person does when a job is stuck. From the code where it says so; an open question where it does not.*
+*Retry policy, dead letters, idempotency - the design, from the code where it says so, an open question where it does not. What a person does when a job is stuck is OPERATIONS's (When something is wrong); link it.*

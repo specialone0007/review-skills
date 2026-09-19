@@ -8,7 +8,7 @@
 
 ## Health
 
-*Every health or readiness endpoint and what it checks. From the configs and route files. A library or a repo nothing runs says in one sentence that it is not operated, and the doc ends there.*
+*Every health or readiness endpoint and what it checks. From the configs and route files. A library or a repo nothing runs says in one sentence that it is not operated, and the doc ends there. In a unit's own OPERATIONS: link the root doc's rows for this unit and add only what is unit-specific.*
 
 ## Alerts
 
