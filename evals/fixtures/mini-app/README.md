@@ -12,7 +12,7 @@ Requires Node 18 or later. Start the dev server:
 npm run dev
 ```
 
-or `pnpm dev`. The server listens on http://localhost:9999. Install the published build with `npm install @mini/exporter@1.2.0`. Licensed under MIT.
+or `pnpm dev`. The health check answers on http://localhost:3000/health and the admin UI on http://localhost:9999. Install the published build with `npm install @mini/exporter@1.2.0`. Licensed under MIT.
 
 ## Configuration
 
