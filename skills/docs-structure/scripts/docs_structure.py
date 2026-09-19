@@ -1601,23 +1601,33 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 kws_ = {tokens(k).strip() for k in keywords}
 
                 def section_seed(drafts: bool):
+                    """The best-matching section: keyword hits count double, a person's text counts one
+                    more than a tool draft, so a two-word match in a draft beats a one-word match in a
+                    README and loses to a two-word match a person wrote."""
+                    best = (0, None, None)
                     for d in candidates:
                         if d.path.name in ("CLAUDE.md", AGENT_FILE) or d.rel == front_rel:
                             continue
-                        if (doc_state(d) in ("draft", "skeleton")) != drafts:
+                        is_draft = doc_state(d) in ("draft", "skeleton")
+                        if drafts is False and is_draft:
                             continue
                         # a person's section at the root scope, or a unit README's section (a unit doc
                         # never covers a root concern, but its section is the text to seed from)
                         in_unit = any(d.rel.startswith(u + "/") for u in units)
                         if not scope(d) and not (in_unit and d.path.name.upper().startswith("README")):
                             continue
-                        hit = next((t for _, lvl, t in d.headings if lvl in (2, 3, 4) and not is_start_here_heading(t)
-                                    and any(f" {k} " in tokens(t) for k in kws_ if len(k) > 3)), None)
-                        if hit:
-                            return d.rel, hit
-                    return None, None
+                        for _, lvl, t in d.headings:
+                            if lvl not in (2, 3, 4) or is_start_here_heading(t):
+                                continue
+                            hits = sum(1 for k in kws_ if len(k) > 3 and f" {k} " in tokens(t))
+                            if not hits:
+                                continue
+                            sc_ = hits * 2 + (0 if is_draft else 1)
+                            if sc_ > best[0]:
+                                best = (sc_, d.rel, t)
+                    return best[1], best[2]
 
-                found, hit = section_seed(False)
+                found, hit = section_seed(True)
                 if found:
                     seed, how, near, matched_seed_heading = found, f"{found} has a section to seed from", None, hit
             if not misplaced and not seed and not r["unit"] and units:
@@ -1633,11 +1643,6 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 if unit_hits:
                     unit_hits.sort(key=lambda x: -x[0])
                     near = unit_hits[0][1]
-            if not misplaced and not seed and not near and not r["unit"]:
-                # last, a section inside a doc the tool drafted (a verified list a person pasted into it)
-                found, hit = section_seed(True)
-                if found:
-                    seed, how, matched_seed_heading = found, f"{found} has a section to seed from", hit
             if not misplaced and not near:
                 stem = Path(r["file"]).stem.split("_")[0].lower()
                 aliases = {a for a in CONCERN_ALIASES.get(cid, ())}
