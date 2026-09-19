@@ -584,12 +584,14 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     findings: list[dict] = []
 
     def add(kind: str, severity: str, doc: str, line: int | None, detail: str,
-            source: str | None = None) -> None:
+            source: str | None = None, **extra) -> None:
         if doc != "(docs)" and in_record(doc) and severity != "low":
             severity = "low"
             detail += " (in a record folder: history, not a live promise)"
-        findings.append({"kind": kind, "severity": severity, "doc": doc, "line": line,
-                         "detail": detail, "source": source})
+        row = {"kind": kind, "severity": severity, "doc": doc, "line": line,
+               "detail": detail, "source": source}
+        row.update(extra)
+        findings.append(row)
 
     file_set = set(files)
     npm_scripts, make_targets = available_commands(repo, files)
@@ -820,10 +822,11 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
             platform_skipped += 1
             continue
         if name not in in_docs and name not in weak_docs:
+            ordered = sorted(readers, key=lambda r: bool(sample.search(r)))
             add("undocumented-env", "medium", "(docs)", None,
                 f"`{name}` is read by the code but is not documented anywhere, "
                 "and is not in an env sample file.",
-                source=sorted(readers, key=lambda r: bool(sample.search(r)))[0])
+                source=ordered[0], readers=ordered)
 
     # 5. staleness
     epochs = path_epochs(repo)
@@ -858,6 +861,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     findings.sort(key=lambda f: (order.get(f["severity"], 3), f["doc"], f["line"] or 0))
     return {
         "repo": str(repo),
+        "docs": docs,
         "stale_docs": [{"doc": d, "days": n} for n, d in (stale if newest_code else [])],
         "totals": {"docs_checked": len(docs), "findings": len(findings),
                    "npm_scripts_found": len(all_npm), "make_targets_found": len(make_targets),

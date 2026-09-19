@@ -1,4 +1,20 @@
 {
+  "docs": [
+    "DEPLOY.md",
+    "LICENSE.md",
+    "README.md",
+    "docs/crlf-sample.md",
+    "docs/drafted.md",
+    "docs/gated.md",
+    "docs/guide.md",
+    "docs/guide/advanced.md",
+    "docs/h3-style.md",
+    "docs/history.md",
+    "docs/limits.md",
+    "docs/quoted.md",
+    "docs/setup.md",
+    "requirements.txt"
+  ],
   "findings": [
     {
       "detail": "documents `dev`, which is not a script in any package.json. Closest existing: dev:start.",
