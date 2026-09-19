@@ -83,7 +83,7 @@ python tools/validate_evals.py --update-snapshots
 
 Read the resulting diff before committing it. An unexplained snapshot change is a regression until proven otherwise.
 
-Fixture files are pinned to LF in `.gitattributes`, because the snapshots compare byte counts and the two CI legs would otherwise disagree.
+Fixture files are pinned to LF in `.gitattributes`, because the snapshots compare byte counts and the two CI legs would otherwise disagree. Regenerate snapshots from an LF working tree too: a clone with `core.autocrlf=true` writes CRLF files, and `repo_inventory`, `docs_move` and `docs_restructure` then record sizes and a `newline` style CI will not reproduce. `git config core.autocrlf false` in this clone, then `git rm --cached -r . && git reset --hard`, before `--update-snapshots`.
 
 ### Running the model-dependent half
 
