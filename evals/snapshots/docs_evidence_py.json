@@ -70,13 +70,18 @@
         "sqlalchemy"
       ],
       "detector": "python",
+      "dev_extra": "",
       "evidence": "pyproject.toml",
       "language": "python",
       "manifest": "pyproject.toml",
       "name": "mini-py",
+      "package_manager": "pip",
       "path": ".",
       "scripts": [
         "mini"
+      ],
+      "tools": [
+        "pytest"
       ],
       "version": "0.1.0"
     }
@@ -91,14 +96,7 @@
     "lines": 7,
     "title": "mini-py"
   },
-  "release": [
-    {
-      "detector": "python",
-      "evidence": "pyproject.toml",
-      "scripts": [],
-      "version": "0.1.0"
-    }
-  ],
+  "release": [],
   "repo": "<fixture>",
   "routes": {
     "auth_hints": [],

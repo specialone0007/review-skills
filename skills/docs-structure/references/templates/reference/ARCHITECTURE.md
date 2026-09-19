@@ -12,7 +12,7 @@
 
 ## Containers
 
-*One row per deployable unit: name, language and runtime, what it owns, its port or entry point, what it must never do. A text diagram of the arrows between them, each arrow labelled with the environment name that makes it.*
+*One row per container - a process or a store: name, language and runtime, what it owns, its entry point, what it must never do; which of them deploy is DEPLOYMENT § Units', link it. A text diagram of the arrows between them, each arrow labelled with what it carries; the environment name behind an arrow and the port a unit listens on are CONFIGURATION's, link the row.*
 
 ## Building blocks
 
@@ -24,7 +24,7 @@
 
 ## Deployment view
 
-*Which container runs where, from the deploy configs. The per-unit environment table is DEPLOYMENT's; link it.*
+*The arrows between containers at run time - who calls whom, over what - from the deploy configs. Which platform and environment each unit runs on is DEPLOYMENT § Units'; link it, never repeat it.*
 
 ## Quality and risks
 

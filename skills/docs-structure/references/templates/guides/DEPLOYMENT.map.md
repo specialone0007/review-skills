@@ -8,7 +8,7 @@
 
 ## Units
 
-*A table: unit, root directory, public or private, its own deployment guide as a link. One row per deployable unit, including data stores.*
+*A table: unit, root directory, platform, environment, its URL, which branch deploys there, public or private, its own deployment guide as a link. One row per deployable unit and environment; the data stores are DATA_MODEL's. Deploys on its own means the unit folder holds a Dockerfile or platform config; a unit deployed from a dashboard with no config in the repository (the root app, a worker service) is a row here and earns no guide or agent file of its own: its steps go here under an H3, with one line on how its values reach it and an open question on where its config lives.*
 
 ## Order
 

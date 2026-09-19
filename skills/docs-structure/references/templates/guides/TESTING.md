@@ -12,12 +12,12 @@
 
 ## Running tests
 
-*The exact commands for all tests, one file, and watch mode. Copy script or target names.*
+*The test command is AGENTS.md § Commands'; one line and a link. Here only what AGENTS does not hold: one file, one folder, watch mode, the flags - copied from the runner's own options.*
 
 ## What CI runs
 
-*The jobs that run tests and on which events. From the workflow files.*
+*Every workflow: its event (push, pull request, schedule, manual), its jobs, and which of them gate a merge. From the workflow files. A nightly sync or deploy workflow is listed here by its event and trigger only; its steps are DEPLOYMENT § Deploy steps' (one line and a link). JOBS holds only what the repository itself schedules.*
 
 ## Coverage and gaps
 
-*Coverage configuration if any. What is deliberately untested, and why, as open questions until a human answers.*
+*Coverage configuration if any. What is deliberately untested, and why, as open questions until a human answers. When the inventory found no runner and no tests folder, this section says so in one sentence with the scan behind it; that sentence is the doc's reason to exist.*

@@ -65,6 +65,9 @@ SNAPSHOT_SCRIPTS = {
     # the proof that every one resolves.
     "docs_move": {"path": "skills/docs-structure/scripts/docs_split.py", "drop": [],
                   "args": ["--move", "docs/setup.md", "docs/getting-started/SETUP.md"]},
+    # Every covered or misplaced doc and the README fitted into the template order, with the
+    # line-preservation proof; the fixture's README gives its sections away where a doc owns them.
+    "docs_restructure": {"path": "skills/docs-structure/scripts/docs_restructure.py", "drop": []},
 }
 # The mini-app fixture carries a planted .env.local canary. No script may ever print it.
 CANARY = "canary-7f3a9c1e2b4d5f6a-do-not-print"

@@ -1,23 +1,23 @@
 # Data model
 
-> **This document owns:** the tables and their meaning — what each one stores, what is append-only, and the conventions every migration follows. *(skeleton, write me)*
+> **This document owns:** where data lives and what it means - the stores, the entities and their relationships, the conventions, and the migrations. *(skeleton, write me)*
 
-*Read this if you touch the database.*
+*Read this if you touch where data lives - the database, the cache, the object store.*
 
 <!-- concern: data; fill: schema, decisions -->
 
-## Tables by area
+## Stores
 
-*One H3 per area, each a table with one row per table or model: name, the relations it points at, the file that defines it, and what a row means where the schema says so. When no table carries a comment, say so once with the grep behind it and leave the meaning column out. Say what must never be deleted from it.*
+*One H3 per place data lives - the database, a cache, an object store, a queue - from the schema and the store SDKs: what is kept there, its key or path shape, what must never be deleted from it, how it is backed up and restored (the job or platform setting that does it), and a link to the CONFIGURATION row that points at it.*
 
-## Relationships
+## Entities and relationships
 
-*The foreign keys that matter, in words. A diagram if it fits on a screen.*
+*For a store with a schema in the repo: one H3 per area, each a table with one row per table or model - name, the relations it points at, the file that defines it, and what a row means where the schema says so. When no table carries a comment, say so once with the grep behind it and leave the meaning column out. Then the foreign keys that matter, in words; a diagram if it fits on a screen. A store without a schema (Redis, S3) has its shape under Stores and nothing here.*
 
 ## Conventions
 
-*Naming, timestamps, soft delete or not, how enums are stored, how a migration is written and reviewed.*
+*Naming, timestamps, soft delete or not, how enums are stored.*
 
-## Inventory
+## Migrations
 
-*Dated count of tables and migrations, so drift is visible.*
+*The migration tool, the folder, how one is written and reviewed, and a dated count of migrations and tables so drift is visible.*

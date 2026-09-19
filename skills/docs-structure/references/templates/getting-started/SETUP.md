@@ -12,11 +12,11 @@
 
 ## Install
 
-*From clone to installed, as numbered commands. Include copying example env files by name; never a value.*
+*From clone to installed, as numbered commands: the install command is a checked copy of AGENTS.md § Commands (the one place a command is repeated), plus copying example env files by name; never a value.*
 
 ## Run it
 
-*The one command that starts it, and the URL, port or prompt that appears. From the manifest, never paraphrased.*
+*The one command that starts it - a checked copy of AGENTS.md § Commands - and the URL, port or prompt that appears. From the manifest, never paraphrased.*
 
 ## First success
 

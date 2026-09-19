@@ -32,7 +32,7 @@ Keys, the same for every stack:
   jobs        background work: queue, worker and scheduler libraries, cron signals, worker files
   integrations third parties the code talks to: SDK dependencies by service, the env names that
               point outside (`_API_KEY`, `_DSN`, `_WEBHOOK_URL`, `_CLIENT_ID`), the count
-  changelog   CHANGELOG.md presence, its first headings, the tag count
+  changelog   CHANGELOG.md presence, its first headings, the tag count, the release tool that writes it
   env_count   distinct environment names across every source
   readme      the README's headings and first paragraph
   tree        top-level layout and governance files
@@ -74,6 +74,8 @@ ALWAYS_SKIP = {"node_modules", ".venv", "venv", "__pycache__", ".git", "dist", "
 # config as frontend turned a Go command-line tool into an application needing a design doc.
 # Skip-list names that can still hold the application itself.
 RESCUABLE = {"www", "site", "public", "app"}
+NODE_LOCKFILES = (("pnpm-lock.yaml", "pnpm"), ("yarn.lock", "yarn"), ("bun.lockb", "bun"), ("bun.lock", "bun"),
+                  ("package-lock.json", "npm"), ("npm-shrinkwrap.json", "npm"))
 MANIFEST_NAMES = ("package.json", "pyproject.toml", "setup.py", "go.mod", "Cargo.toml", "pom.xml",
                   "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "mix.exs",
                   "Move.toml", "Dockerfile", "requirements.txt")
@@ -151,11 +153,20 @@ INTEGRATION_LIBS = {
     "notion": "Notion", "@notionhq/client": "Notion", "twitter-api-v2": "X/Twitter", "tweepy": "X/Twitter",
     "spotify-web-api-node": "Spotify", "spotipy": "Spotify", "expo-server-sdk": "Expo push", "web-push": "Web push",
     "onesignal-node": "OneSignal", "@onesignal/node-onesignal": "OneSignal", "kener": "Kener",
+    "mongoose": "MongoDB", "mongodb": "MongoDB", "pymongo": "MongoDB", "motor": "MongoDB",
+    "@aws-sdk/client-dynamodb": "DynamoDB", "@google-cloud/firestore": "Firestore", "cassandra-driver": "Cassandra",
+    "neo4j-driver": "Neo4j", "@clickhouse/client": "ClickHouse", "@elastic/elasticsearch": "Elasticsearch", "elasticsearch": "Elasticsearch",
 }
+# Integrations that hold this repository's data: a repo with one of these and no schema still has a data model.
+STORE_SERVICES = {"Redis", "Upstash", "AWS S3", "Supabase", "Firebase", "Firestore", "MongoDB", "DynamoDB", "Cassandra", "Neo4j",
+                  "ClickHouse", "Elasticsearch", "Pinecone", "Weaviate", "Cloudinary", "Vercel Blob", "Google Cloud", "Zep"}
 OUTWARD_ENV = re.compile(r"_(API_KEY|APIKEY|DSN|WEBHOOK_URL|WEBHOOK_SECRET|CLIENT_ID|CLIENT_SECRET|ACCESS_TOKEN|BUCKET|PROJECT_ID)$")
 ROLE_RE = re.compile(r"\b(enum\s+\w*(Role|Permission)\w*|role\s*[:=]|permissions?\s*[:=]|is_admin|isAdmin)\b", re.I)
 
 DECISION_RE = re.compile(r"\b(decid|switch|migrat|replace|remov|adopt|revert|drop|deprecat|instead)", re.I)
+RELEASE_TOOL_FILES = ("release-please-config.json", ".release-please-manifest.json", ".releaserc", ".releaserc.json",
+                      ".releaserc.js", ".releaserc.yaml", ".releaserc.yml", "release.config.js", "release.config.cjs",
+                      "release.config.mjs", ".versionrc", ".versionrc.json", ".versionrc.js", ".changeset")
 DEPLOY_ISH = re.compile(r"(deploy|railway|fly|vercel|netlify|heroku|render|kubectl|helm|terraform|docker/build-push|aws-actions|gcloud|azure/)", re.I)
 
 warnings: list[str] = []
@@ -445,6 +456,15 @@ def first_token(cmd: str) -> str:
     return cmd.split()[0] if cmd.split() else ""
 
 
+def safe_command(cmd: str) -> str:
+    """The whole start command when no argument can be a value: no `=`, no token that looks like a
+    secret or a URL with credentials. Otherwise empty, and the first token stands alone."""
+    cmd = cmd.strip()
+    if not cmd or "=" in cmd or re.search(r"(?i)(secret|token|password|passwd|key)\S*\s", cmd + " ") or "@" in cmd:
+        return ""
+    return redact(cmd)[:160]
+
+
 def as_dict(x) -> dict:
     return x if isinstance(x, dict) else {}
 
@@ -466,8 +486,12 @@ def det_node(ctx: Ctx, inv: dict) -> None:
         deps = {**as_dict(data.get("dependencies")), **as_dict(data.get("devDependencies"))}
         scripts = as_dict(data.get("scripts"))
         lang = "typescript" if (p.parent / "tsconfig.json").exists() or "typescript" in deps else "javascript"
+        # the lockfile names the package manager; a nested package inherits the root's. npm is the
+        # answer only when no lockfile says otherwise - `npm ci` without package-lock.json fails.
+        pm = next((m for f, m in NODE_LOCKFILES if (p.parent / f).exists()), None) \
+            or next((m for f, m in NODE_LOCKFILES if (ctx.repo / f).exists()), None) or "npm"
         inv["packages"].append(item(ctx, "node", p, name=str(data.get("name") or p.parent.name), path=ctx.rel(p.parent),
-                                    language=lang, manifest="package.json", scripts=sorted(scripts.keys())[:60],
+                                    language=lang, manifest="package.json", package_manager=pm, scripts=sorted(scripts.keys())[:60],
                                     dependencies=sorted(deps.keys())[:80], private=bool(data.get("private")),
                                     version=str(data.get("version") or ""), workspaces=bool(data.get("workspaces"))))
         inv["_eco"].add("node")
@@ -487,7 +511,9 @@ def det_node(ctx: Ctx, inv: dict) -> None:
         runners = [d for d in ("jest", "vitest", "mocha", "playwright", "@playwright/test", "cypress", "ava") if d in deps]
         if test_scripts or runners:
             inv["tests"].append(item(ctx, "node", p, scripts=test_scripts, runners=runners, package=ctx.rel(p.parent)))
-        if any(k in scripts for k in ("publish", "release", "prepublishOnly", "changeset")) or (data.get("version") and not data.get("private")):
+        # a publish signal, never a missing `private` flag: a Railway service with a version field is
+        # not published anywhere, and a RELEASING skeleton would ask for a registry it has no use for
+        if any(k in scripts for k in ("publish", "release", "prepublishOnly", "changeset")) or data.get("publishConfig") or data.get("files"):
             inv["release"].append(item(ctx, "node", p, version=str(data.get("version") or ""), scripts=[k for k in scripts if k in ("publish", "release", "prepublishOnly", "changeset", "version")]))
         if any(d in deps for d in ("commander", "yargs", "oclif", "@oclif/core", "clipanion", "cac")) and not b:
             inv["cli"].append(item(ctx, "node", p, commands=[], parser=[d for d in deps if d in ("commander", "yargs", "oclif", "@oclif/core", "clipanion", "cac")][0]))
@@ -515,8 +541,14 @@ def det_python(ctx: Ctx, inv: dict) -> None:
         elif isinstance(poetry.get("dependencies"), dict):
             deps = list(poetry["dependencies"].keys())
         scripts = as_dict(proj.get("scripts")) or as_dict(poetry.get("scripts"))
-        inv["packages"].append(item(ctx, "python", p, name=name, path=ctx.rel(p.parent), language="python", manifest="pyproject.toml",
-                                    scripts=sorted(scripts.keys())[:40], dependencies=sorted(set(d for d in deps if d))[:80], version=str(proj.get("version") or poetry.get("version") or "")))
+        pm = "uv" if (p.parent / "uv.lock").exists() else "poetry" if (p.parent / "poetry.lock").exists() else "pip"
+        tool = as_dict(data.get("tool"))
+        tools = sorted(t for t in ("ruff", "mypy", "black", "isort", "flake8", "pyright", "pytest") if t in tool)
+        extras = as_dict(proj.get("optional-dependencies"))
+        dev_extra = next((k for k in ("dev", "test", "lint") if k in extras), "")
+        inv["packages"].append(item(ctx, "python", p, name=name, path=ctx.rel(p.parent), language="python", manifest="pyproject.toml", package_manager=pm,
+                                    scripts=sorted(scripts.keys())[:40], dependencies=sorted(set(d for d in deps if d))[:80], version=str(proj.get("version") or poetry.get("version") or ""),
+                                    tools=tools, dev_extra=dev_extra))
         inv["_eco"].add("python")
         seen.add(ctx.rel(p.parent))
         if scripts:
@@ -524,7 +556,9 @@ def det_python(ctx: Ctx, inv: dict) -> None:
         low = {d.lower() for d in deps}
         if low & {"pytest", "nose2", "hypothesis", "tox"} or (p.parent / "tests").is_dir() or (p.parent / "test").is_dir():
             inv["tests"].append(item(ctx, "python", p, runners=sorted(low & {"pytest", "nose2", "tox"}), package=ctx.rel(p.parent)))
-        if proj.get("version") or poetry.get("version"):
+        # a publish signal: a build backend plus a version is a package somebody installs; a service
+        # with a version field and no build system is deployed, not published
+        if (proj.get("version") or poetry.get("version")) and (data.get("build-system") or poetry):
             inv["release"].append(item(ctx, "python", p, version=str(proj.get("version") or poetry.get("version") or ""), scripts=[]))
 
     def other(p: Path) -> None:
@@ -759,7 +793,7 @@ def det_platforms(ctx: Ctx, inv: dict) -> None:
             dep = as_dict(s.get("deploy"))
             sname = str(s.get("name") or p.parent.name)
             inv["services"].append(item(ctx, "railway", p, name=sname, root=str(s.get("root") or s.get("rootDirectory") or ctx.rel(p.parent)), builder=str(build.get("builder") or ""),
-                                        start=first_token(str(dep.get("startCommand") or "")), healthcheck=bool(dep.get("healthcheckPath")), cron=str(dep.get("cronSchedule") or ""), source="railway"))
+                                        start=first_token(str(dep.get("startCommand") or "")), start_full=safe_command(str(dep.get("startCommand") or "")), healthcheck=bool(dep.get("healthcheckPath")), cron=str(dep.get("cronSchedule") or ""), source="railway"))
             if dep.get("cronSchedule"):
                 inv["ops"].append(item(ctx, "railway", p, kind="cron", schedule=str(dep.get("cronSchedule")), service=sname))
             if dep.get("healthcheckPath"):
@@ -1277,16 +1311,20 @@ def det_surfaces(ctx: Ctx, inv: dict) -> None:
     if sdks or outward:
         inv["integrations"] = {"sdks": [{"service": r["service"], "packages": sorted(set(r["packages"])), "units": sorted(r["units"])} for r in sdks.values()],
                                "count": len(sdks), "outward_env_names": outward[:60],
+                               "stores": sorted(s for s in sdks if s in STORE_SERVICES),
                                "evidence": manifest_of[sorted(next(iter(sdks.values()))["units"])[0]] if sdks else env_names[outward[0]][0]}
     else:
         inv["integrations"] = None
 
     ch = next((p for p in ctx.named("CHANGELOG.md") if p.parent == ctx.repo or p.parent.name.lower() in ("docs", "history")), None)
     tag_count = (inv.get("decisions") or {}).get("tag_count", 0) if isinstance(inv.get("decisions"), dict) else 0
-    if ch or tag_count:
+    # a release tool (release-please, semantic-release, changesets, standard-version) writes the
+    # root CHANGELOG.md itself; the shape pins it there rather than moving what a bot rewrites
+    release_tool = next((n for n in RELEASE_TOOL_FILES if (ctx.repo / n).exists()), "")
+    if ch or tag_count or release_tool:
         heads = [redact(l.lstrip("# ").strip()) for l in read(ch).splitlines() if l.startswith("## ")][:3] if ch else []
         inv["changelog"] = {"file": ctx.rel(ch) if ch else "", "headings": heads, "tag_count": tag_count,
-                            "evidence": ctx.rel(ch) if ch else "(git tags)"}
+                            "release_tool": release_tool, "evidence": ctx.rel(ch) if ch else (release_tool or "(git tags)")}
     else:
         inv["changelog"] = None
 

@@ -1,6 +1,6 @@
 # Contributing
 
-> **This document owns:** how a change gets into this repository — branches, review, checks that must pass, and the license contributions fall under. *(skeleton, write me)*
+> **This document owns:** how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. *(skeleton, write me)*
 
 *Read this if you want to land a change here.*
 
@@ -8,15 +8,15 @@
 
 ## Before you start
 
-*License, code of conduct, and where to ask. From the governance files present.*
+*What the licence means for a contribution (README § Status names the file; a unit with a licence of its own is named here too), the code of conduct, where to ask, and where to report a vulnerability - from the governance files present. With no LICENSE anywhere: one sentence that no licence file was found and the repository takes no outside contributions until one exists; who has access is an open question, the protected branch a fact from the CI or platform config.*
 
 ## Making a change
 
-*Branching, commit conventions, and the PR template if there is one.*
+*Branching, commit conventions, and the PR template if there is one. The checks a PR must pass are TESTING's (What CI runs); one line and a link, never the list again.*
 
-## Checks that must pass
+## Code conventions
 
-*Lint, type, test and validation commands, and the CI jobs that run them.*
+*The rules a linter does not enforce: layering, naming, what is never imported from where, how errors are raised. Quoted from a rules file or a CONTRIBUTING section when one exists; open questions otherwise. AGENTS.md § Conventions and DEVELOPMENT link here and hold none of it.*
 
 ## Review
 

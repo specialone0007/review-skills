@@ -195,7 +195,7 @@ INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exp
 ADR_STATUS = re.compile(r"^>\s*[*]{2}Status[:][*]{2}\s*(proposed|accepted|rejected|deprecated|superseded)\b.*[*]{2}Date[:][*]{2}\s*\d{4}-\d{2}-\d{2}", re.I)
 ADR_SECTIONS = ("Context", "Options", "Decision", "Consequences")
 INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.*?)|(.*?))\s*$")
-INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
+INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|none \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
 AGENT_MAX_LINES = 40
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
@@ -719,6 +719,36 @@ def gate_inventory(repo: Path) -> tuple[set[str], dict[str, set[str]] | None]:
 
 
 
+MOVED_HEADING = re.compile(r"^ {0,3}(#{2,6})[ \t]+(?:.*\(from [^)]+\.(?:md|mdx)\)|From \S+\.(?:md|mdx))[ \t]*$")
+
+
+def blank_moved(lines: list[str]) -> list[str]:
+    """The lines under a `### <heading> (from <doc>)` block - what the restructure pasted in from
+    another document - replaced by blanks, up to the next heading of the same or a higher level."""
+    out = list(lines)
+    fenced = False
+    level = 0
+    for i, l in enumerate(lines):
+        if FENCE.match(l):
+            fenced = not fenced
+            if level:
+                out[i] = ""
+            continue
+        if fenced:
+            if level:
+                out[i] = ""
+            continue
+        h = HEADING.match(l)
+        if h and level and len(h.group(1)) <= level:
+            level = 0
+        mv = MOVED_HEADING.match(l)
+        if mv:
+            level = len(mv.group(1))
+        if level:
+            out[i] = ""
+    return out
+
+
 def sections(lines: list[str]) -> list[tuple[str, int, int]]:
     """(heading text, first body line index, end index) for the lead and every H2.
 
@@ -796,7 +826,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         for i_, l in enumerate(lines, start=1):
             m_ = INDEX_LINE.match(l)
             if m_ and not INDEX_STATE.match((m_.group(4) or "").strip("*` ").lower()):
-                add("G13", i_, "an index line ends with its state: ' - skeleton', ' - draft', ' - unreviewed', ' - reviewed YYYY-MM-DD' or ' - stale YYYY-MM-DD'")
+                add("G13", i_, "an index line ends with its state: ' - skeleton', ' - draft', ' - unreviewed', ' - reviewed YYYY-MM-DD', ' - none YYYY-MM-DD' or ' - stale YYYY-MM-DD'")
     # G14: the agent file is read by every agent on every run; past forty lines it is a document,
     # and documents have an index to live in
     if name.upper() == "AGENTS.MD":
@@ -843,6 +873,14 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     found.append({"doc": rel, "line": i, "rule": "G11",
                                   "message": f"[inventory: {key}] is another concern's evidence (this document fills from {', '.join(sorted(fill_keys))}); the fact belongs in the doc that owns it, link to it from here"})
     _HEADINGS_SEEN[rel] = [h for h, _, _ in sections(lines)]
+    # Text the restructure moved here from another doc - an H3 whose heading ends "(from X.md)" -
+    # is a person's prose, never a draft: it is blanked out before the sections are judged, so a
+    # README table pasted under a drafted section does not fail G1 for lacking a bracket.
+    lines = blank_moved(lines)
+    # the agent file's prose is never judged: its commands are read from the manifests (G14 already
+    # holds it to forty lines) and its conventions and gotchas are a person's, marked or not
+    if Path(rel).name == "AGENTS.md":
+        lines = []
     for heading, start, end in sections(lines):
         body = [l for l in lines[start:end] if l.strip()]
         if not body:

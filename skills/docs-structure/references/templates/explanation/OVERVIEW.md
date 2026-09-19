@@ -16,12 +16,12 @@
 
 ## Concepts
 
-*The three or four nouns a user must know, defined once. Names from the code, not synonyms.*
+*The three or four nouns a user must know and how they relate. Each is defined once in ONBOARDING's glossary; link the entries rather than redefining them.*
 
 ## Non-goals
 
-*What it deliberately does not do, and where a user goes instead. Dated bullets from decision-like commits until a human writes them.*
+*What it deliberately does not do, and where a user goes instead. Dated bullets; when a decision record exists it owns the why - one line and a link per bullet.*
 
-## Roadmap and principles
+## Principles
 
-*Plan-like docs, tags and rules sections, linked. No invented future work.*
+*A principles section of the README, or a decision record, quoted and attributed (contribution rules are CONTRIBUTING's, not principles). What is planned next is ROADMAP's (docs/plans); one line and a link when it exists. No invented future work.*

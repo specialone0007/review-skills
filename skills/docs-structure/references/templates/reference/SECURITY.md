@@ -8,7 +8,7 @@
 
 ## Authentication
 
-*The library or scheme, the middleware file, which routes require it. From the dependencies and the route files.*
+*The library or scheme, the middleware file, which routes require it. From the dependencies and the route files. When the inventory found no auth library, middleware or roles, one sentence says so with the scan behind it - public by design is a fact worth writing down.*
 
 ## Authorisation and roles
 
@@ -16,7 +16,7 @@
 
 ## Secrets handling
 
-*Where secrets live in each environment, which names are secrets, how they reach a unit. Names only, never a value or a location that holds one.*
+*What is secret-specific: rotation, who has access, what is never committed. Which names are secrets is CONFIGURATION's secret column (link its rows) and how values reach a unit is DEPLOYMENT's (link How values reach a unit); never a value or a location that holds one.*
 
 ## Data classes
 
