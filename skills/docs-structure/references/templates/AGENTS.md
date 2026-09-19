@@ -14,7 +14,7 @@
 
 ## Gotchas
 
-*Preconditions an agent trips on: a service that must be up first, a generated file never edited by hand, a test that needs a variable. One dated line each. The symptom-and-fix belongs to the guide of the task (SETUP § If it fails, DEVELOPMENT § Common problems, DEPLOYMENT § Known traps); link it.*
+*Preconditions an agent trips on: a service that must be up first, a generated file never edited by hand, a test that needs a variable. One dated line each. The symptom-and-fix belongs to the guide of the task (SETUP § If it fails, DEVELOPMENT § Common problems, DEPLOYMENT § Known traps, OPERATIONS § When something is wrong); link it.*
 
 ## Docs
 

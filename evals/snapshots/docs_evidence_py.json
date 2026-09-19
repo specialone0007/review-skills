@@ -92,14 +92,7 @@
     "lines": 7,
     "title": "mini-py"
   },
-  "release": [
-    {
-      "detector": "python",
-      "evidence": "pyproject.toml",
-      "scripts": [],
-      "version": "0.1.0"
-    }
-  ],
+  "release": [],
   "repo": "<fixture>",
   "routes": {
     "auth_hints": [],

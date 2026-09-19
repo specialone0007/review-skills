@@ -12,7 +12,7 @@
 
 ## Run and debug
 
-*How to run one service alone, attach a debugger, read the logs. Ports and health routes from the configs.*
+*How to run one service alone, attach a debugger, read the logs. The port is CONFIGURATION's and the health route is OPERATIONS's; link both.*
 
 ## Lint and format
 

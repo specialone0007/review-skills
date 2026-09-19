@@ -1,6 +1,6 @@
-# Pipelines
+# Jobs
 
-> **This document owns:** what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and how each one fails and retries. *(skeleton, write me)*
+> **This document owns:** what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and the retry design. *(skeleton, write me)*
 
 *Read this if you need to know what runs when nobody clicks. Every cron, queue and worker has its home here; OPERATIONS links, never lists.*
 
@@ -12,7 +12,7 @@
 
 ## Queues
 
-*Every queue or topic: name, producer, consumer, the environment name that points at the broker.*
+*Every queue or topic: name, producer, consumer, and a link to the CONFIGURATION row that points at the broker (the name lives there).*
 
 ## Schedules
 

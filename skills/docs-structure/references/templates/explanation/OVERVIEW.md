@@ -16,7 +16,7 @@
 
 ## Concepts
 
-*The three or four nouns a user must know, defined once. Names from the code, not synonyms.*
+*The three or four nouns a user must know and how they relate. Each is defined once in ONBOARDING's glossary; link the entries rather than redefining them.*
 
 ## Non-goals
 
@@ -24,4 +24,4 @@
 
 ## Principles
 
-*The rules sections of the agent file or the README, quoted and attributed. What is planned next is ROADMAP's (docs/plans); one line and a link when it exists. No invented future work.*
+*A rules or conventions section of the README or CONTRIBUTING, quoted and attributed. What is planned next is ROADMAP's (docs/plans); one line and a link when it exists. No invented future work.*

@@ -502,7 +502,9 @@ def det_node(ctx: Ctx, inv: dict) -> None:
         runners = [d for d in ("jest", "vitest", "mocha", "playwright", "@playwright/test", "cypress", "ava") if d in deps]
         if test_scripts or runners:
             inv["tests"].append(item(ctx, "node", p, scripts=test_scripts, runners=runners, package=ctx.rel(p.parent)))
-        if any(k in scripts for k in ("publish", "release", "prepublishOnly", "changeset")) or (data.get("version") and not data.get("private")):
+        # a publish signal, never a missing `private` flag: a Railway service with a version field is
+        # not published anywhere, and a RELEASING skeleton would ask for a registry it has no use for
+        if any(k in scripts for k in ("publish", "release", "prepublishOnly", "changeset")) or data.get("publishConfig") or data.get("files"):
             inv["release"].append(item(ctx, "node", p, version=str(data.get("version") or ""), scripts=[k for k in scripts if k in ("publish", "release", "prepublishOnly", "changeset", "version")]))
         if any(d in deps for d in ("commander", "yargs", "oclif", "@oclif/core", "clipanion", "cac")) and not b:
             inv["cli"].append(item(ctx, "node", p, commands=[], parser=[d for d in deps if d in ("commander", "yargs", "oclif", "@oclif/core", "clipanion", "cac")][0]))
@@ -540,7 +542,9 @@ def det_python(ctx: Ctx, inv: dict) -> None:
         low = {d.lower() for d in deps}
         if low & {"pytest", "nose2", "hypothesis", "tox"} or (p.parent / "tests").is_dir() or (p.parent / "test").is_dir():
             inv["tests"].append(item(ctx, "python", p, runners=sorted(low & {"pytest", "nose2", "tox"}), package=ctx.rel(p.parent)))
-        if proj.get("version") or poetry.get("version"):
+        # a publish signal: a build backend plus a version is a package somebody installs; a service
+        # with a version field and no build system is deployed, not published
+        if (proj.get("version") or poetry.get("version")) and (data.get("build-system") or poetry):
             inv["release"].append(item(ctx, "python", p, version=str(proj.get("version") or poetry.get("version") or ""), scripts=[]))
 
     def other(p: Path) -> None:

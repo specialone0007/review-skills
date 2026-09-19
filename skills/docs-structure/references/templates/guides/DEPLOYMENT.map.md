@@ -8,7 +8,7 @@
 
 ## Units
 
-*A table: unit, root directory, public or private, its own deployment guide as a link. One row per deployable unit, including data stores.*
+*A table: unit, root directory, public or private, its own deployment guide as a link. One row per deployable unit; the data stores are DATA_MODEL's.*
 
 ## Order
 

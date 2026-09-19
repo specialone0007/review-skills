@@ -20,4 +20,4 @@
 
 ## Rolling back a release
 
-*Whether a published version can be pulled, and what to do instead if it cannot.*
+*Whether a published version can be pulled from the registry, and what to do instead if it cannot. Rolling back a deployment is DEPLOYMENT's; link it.*

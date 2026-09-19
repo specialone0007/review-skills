@@ -8,7 +8,7 @@
 
 ## Units
 
-*A table: unit, root directory, platform, public or private, health check. One row per deployable unit, including data stores; the build and start commands are AGENTS.md's, link them. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured.*
+*A table: unit, root directory, platform, public or private. One row per deployable unit; the data stores are DATA_MODEL's, the health route OPERATIONS's, the build and start commands AGENTS.md's - link, never repeat. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured.*
 
 ## Environment per unit
 
@@ -16,11 +16,11 @@
 
 ## Deploy steps
 
-*Numbered, from a clean checkout to a live URL. Include the migration step and where the domain is set.*
+*Numbered, from a clean checkout to a live URL, each command step a link to AGENTS.md § Commands. Say where the migration step sits and where the domain is set.*
 
 ## Rollback
 
-*How to get back to the previous version, and what state (database, queues) does not roll back with the code.*
+*How to get back to the previous deployed version, and what state (database, queues) does not roll back with the code. This is the one home of rolling back; RELEASING says only whether a published version can be pulled.*
 
 ## Known traps
 

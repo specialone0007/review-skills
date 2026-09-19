@@ -8,7 +8,7 @@
 
 ## Stores
 
-*One H3 per place data lives - the database, a cache, an object store, a queue - from the schema, the store SDKs and the env names that point at each: what is kept there, its key or path shape, what must never be deleted from it.*
+*One H3 per place data lives - the database, a cache, an object store, a queue - from the schema and the store SDKs: what is kept there, its key or path shape, what must never be deleted from it, and a link to the CONFIGURATION row that points at it.*
 
 ## Entities and relationships
 

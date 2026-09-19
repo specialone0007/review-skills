@@ -12,7 +12,7 @@
 
 ## Quickstart
 
-*Numbered: prerequisites with pinned versions, install, run, the URL or command that proves it works. The install and run commands are a checked copy of AGENTS.md § Commands - the one place a command is repeated, so a reader can start without a hop (R11 diffs the two). SETUP owns the full path; this is the sixty-second version.*
+*Numbered: a link to SETUP § Prerequisites, then install, run, the URL or command that proves it works. The install and run commands are a checked copy of AGENTS.md § Commands - the one place a command is repeated, so a reader can start without a hop (R11 diffs the two). SETUP owns the full path; this is the sixty-second version.*
 
 <!-- docs-structure: start here -->
 <!-- /docs-structure: start here -->

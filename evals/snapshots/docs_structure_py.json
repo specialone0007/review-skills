@@ -175,24 +175,6 @@
       "weak": false
     },
     {
-      "applies": "release: pyproject.toml",
-      "bucket": "guides",
-      "companions": [],
-      "concern": "release",
-      "covered_by": null,
-      "default_path": "docs/guides/RELEASING.md",
-      "matched_by": "",
-      "matched_heading": null,
-      "misplaced": null,
-      "near_name": null,
-      "runner_up": null,
-      "seed": null,
-      "template": "guides/RELEASING.md",
-      "unit": null,
-      "universal": false,
-      "weak": false
-    },
-    {
       "applies": "always",
       "bucket": "reference",
       "companions": [],
@@ -416,14 +398,6 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'release' (the repo has release: pyproject.toml) - apply creates docs/guides/RELEASING.md from the template",
-      "path": "README.md",
-      "rule": "R12",
-      "severity": "P2"
-    },
-    {
-      "level": "warn",
-      "line": 1,
       "message": "no doc covers 'architecture' (always) - apply creates docs/reference/ARCHITECTURE.md from the template",
       "path": "README.md",
       "rule": "R12",
@@ -494,7 +468,7 @@
     "files": {
       "AGENTS.md": {
         "concern": "agent",
-        "content": "# mini-py - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of mini-py, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
+        "content": "# run.ps1 - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of run.ps1, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
         "lines": 19,
         "template": "references/templates/AGENTS.md",
         "why": "agent (always)"
@@ -507,8 +481,8 @@
         "why": "GitHub surfaces a root CONTRIBUTING.md; one line pointing at docs/guides/CONTRIBUTING.md"
       },
       "docs/INDEX.md": {
-        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is PIPELINES's. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton\n- [Releasing](guides/RELEASING.md): how a version of this package reaches its users \u2014 versioning, the publish steps, and what a release must contain. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton\n- [Data model](reference/DATA_MODEL.md): where data lives and what it means - the stores, the entities and their relationships, the conventions, and the migrations. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n",
-        "lines": 33,
+        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is JOBS's. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton\n- [Data model](reference/DATA_MODEL.md): where data lives and what it means - the stores, the entities and their relationships, the conventions, and the migrations. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. Where it is going is ROADMAP's. - skeleton\n",
+        "lines": 32,
         "template": "INDEX.md (built in)",
         "why": "the central index"
       },
@@ -553,12 +527,6 @@
         "lines": 23,
         "template": "references/templates/guides/OPERATIONS.md",
         "why": "operate (always)"
-      },
-      "docs/guides/RELEASING.md": {
-        "concern": "release",
-        "lines": 23,
-        "template": "references/templates/guides/RELEASING.md",
-        "why": "release (release: pyproject.toml)"
       },
       "docs/guides/TESTING.md": {
         "concern": "testing",
@@ -628,14 +596,14 @@
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nThree files, in this order. Everything else is one hop from the second one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n3. **[AGENTS.md](AGENTS.md)** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most.\n\nWhat to read next, in which order and per role, is [docs/getting-started/ONBOARDING.md](docs/getting-started/ONBOARDING.md)'s. The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one index, six buckets by what a reader came to do, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nThree files, in this order. Everything else is one hop from the second one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n3. **[AGENTS.md](AGENTS.md)** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most.\n\nWhat to read next is [docs/getting-started/ONBOARDING.md](docs/getting-started/ONBOARDING.md)'s once it is written (a skeleton today). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one index, folders by what a reader came to do, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
     },
     "index_groups": {
       "Explanation": [
-        "- [Product](explanation/PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton"
+        "- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. Where it is going is ROADMAP's. - skeleton"
       ],
       "Getting started": [
         "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton",
@@ -644,10 +612,9 @@
       "Guides": [
         "- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton",
         "- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton",
-        "- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is PIPELINES's. - skeleton",
+        "- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is JOBS's. - skeleton",
         "- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton",
-        "- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton",
-        "- [Releasing](guides/RELEASING.md): how a version of this package reaches its users \u2014 versioning, the publish steps, and what a release must contain. - skeleton"
+        "- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton"
       ],
       "Reference": [
         "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
@@ -664,10 +631,9 @@
       "- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton",
       "- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton",
       "- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton",
-      "- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is PIPELINES's. - skeleton",
+      "- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is JOBS's. - skeleton",
       "- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton",
       "- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton",
-      "- [Releasing](guides/RELEASING.md): how a version of this package reaches its users \u2014 versioning, the publish steps, and what a release must contain. - skeleton",
       "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
       "- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton",
       "- [Data model](reference/DATA_MODEL.md): where data lives and what it means - the stores, the entities and their relationships, the conventions, and the migrations. - skeleton",
@@ -675,8 +641,9 @@
       "- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton",
       "- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton",
       "- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton",
-      "- [Product](explanation/PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton"
+      "- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. Where it is going is ROADMAP's. - skeleton"
     ],
+    "manifest_add_roots": [],
     "moves": [],
     "readme_append": [
       {
@@ -684,7 +651,7 @@
         "heading": "What it is"
       },
       {
-        "content": "## Quickstart\n\n*Numbered: prerequisites with pinned versions, install, run, the URL or command that proves it works. The install and run commands are a checked copy of AGENTS.md \u00a7 Commands - the one place a command is repeated, so a reader can start without a hop (R11 diffs the two). SETUP owns the full path; this is the sixty-second version.*\n",
+        "content": "## Quickstart\n\n*Numbered: a link to SETUP \u00a7 Prerequisites, then install, run, the URL or command that proves it works. The install and run commands are a checked copy of AGENTS.md \u00a7 Commands - the one place a command is repeated, so a reader can start without a hop (R11 diffs the two). SETUP owns the full path; this is the sixty-second version.*\n",
         "heading": "Quickstart"
       },
       {
@@ -752,7 +719,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 17
+      "warnings": 16
     },
     "R13": {
       "failures": 0,
@@ -852,7 +819,7 @@
   "split_candidates": [],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 17,
+    "concerns_missing": 16,
     "docs_checked": 1,
     "failures": 0,
     "moves": 0,
@@ -865,7 +832,7 @@
       "reviewed": 1,
       "skeleton": 0
     },
-    "warnings": 17
+    "warnings": 16
   },
   "unreachable": [],
   "warnings": []

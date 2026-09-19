@@ -26,7 +26,7 @@ The checker reports every step; apply performs all of them in one run and the us
    INDEX, manifest, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT, OPERATIONS, CONTRIBUTING,
    PRODUCT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY), so a repo on the flat shape usually
    gets `SETUP.md`, `ONBOARDING.md`, `DEVELOPMENT.md`, `CONTRIBUTING.md`, `CONFIGURATION.md`,
-   `INTEGRATIONS.md`, `SECURITY.md`, plus the earned `PIPELINES.md`, `decisions/`, `CHANGELOG.md`,
+   `INTEGRATIONS.md`, `SECURITY.md`, plus the earned `JOBS.md`, `decisions/`, `CHANGELOG.md`,
    one `DEPLOYMENT.md` and `OPERATIONS.md` under each unit that deploys on its own, and an
    `AGENTS.md` under each such unit whose manifest has scripts. The root gets a one-line
    `CONTRIBUTING.md` (and `CHANGELOG.md`, when the changelog lives under history) so GitHub
@@ -70,7 +70,7 @@ Moves (6):
 New skeletons (21): `AGENTS.md`; `docs/getting-started/SETUP.md`, `ONBOARDING.md`;
 `docs/guides/DEVELOPMENT.md`, `DEPLOYMENT.md` (the map variant), `CONTRIBUTING.md`;
 `docs/reference/API.md`, `CONFIGURATION.md`, `INTEGRATIONS.md`, `SECURITY.md`;
-`docs/explanation/PIPELINES.md`, `decisions/README.md`, `decisions/ADR-0001-first-decision.md`;
+`docs/reference/JOBS.md`, `decisions/README.md`, `decisions/ADR-0001-first-decision.md`;
 `docs/history/CHANGELOG.md` (earned by the one tag); `server/AGENTS.md`, `server/docs/DEPLOYMENT.md`,
 `server/docs/OPERATIONS.md`; `agents/eclipse-agentos/docs/DEPLOYMENT.md`,
 `agents/eclipse-agentos/docs/OPERATIONS.md`; `strudel-validator/AGENTS.md`,
@@ -105,7 +105,7 @@ Moves (10):
 
 New skeletons (27): `AGENTS.md`; `docs/getting-started/SETUP.md`, `ONBOARDING.md`;
 `docs/guides/DEVELOPMENT.md`, `CONTRIBUTING.md`; `docs/reference/CONFIGURATION.md`,
-`INTEGRATIONS.md`; `docs/explanation/PIPELINES.md`, `decisions/README.md`,
+`INTEGRATIONS.md`; `docs/reference/JOBS.md`, `decisions/README.md`,
 `decisions/ADR-0001-first-decision.md`; `docs/history/CHANGELOG.md`; `DEPLOYMENT.md` and
 `OPERATIONS.md` under each of the six units (the `apps/web` and `services/research` READMEs seed
 theirs); `AGENTS.md` under `apps/web`, `services/ingest-bot`, `services/notifier`,

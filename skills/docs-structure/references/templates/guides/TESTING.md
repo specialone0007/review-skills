@@ -16,7 +16,7 @@
 
 ## What CI runs
 
-*The jobs that run tests and on which events. From the workflow files.*
+*Every workflow: its event (push, pull request, schedule, manual), its jobs, and which of them gate a merge. From the workflow files. A nightly sync or deploy workflow lives here too; JOBS holds only what the code itself schedules.*
 
 ## Coverage and gaps
 

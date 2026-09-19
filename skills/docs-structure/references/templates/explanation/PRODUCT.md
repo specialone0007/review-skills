@@ -1,6 +1,6 @@
 # Product
 
-> **This document owns:** what the product is, who it is for, where it is going, and what it has said no to. *(skeleton, write me)*
+> **This document owns:** what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. Where it is going is ROADMAP's. *(skeleton, write me)*
 
 *Read this if you want to know what this is becoming and why.*
 
@@ -8,7 +8,7 @@
 
 ## What it is becoming
 
-*One paragraph a new teammate can repeat on a call. Present tense for what exists, future tense for what does not, and say which is which.*
+*One paragraph a new teammate can repeat on a call, in the present tense, about what exists. What is planned is ROADMAP's; one line and a link.*
 
 ## Who it is for
 
@@ -16,7 +16,7 @@
 
 ## Core concept
 
-*The one idea everything else hangs on. If the product has a unit — a market, a post, a job — define it here once.*
+*The one idea everything else hangs on, in a paragraph. The nouns themselves are defined once in ONBOARDING's glossary; link the entry rather than redefining it.*
 
 ## How success is measured
 

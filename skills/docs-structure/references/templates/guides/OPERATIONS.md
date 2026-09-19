@@ -1,6 +1,6 @@
 # Operations
 
-> **This document owns:** how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is PIPELINES's. *(skeleton, write me)*
+> **This document owns:** how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is JOBS's. *(skeleton, write me)*
 
 *Read this if you are on call or something is down.*
 
@@ -8,7 +8,7 @@
 
 ## Health
 
-*Every health or readiness endpoint and what it checks. From the configs and route files. A library or a repo nothing runs says in one sentence that it is not operated, and the doc ends there. In a unit's own OPERATIONS: link the root doc's rows for this unit and add only what is unit-specific.*
+*Every health or readiness endpoint and what it checks. From the configs and route files. A library or a repo nothing runs says in one sentence that it is not operated, and the doc ends there. In a monorepo the root doc owns the table of every unit's health route; a unit's own OPERATIONS links its row and adds only what is unit-specific.*
 
 ## Alerts
 

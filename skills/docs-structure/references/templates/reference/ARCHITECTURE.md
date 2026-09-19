@@ -12,7 +12,7 @@
 
 ## Containers
 
-*One row per deployable unit: name, language and runtime, what it owns, its port or entry point, what it must never do. A text diagram of the arrows between them, each arrow labelled with the environment name that makes it.*
+*One row per deployable unit: name, language and runtime, what it owns, its entry point, what it must never do. A text diagram of the arrows between them, each arrow labelled with what it carries; the environment name behind an arrow and the port a unit listens on are CONFIGURATION's, link the row.*
 
 ## Building blocks
 

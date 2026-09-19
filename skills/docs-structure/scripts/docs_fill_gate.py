@@ -195,7 +195,7 @@ INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exp
 ADR_STATUS = re.compile(r"^>\s*[*]{2}Status[:][*]{2}\s*(proposed|accepted|rejected|deprecated|superseded)\b.*[*]{2}Date[:][*]{2}\s*\d{4}-\d{2}-\d{2}", re.I)
 ADR_SECTIONS = ("Context", "Options", "Decision", "Consequences")
 INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.*?)|(.*?))\s*$")
-INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
+INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|none \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
 AGENT_MAX_LINES = 40
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
@@ -826,7 +826,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         for i_, l in enumerate(lines, start=1):
             m_ = INDEX_LINE.match(l)
             if m_ and not INDEX_STATE.match((m_.group(4) or "").strip("*` ").lower()):
-                add("G13", i_, "an index line ends with its state: ' - skeleton', ' - draft', ' - unreviewed', ' - reviewed YYYY-MM-DD' or ' - stale YYYY-MM-DD'")
+                add("G13", i_, "an index line ends with its state: ' - skeleton', ' - draft', ' - unreviewed', ' - reviewed YYYY-MM-DD', ' - none YYYY-MM-DD' or ' - stale YYYY-MM-DD'")
     # G14: the agent file is read by every agent on every run; past forty lines it is a document,
     # and documents have an index to live in
     if name.upper() == "AGENTS.MD":

@@ -16,7 +16,7 @@ shaped like an `llms.txt` file so an agent can parse it without reading the fold
 ```
 README.md                       front door, fixed sections: what it is, quickstart, Start here, layout, commands link, config link, status
 AGENTS.md                       for coding agents: the commands with their source, conventions, gotchas; forty lines at most
-CLAUDE.md                       one line, "@AGENTS.md", when Claude Code is in use
+CLAUDE.md                       one line, "@AGENTS.md", written when none exists and a .claude/ folder does
 docs/
   INDEX.md                      the map: every doc, one line each, one section per bucket
   structure.json                the manifest
@@ -38,9 +38,9 @@ docs/
     INTEGRATIONS.md
     SECURITY.md
     DESIGN_SYSTEM.md
+    JOBS.md
   explanation/                  UNDERSTAND - why it is the way it is
     PRODUCT.md | OVERVIEW.md
-    PIPELINES.md
     decisions/
       README.md
       ADR-0001-<slug>.md
@@ -102,7 +102,8 @@ organise step does the moves and rewrites inbound links.
 
 Every doc keeps the template grammar: an H1, a `> **This document owns:** ...` line, a
 `Read this if you ...` line, the `<!-- concern: x; fill: ... -->` comment, then H2 sections each with
-one italic guidance line. "Earned by" names the inventory evidence; `always` means every repository
+one italic guidance line. The root files, the decision record and the record files (CHANGELOG,
+ROADMAP, TASKLIST, LOG) break it on purpose, as `structure.md` § Init lists. "Earned by" names the inventory evidence; `always` means every repository
 with code. The fill keys are the inventory keys the section drafts are allowed to cite.
 
 ### Root
@@ -110,7 +111,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | doc | concern | read this if you | owns | earned by | sections |
 | --- | --- | --- | --- | --- | --- |
 | `README.md` | readme | arrived from anywhere - a person skimming, an agent parsing | what it is, the quickstart (install and run as a checked copy of AGENTS.md's commands, the one repeat the shape allows), the hand-off, the layout, the licence file by name (what it means for a contribution is CONTRIBUTING's); one line and a link for anything else a doc owns | always. Missing: written from the template with the Start-here block in its slot. Existing: fitted into the template order on apply, every line kept, sections a doc owns re-homed with a pointer left behind. Cannot be switched off | What it is · Quickstart · Start here (the block) · Repository layout (table) · Commands (one line + link to AGENTS.md) · Configuration (one line + link) · Status · fill: readme, packages, tree, services, env, ci, tests |
-| `AGENTS.md` | agent | are a coding agent or a new contributor with ten minutes | the commands as the manifests name them, each with its source and with the package manager the lockfile names (pnpm, yarn, bun, npm; uv, poetry, pip); the conventions an agent cannot infer (the rules themselves are CONTRIBUTING's); the preconditions it trips on (the fix is the task's guide's); a link to the index | always, and under every unit of a monorepo that deploys on its own, built from that unit's manifest. A skeleton; the gate never judges its prose, a person finishes it. Cannot be switched off | Commands (one bullet per task, source in brackets) · Conventions · Gotchas · Docs (a link to the index) |
+| `AGENTS.md` | agent | are a coding agent or a new contributor with ten minutes | the commands as the manifests name them, each with its source and with the package manager the lockfile names (pnpm, yarn, bun, npm; uv, poetry, pip); the conventions an agent cannot infer (the rules themselves are CONTRIBUTING's); the preconditions it trips on (the fix is the task's guide's); a link to the index | always, and under every unit of a monorepo that deploys on its own (the one trigger, everywhere in this file), built from that unit's manifest; a unit with no scripts gets the install command and open questions. A skeleton; the gate never judges its prose, a person finishes it. Cannot be switched off | Commands (one bullet per task, source in brackets) · Conventions · Gotchas · Docs (a link to the index) |
 | `CLAUDE.md` | agent | use Claude Code | nothing; it imports AGENTS.md | written only when none exists and a `.claude/` folder does | the single line `@AGENTS.md`; an existing CLAUDE.md with content is left alone and warned |
 
 ### getting-started
@@ -126,7 +127,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | --- | --- | --- | --- | --- | --- |
 | `DEVELOPMENT.md` | develop | change code here every day | the daily loop: the order of run, debug, lint, test, each step a link to AGENTS.md's command; the lint tools and their configs; the common problems (how a change gets in is CONTRIBUTING's) | always | Daily loop · Run and debug · Lint and format · Common problems · fill: packages, tree, ci, tests, env |
 | `DEPLOYMENT.md` | deploy | ship it | every deployable unit, where its example env file lives and how values reach it (the names are CONFIGURATION's), the steps, the rollback | always; with no deploy config in the repo the doc says where deployment is configured instead (an open question until a person answers) | Units · Environment per unit · Deploy steps · Rollback · Known traps · fill: services, env, ci, ops, decisions. Monorepo root: the map variant (Units · Order · Rollback), each unit's own guide holding the steps |
-| `OPERATIONS.md` | operate | are on call or something is down | health checks, alerts, what to do when a thing breaks, who is on call (what runs unattended is PIPELINES's) | always; the health route or alert file found is the evidence, and a library says it is not operated | Health · Alerts · When something is wrong · On call · fill: ops, jobs, services, env, decisions |
+| `OPERATIONS.md` | operate | are on call or something is down | health checks, alerts, what to do when a thing breaks, who is on call (what runs unattended is JOBS's) | always; the health route or alert file found is the evidence, and a library says it is not operated | Health · Alerts · When something is wrong · On call · fill: ops, jobs, services, env, decisions |
 | `TESTING.md` | testing | are writing or running tests | runners, layout, how to run one file or in watch mode (the test command itself is AGENTS.md's), what CI runs including scheduled workflows, gaps | always; with no runner or tests folder the doc says so under Coverage and gaps, which is the fact a newcomer needs most | Runners and layout · Running tests · What CI runs · Coverage and gaps · fill: tests, ci, packages |
 | `CONTRIBUTING.md` | contribute | want to land a change | branch and commit rules, the pull request, review, the licence (what CI runs is TESTING's) | always; how a change gets in exists in every team repo, public or private - with no LICENSE the doc says the repo is private and takes no outside contributions. The root keeps a one-line `CONTRIBUTING.md` pointing here, so GitHub surfaces it | Before you start · Making a change · Review · fill: tree, ci, tests, packages |
 | `RELEASING.md` | release | cut a version | versioning, the release steps, what a release contains, rolling one back | any kind: a publish or release script or workflow, or a release tool's config (release-please, semantic-release, changesets, standard-version) - an application that cuts versions needs it as much as a library | Versioning · Release steps · What a release contains · Rolling back a release · fill: release, packages, ci, decisions |
@@ -143,6 +144,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | `PUBLIC_API.md` | exports | import it | install and import, the exported surface, usage, stability | library kind with a public entry | Install and import · Exported surface · Usage · Stability and versioning · fill: exports, packages, tests, decisions |
 | `INTEGRATIONS.md` | integrations | need to know what talks to whom outside the repo | one section per third party: what for, which unit, what breaks when it is down (the env names are CONFIGURATION's; each section links its rows) | always; the SDKs and outward env names found are listed, and a repo that talks to nothing says so | Integrations (one H3 per third party: purpose, unit, link to its names, failure mode) · Not integrated · fill: integrations, env, services |
 | `SECURITY.md` | security | handle auth, secrets or personal data | authentication, authorisation and roles, where secrets live and how they reach a unit (which names exist is CONFIGURATION's), data classes, known gaps | always; the auth library, middleware, roles and secret-shaped names found are the evidence, and a repo with no authentication says so. The name is GitHub's for a vulnerability policy only at the root or `docs/`; under `reference/` it is not surfaced, so the two do not collide | Authentication · Authorisation and roles · Secrets handling · Data classes · Known gaps · fill: auth, env, routes, schema |
+| `JOBS.md` | pipelines | need to know what runs when nobody clicks | every job, queue and schedule the code itself runs, the data flows between them, the retry design (what a person does when a job is stuck is OPERATIONS's) - reference, looked up, not read for its why | a queue, worker or scheduler library, or cron in the code - a scheduled CI workflow is TESTING's and earns nothing here | Jobs · Queues · Schedules · Data flows · Failure and retry · fill: jobs, ops, services, env |
 | `DESIGN_SYSTEM.md` | design | build a screen | tokens, the component library, patterns, do and do not, the pre-flight checklist | a frontend framework, OR three or more frontend signals (tokens, a `ui/` or `components/` folder, a styles setup); one vendored stylesheet alone does not count | Foundations · Components - reuse, do not rebuild · Patterns · Do and do not · Pre-flight checklist · fill: frontend, packages, tree |
 
 Three docs share a slot: a repository gets `API.md`, `CLI.md` or `PUBLIC_API.md` for the surfaces it
@@ -154,16 +156,15 @@ has, and all of them when it has all three.
 | --- | --- | --- | --- | --- | --- |
 | `PRODUCT.md` | purpose | want to know what this is becoming | what it is becoming, who it is for, the core concept, how success is measured, principles, what was said no to (what is next is ROADMAP's) | always (application and monorepo kinds) | What it is becoming · Who it is for · Core concept · How success is measured · Principles · What we said no to · fill: readme, packages, routes, decisions, tree |
 | `OVERVIEW.md` | purpose | evaluate whether to use it | what it does, who uses it and how, concepts, non-goals, principles | always (library, CLI or infrastructure kind); replaces PRODUCT | What it does · Who uses it, and how · Concepts · Non-goals · Principles · fill: readme, packages, exports, cli, decisions, tree |
-| `PIPELINES.md` | pipelines | need to know what runs when nobody clicks | jobs, queues, schedules, the data flows between them, the retry design (what a person does when a job is stuck is OPERATIONS's) | a queue, worker or scheduler library, or cron in the code - a scheduled CI workflow is TESTING's and earns nothing here | Jobs · Queues · Schedules · Data flows · Failure and retry · fill: jobs, ops, services, env |
-| `decisions/README.md` | decisions | want to know why | the list of every decision record, newest first | an existing `adr`, `adrs`, `rfcs` or `decisions` folder, or three or more decision-like commits - a commit whose subject contains one of `decid`, `switch`, `migrat`, `replace`, `remov`, `adopt`, `revert`, `drop`, `deprecat`, `instead` (the inventory's `DECISION_RE`) | a list in the index grammar; the folder's inside index |
-| `decisions/ADR-NNNN-<slug>.md` | decisions | are about to re-decide something | one decision: context, options, the decision, consequences | the same; apply writes one skeleton record (`ADR-0001-first-decision.md`), never one per commit - the regex that earns the folder also matches "remove unused import" | status and date line · Context · Options · Decision · Consequences |
+| `decisions/README.md` | decisions | want to know why | the list of every decision record, newest first | an existing `adr`, `adrs`, `rfcs` or `decisions` folder, or the manifest pin `requiredDocs: {"decisions": true}`. Decision-like commits (subject containing `decid`, `switch`, `migrat`, `replace`, `remov`, `adopt`, `revert`, `drop`, `deprecat`, `instead`) are advice in the inventory, never a trigger: `migrat` matches "add migration for users" | a list in the index grammar; the folder's inside index |
+| `decisions/ADR-NNNN-<slug>.md` | decisions | are about to re-decide something | one decision: context, options, the decision, consequences | the same; apply writes one skeleton record (`ADR-0001-first-decision.md`), never one per commit | status and date line · Context · Options · Decision · Consequences |
 
 ### plans
 
 | doc | concern | read this if you | owns | earned by | sections · fill |
 | --- | --- | --- | --- | --- | --- |
-| `ROADMAP.md` | plan | want to know what is next | the ordered list of what is planned, dated; PRODUCT and OVERVIEW link here and carry no roadmap of their own | a doc with plan, plans, roadmap or milestones in its name, or a `plans` or `roadmap` folder - in effect opt-in: a repository that plans in files says so by having one | Now · Next · Later · Done · never drafted as checkboxes |
-| `TASKLIST.md` + `tasklist/phase-NN-<slug>.md` | tasks | are executing the plan | the phase table and the living checklists | a doc with todo, backlog, tasklist or tasks in its name, or a `tasklist` or `tasks` folder; its own concern, so a repository with a TODO and no roadmap gets one doc, not two | the phase table with counts (R9) and one file per phase |
+| `ROADMAP.md` | plan | want to know what is next | the ordered list of what is planned, dated; PRODUCT and OVERVIEW link here and carry no roadmap of their own | a doc whose file name (not its path) contains the whole word plan, plans, roadmap or milestones, or a `plans` or `roadmap` folder - in effect opt-in: a repository that plans in files says so by having one | Now · Next · Later · Done · never drafted as checkboxes |
+| `TASKLIST.md` + `tasklist/phase-NN-<slug>.md` | tasks | are executing the plan | the phase table and the living checklists | a doc whose file name contains the whole word todo, backlog, tasklist or tasks, or a `tasklist` or `tasks` folder; its own concern, so a repository with a TODO and no roadmap gets one doc, not two | the phase table with counts (R9) and one file per phase |
 
 ### history
 
@@ -182,7 +183,7 @@ the templates are written to; the doc that links keeps one line and a link and n
 | the commands (install, run, test, lint, build) | `AGENTS.md` § Commands | README § Commands is one line and a link; DEVELOPMENT § Daily loop names the order of a working day and links |
 | branch, commit and PR rules; review | `CONTRIBUTING.md` | DEVELOPMENT has no Branch and PR section; AGENTS.md § Conventions holds only what an agent gets wrong without being told |
 | what CI runs, the checks a PR must pass | `TESTING.md` § What CI runs | CONTRIBUTING § Making a change links it; there is no Checks section |
-| cron, queues, workers, schedules | `PIPELINES.md` | OPERATIONS has no Scheduled jobs section; its Health and Alerts link the jobs they watch |
+| cron, queues, workers, schedules | `JOBS.md` | OPERATIONS has no Scheduled jobs section; its Health and Alerts link the jobs they watch |
 | the units, the environment per unit, the deploy steps | `DEPLOYMENT.md` | ARCHITECTURE § Deployment view is the topology only, one line per container, and links |
 | how a caller proves who it is, roles | `SECURITY.md` | API § Calling it says which header a call carries and links |
 | environment names | `CONFIGURATION.md` | INTEGRATIONS links each third party's rows; SECURITY § Secrets handling says where secrets live, not which names exist |
@@ -191,10 +192,15 @@ the templates are written to; the doc that links keeps one line and a link and n
 | the install and run commands, repeated | `AGENTS.md` § Commands | the one exception: README § Quickstart and SETUP § Install / § Run it carry a checked copy, so a reader can start without a hop; R11 diffs the copy against AGENTS.md. TESTING § Running tests, DEVELOPMENT § Daily loop and § Lint and format, DEPLOYMENT § Units link |
 | environment names, in the deploy and CLI docs | `CONFIGURATION.md` | DEPLOYMENT § Environment per unit says where the example file lives and how values reach the unit; CLI § Configuration names the config files; both link the names |
 | a symptom and its fix | the guide of the task: SETUP § If it fails, DEVELOPMENT § Common problems, DEPLOYMENT § Known traps, OPERATIONS § When something is wrong | AGENTS.md § Gotchas holds the precondition in one line and links the fix |
-| what a person does when a job is stuck | `OPERATIONS.md` § When something is wrong | PIPELINES § Failure and retry holds the retry design and links |
-| a scheduled CI workflow | `TESTING.md` § What CI runs | PIPELINES § Schedules lists cron in the code only |
+| what a person does when a job is stuck | `OPERATIONS.md` § When something is wrong | JOBS § Failure and retry holds the retry design and links |
+| a scheduled CI workflow | `TESTING.md` § What CI runs | JOBS § Schedules lists cron in the code only |
 | why something was said no to | `decisions/` | PRODUCT § What we said no to, OVERVIEW § Non-goals and INTEGRATIONS § Not integrated hold one line and a link each |
-| the licence | README § Status names the file | CONTRIBUTING § Before you start says what it means for a contribution |
+| the licence | README § Status names the file | CONTRIBUTING § Before you start says what it means for a contribution, and where to report a vulnerability |
+| the health route | `OPERATIONS.md` § Health (in a monorepo the root doc's table; a unit's doc links its row) | DEPLOYMENT § Units has no health column; DEVELOPMENT § Run and debug links |
+| the port a unit listens on | `CONFIGURATION.md` (the row; stated in prose against its source) | ARCHITECTURE § Containers and DEVELOPMENT § Run and debug link |
+| rolling back | `DEPLOYMENT.md` § Rollback | RELEASING § Rolling back a release says only whether a published version can be pulled |
+| the vocabulary | `ONBOARDING.md` § Glossary | PRODUCT § Core concept and OVERVIEW § Concepts link the entries |
+| the data stores | `DATA_MODEL.md` § Stores | DEPLOYMENT § Units lists deployable units only |
 
 ## Scenarios: what each kind of repository earns
 
@@ -204,10 +210,10 @@ what a typical repository of each kind ends up with, so a reader can sanity-chec
 
 | kind | always (every repository with code) | earned by evidence | never |
 | --- | --- | --- | --- |
-| application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT, OPERATIONS, CONTRIBUTING, PRODUCT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY (sixteen with the index and the manifest) | DATA_MODEL, API, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
-| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT (one line: published, not deployed), OPERATIONS (one line: not operated), CONTRIBUTING, OVERVIEW, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY | RELEASING, PUBLIC_API, CHANGELOG, decisions/ | PRODUCT, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
+| application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT, OPERATIONS, CONTRIBUTING, PRODUCT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY (sixteen with the index and the manifest) | DATA_MODEL, API, DESIGN_SYSTEM, JOBS, RELEASING, decisions/, CHANGELOG, plans/ | OVERVIEW, PUBLIC_API, CLI (unless it also ships one) |
+| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT (one line: published, not deployed), OPERATIONS (one line: not operated), CONTRIBUTING, OVERVIEW, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY | RELEASING, PUBLIC_API, CHANGELOG, decisions/ | PRODUCT, DESIGN_SYSTEM, JOBS, API (its own examples and tests are not routes) |
 | cli | as library, with CLI instead of PUBLIC_API; both when both entries exist | | |
-| monorepo | the application set at the root as the map; per unit: its own README.md (a person's, seeds only) | per unit with a Dockerfile or deploy config: `<unit>/docs/DEPLOYMENT.md` and `<unit>/AGENTS.md`; per unit with health or cron: `<unit>/docs/OPERATIONS.md`; the root DEPLOYMENT becomes the map variant (a table of units and links); the root OPERATIONS keeps its ordinary template and links the unit docs under Health | a unit never owns architecture, product, security or data; those stay at the root |
+| monorepo | the application set at the root as the map; per unit: its own README.md (a person's, seeds only) | per unit with a Dockerfile or deploy config: `<unit>/docs/DEPLOYMENT.md` and `<unit>/AGENTS.md`; per unit with health or cron: `<unit>/docs/OPERATIONS.md`; the root DEPLOYMENT becomes the map variant (a table of units and links); the root OPERATIONS keeps its ordinary template and owns the table of every unit's health route, which the unit docs link | a unit never owns architecture, product, security or data; those stay at the root. A unit doc that reads like one of those (`server/docs/S3-STORAGE.md`) is never moved and never covers the root concern: it is listed in the index as unreviewed, and the root doc links it or absorbs it by hand |
 | infrastructure | the same sixteen, with OVERVIEW instead of PRODUCT (it has users, not a product it is becoming); DEVELOPMENT is the loop of changing the manifests and applying them | decisions/, CHANGELOG | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
 | docs-only | nothing - the README, index and agent file are always-on for repositories with code | only what the manifest pins | everything else |
 
@@ -215,9 +221,9 @@ Worked examples from real runs, so the numbers mean something:
 
 - A three-service application with a Prisma schema, 130 routes, a React frontend, `better-auth`,
   `bullmq` and the S3, Redis, OpenAI and Resend SDKs, 25 decision-like commits and one tag: the
-  sixteen, plus DATA_MODEL, API, DESIGN_SYSTEM, PIPELINES, decisions/ and CHANGELOG, plus a
-  DEPLOYMENT under each of three units, OPERATIONS under two, and an AGENTS.md under each unit with
-  scripts. Every bucket folder but `plans/` exists.
+  sixteen, plus DATA_MODEL, API, DESIGN_SYSTEM, JOBS, RELEASING and CHANGELOG, plus a
+  DEPLOYMENT and an AGENTS.md under each of three units and OPERATIONS under two. Every bucket
+  folder but `plans/` exists; decisions/ waits for a folder or a pin.
 - A two-route Python service with alembic and a CLI entry: the sixteen plus DATA_MODEL, API and
   CLI, each in its bucket: `docs/explanation/PRODUCT.md`, `docs/guides/DEVELOPMENT.md`,
   `docs/getting-started/{SETUP,ONBOARDING}.md`, `docs/reference/{ARCHITECTURE,DATA_MODEL,API,CLI}.md`.
@@ -235,7 +241,7 @@ it:
 > <one sentence: what the project is, taken from the README's first paragraph>
 
 Pick the one file you need here; do not read the folder. Every doc says what it owns under its title.
-State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.
+State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD`, `stale YYYY-MM-DD`.
 
 ## Getting started
 
@@ -263,11 +269,12 @@ State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale
 
 The index lists every Markdown file the repository tracks outside dependencies, dot-folders, build output, skill trees and fixtures: a doc the shape placed by its concern, a unit's own docs (`server/docs/S3-STORAGE.md`), a README beside a service, a doc under `ops/` - each unclaimed one as `unreviewed` under Units or Root files, so "one hop from the index" holds for all of them. The proposed manifest adds each unit's own docs folder to the roots, so the next run checks them too.
 
-Rules the checker reads from it: one line per doc, a dash, the doc as a Markdown link to its relative path, a colon, the owner text, a dash and the state (the example above abbreviates the links to their titles);
+`none YYYY-MM-DD` is the state of an always-on doc a person confirmed says nothing applies here (a library's DEPLOYMENT, a repo with no third party), so an agent knows there is nothing to read without the hop. A changelog pinned at the root lists under History with a root link. Rules the checker reads from it: one line per doc, a dash, the doc as a Markdown link to its relative path, a colon, the owner text, a dash and the state (the example above abbreviates the links to their titles);
 the bucket H2s in this fixed order, a bucket omitted when empty; `Units` for unit READMEs, unit
 AGENTS.md files and unit docs; `Root files` for Markdown at the repository root that is not a
 community file. R1 counts a doc reachable when the index lists it or the inside index of `decisions/`,
-`research/` or a split parts folder does. R14 reads the trailing state. A table-shaped index is an R15
+`research/`, `tasklist/` (its sibling `TASKLIST.md`) or a split parts folder does. R9 checks the
+tasklist counts through the manifest's `counts` entry, which the proposed manifest carries. R14 reads the trailing state. A table-shaped index is an R15
 finding with the rewrite as the fix.
 
 ## The agent file grammar
@@ -303,8 +310,8 @@ The agent file owns the commands: it is the first file an agent reads, and a com
 homes drifts, so the README's Commands section is one line and a link here. Evidence for the
 skeleton: task-runner targets, package scripts, CI job commands, the test runner. Each command
 carries its source bracket like any draft. The checker (R11) warns when the file is missing, over
-`agentFileMaxLines` (default 40), or repeats a README paragraph verbatim. In a monorepo a unit whose
-manifest has scripts of its own earns `<unit>/AGENTS.md`, built from that manifest alone with the
+`agentFileMaxLines` (default 40), or repeats a README paragraph verbatim. In a monorepo every unit
+that deploys on its own earns `<unit>/AGENTS.md`, built from that unit's manifest alone with the
 commands as run from the unit, and the nearest file wins. `CLAUDE.md` is written only when none
 exists and `.claude/` does, as the single line `@AGENTS.md`; an existing one with content is left
 alone and gets a warning that it should import the agent file rather than duplicate it.
@@ -335,19 +342,22 @@ alone and gets a warning that it should import the agent file rather than duplic
 <what becomes easier, what becomes harder, what is now owed>
 ```
 
-`decisions/README.md` lists every record newest first in the index grammar. A decision-like commit
-is one whose subject contains `decid`, `switch`, `migrat`, `replace`, `remov`, `adopt`, `revert`,
-`drop`, `deprecat` or `instead` (the inventory's `DECISION_RE`); three of them, or an existing
-`adr`, `adrs`, `rfcs` or `decisions` folder, earn the bucket. Each such commit becomes one record
-skeleton with the commit as its source; the record is a draft until a person confirms it. The fill gate checks the status
+`decisions/README.md` lists every record newest first in the index grammar. An existing `adr`,
+`adrs`, `rfcs` or `decisions` folder, or a manifest pin, earns the bucket; the inventory's
+decision-like commits (subject containing `decid`, `switch`, `migrat`, `replace`, `remov`,
+`adopt`, `revert`, `drop`, `deprecat` or `instead`) are advice for the person who fills the first
+record, never a trigger. Apply writes one skeleton record; the fill step may draft one record per
+commit a person picks, each a draft until confirmed. The fill gate checks the status
 line and the four sections (G13). `decisions/` is a live folder, not a record folder: its files are
 edited (status changes), so R6 and R7 apply in full.
 
 ## The README
 
 One file, two readers. A person skims the headings; an agent jumps to a heading by name and reads a
-table. So the README has fixed H2s in a fixed order, facts in tables rather than prose, every
-command verbatim with its source, and one line plus a link for anything a doc owns:
+table. So the README has fixed H2 names - in a fixed order when written whole; an existing README keeps
+its own order and gets the lacking ones after its text - facts in tables rather than prose, the
+install and run commands as a checked copy of AGENTS.md's, and one line plus a link for anything
+a doc owns:
 
 ```markdown
 # <project>
@@ -419,6 +429,6 @@ guidance lines the restructure itself adds.
   table above says who owns each fact two docs used to share.
 - A path that depends on anything but the concern: every doc sits in its bucket folder, always.
 - A second index in the README, a routing block in the agent file, or any list of docs outside
-  `docs/INDEX.md` and the inside indexes of `decisions/`, `research/` and split folders.
+  `docs/INDEX.md` and the inside indexes of `decisions/`, `research/`, `tasklist/` and split folders.
 - Editing history. A version once cut in the changelog is not rewritten; a plan lives in `plans/`,
   where it is edited as work moves.

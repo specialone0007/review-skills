@@ -45,7 +45,7 @@ AUTO_MARK = "*(auto, review me)*"
 SYNONYMS: dict[str, set[str]] = {
     "what it is": {"about", "overview", "introduction", "description", "purpose", "summary"},
     "quickstart": {"quick start", "getting started", "setup", "install", "installation", "usage", "running", "run"},
-    "repository layout": {"structure", "layout", "folders", "project structure", "directory", "tree", "monorepo"},
+    "repository layout": {"structure", "layout", "folders", "project structure", "directory", "tree", "monorepo", "services", "units", "packages", "apps", "components", "what is where", "workspace"},
     "commands": {"scripts", "usage", "cli", "make", "npm scripts", "tasks"},
     "configuration": {"config", "environment", "env", "variables", "settings"},
     "status": {"license", "licence", "version", "badges", "ci"},
@@ -88,7 +88,7 @@ SYNONYMS: dict[str, set[str]] = {
     "calling it": {"authentication", "auth", "base url", "getting started", "usage", "headers"},
     "principles": {"roadmap and principles", "values", "rules"},
     "what runs where": {"deployment", "deployment view", "hosting", "environments"},
-    "quality and risks": {"risks", "open questions", "tradeoffs", "trade-offs", "decisions", "key decisions", "non-functional"},
+    "quality and risks": {"risks", "open questions", "tradeoffs", "trade-offs", "non-functional"},
     "variables by unit": {"environment variables", "variables", "env", "settings", "environment"},
     "files": {"config files", "configuration files"},
     "flags": {"feature flags", "toggles", "options"},
@@ -277,22 +277,27 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
         own = owner.rstrip()
         if "(auto, review me)" not in own and "(draft, review me)" not in own and "(skeleton" not in own:
             own = own + " " + AUTO_MARK
-        out.append(own)
     else:
-        out.append((t_owner.replace("*(skeleton, write me)*", AUTO_MARK).rstrip()) if t_owner else f"> **This document owns:** {title.lstrip('# ').strip()} {AUTO_MARK}")
-    out.append("")
+        own = (t_owner.replace("*(skeleton, write me)*", AUTO_MARK).rstrip()) if t_owner else f"> **This document owns:** {title.lstrip('# ').strip()} {AUTO_MARK}"
     body_lead = [l for l in lead_body if not l.strip().startswith("<!-- concern:")]
     while body_lead and not body_lead[0].strip():
         body_lead.pop(0)
     while body_lead and not body_lead[-1].strip():
         body_lead.pop()
+    if defer_empty and body_lead:
+        # the README template opens with the one-sentence intro, then the owner line
+        out.extend(body_lead)
+        out.append("")
+        body_lead = []
+    out.append(own)
+    out.append("")
     if t_comment:
         out.append(t_comment)
         out.append("")
     if body_lead:
         out.extend(body_lead)
         out.append("")
-    added_lines = [out[2]] + ([t_comment] if t_comment else [])
+    added_lines = [own] + ([t_comment] if t_comment else [])
     deferred: list[tuple[str, str]] = []
     filled = {h for h, _ in tsecs if placed.get(h) or (extra_in or {}).get(h)}
     # the block goes after the section the template names; when that section is deferred, the
@@ -319,6 +324,14 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
             continue
         if len(got) == 1 and not extra:
             body = got[0]["body"]
+        elif len(got) == 1 and ds.slug(got[0]["heading"]) == ds.slug(h):
+            body = list(got[0]["body"])
+            if body and body[-1].strip():
+                body.append("")
+            for lines_ in extra:
+                body.extend(lines_)
+                if body and body[-1].strip():
+                    body.append("")
         else:
             body = []
             for s_ in got:
@@ -472,6 +485,11 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
             body_text = "\n".join(s_["body"])
             if len([l for l in s_["body"] if l.strip()]) <= 1:
                 continue  # a line and a link is already the shape asked for
+            slot, _amb = best_template_section(s_["heading"], ds.template_sections(readme_template))
+            if slot is not None and ds.slug(slot) not in ("configuration", "commands"):
+                continue  # the README's own slot (a Services table is the Repository layout); it is renamed in place, never moved out
+            # the Configuration and Commands slots are one line and a link by the template's own rule, so a
+            # table under either still moves to the doc that owns it
             best, best_score = None, 0
             bmask0 = fence_mask(s_["body"])
             prose = "\n".join(l for i, l in enumerate(s_["body"]) if not bmask0[i])
