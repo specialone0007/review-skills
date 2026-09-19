@@ -930,7 +930,7 @@ CLAIM_BEHAVIOUR = re.compile(r"\b(default|required|must|retries|roles?|only when
 CLAIM_PATH = re.compile(r"(?<![\w/:.])(?:\./)?(?=[^\s]*[A-Za-z])[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z]{1,5}\b")
 # `3.11`, `v2.0`, and a bare major with a runtime name or the words version/release next to it
 # (`Node >= 20`, `pnpm 9`); `-3.0` inside a licence id is not a version.
-CLAIM_VERSION = re.compile(r"(?<![-\w.])v?\d+\.\d+(?:\.\d+)?\b|\b(?:Node(?:\.js)?|Python|Go|Rust|pnpm|npm|yarn|Next(?:\.js)?|React|Django|Rails|version|release)\s*(?:>=|≥|v)?\s*(\d+)\b")
+CLAIM_VERSION = re.compile(r"(?<![A-Za-z]-)(?<![\w.])v?\d+\.\d+(?:\.\d+)?\b|\b(?:Node(?:\.js)?|Python|Go|Rust|pnpm|npm|yarn|Next(?:\.js)?|React|Django|Rails|version|release)\s*(?:>=|≥|v)?\s*(\d+)(?![.\d])")
 CLAIM_CMD = re.compile(r"^\s*(?:\$\s*)?(?:\./|npm|pnpm|yarn|bun|npx|make|python3?|pip3?|uv|poetry|node|deno|bash|sh|go|cargo|dotnet|docker|kubectl|helm|terraform|git|curl|gem|bundle|mix|ruby|php|java|mvn|gradle|cp|mv|mkdir|chmod|export|source|psql|redis-cli|railway|vercel|flyctl|gh)(?=\s|$)")
 CLAIM_PORT = re.compile(r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{2,5})\b|(?<![\d.:])\(?:(\d{4,5})\)?(?![\d.])")
 
