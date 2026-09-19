@@ -1599,15 +1599,28 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 # production" for the deploy map): the skeleton names it as the text to fold in; a named
                 # section beats a README that merely has a section
                 kws_ = {tokens(k).strip() for k in keywords}
-                for d in sorted(candidates, key=lambda d_: doc_state(d_) in ("draft", "skeleton")):
-                    if not scope(d) or d.rel == front_rel or d.path.name in ("CLAUDE.md", AGENT_FILE):
-                        continue
-                    hit = next((t for _, lvl, t in d.headings if lvl in (3, 4) and any(f" {k} " in tokens(t) for k in kws_ if len(k) > 3)), None)
-                    if hit:
-                        seed, how, near = d.rel, f"{d.rel} has a section to seed from", None
-                        matched_seed_heading = hit
-                        break
-            if not misplaced and not r["unit"] and units:
+
+                def section_seed(drafts: bool):
+                    for d in candidates:
+                        if d.path.name in ("CLAUDE.md", AGENT_FILE) or d.rel == front_rel:
+                            continue
+                        if (doc_state(d) in ("draft", "skeleton")) != drafts:
+                            continue
+                        # a person's section at the root scope, or a unit README's section (a unit doc
+                        # never covers a root concern, but its section is the text to seed from)
+                        in_unit = any(d.rel.startswith(u + "/") for u in units)
+                        if not scope(d) and not (in_unit and d.path.name.upper().startswith("README")):
+                            continue
+                        hit = next((t for _, lvl, t in d.headings if lvl in (2, 3, 4) and not is_start_here_heading(t)
+                                    and any(f" {k} " in tokens(t) for k in kws_ if len(k) > 3)), None)
+                        if hit:
+                            return d.rel, hit
+                    return None, None
+
+                found, hit = section_seed(False)
+                if found:
+                    seed, how, near, matched_seed_heading = found, f"{found} has a section to seed from", None, hit
+            if not misplaced and not seed and not r["unit"] and units:
                 # a unit's own doc that reads like this concern: a unit never owns a root concern, so it
                 # is not a cover and not a move, but the skeleton and the index name it as the text to fold in
                 unit_hits = []
@@ -1620,6 +1633,11 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 if unit_hits:
                     unit_hits.sort(key=lambda x: -x[0])
                     near = unit_hits[0][1]
+            if not misplaced and not seed and not near and not r["unit"]:
+                # last, a section inside a doc the tool drafted (a verified list a person pasted into it)
+                found, hit = section_seed(True)
+                if found:
+                    seed, how, matched_seed_heading = found, f"{found} has a section to seed from", hit
             if not misplaced and not near:
                 stem = Path(r["file"]).stem.split("_")[0].lower()
                 aliases = {a for a in CONCERN_ALIASES.get(cid, ())}
