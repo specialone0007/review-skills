@@ -945,7 +945,7 @@ def claims_for(text: str) -> list[dict]:
         if kind != "env":
             # `export API_KEY=...` in a fence, or a backticked `KEY=value`: the value never reaches the transcript.
             claim = re.sub(r"([A-Z][A-Z0-9_]{2,}=)\"[^\"]*\"", lambda m: m.group(1) + "<value redacted>", claim)
-            claim = re.sub(r"([A-Z][A-Z0-9_]{2,})=\S+", lambda m: m.group(1) + "=<value redacted>", claim)
+            claim = re.sub(r"([A-Z][A-Z0-9_]{2,})=(?!<value)\S+", lambda m: m.group(1) + "=<value redacted>", claim)
             claim = re.sub(r"(://[^\s/@]*:)[^\s@]+@", lambda m: m.group(1) + "<value redacted>@", claim)
             claim = re.sub(r"((?:Bearer|Basic|Token|token|--password|--token|--api-key|--secret|--pass|--auth|--key|-u)[\s=]+)\S+", lambda m: m.group(1) + "<value redacted>", claim)
             claim = re.sub(r"(\s-p)\s*\S+", lambda m: m.group(1) + " <value redacted>", claim)
