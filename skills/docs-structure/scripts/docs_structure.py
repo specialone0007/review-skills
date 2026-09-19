@@ -2027,7 +2027,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     lines += ["", "## Conventions", "", "- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)"] + ([fold] if fold else [])
     lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([fold] if fold else [])
     lines += [
-              "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
+              "", "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
     return "\n".join(lines) + "\n"
 
 

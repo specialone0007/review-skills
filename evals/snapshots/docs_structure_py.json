@@ -468,8 +468,8 @@
     "files": {
       "AGENTS.md": {
         "concern": "agent",
-        "content": "# mini-py - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of mini-py, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(draft, review me)* - the commands are read from the manifests; conventions and gotchas are open questions\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)\n\n## Gotchas\n\n- open question: the precondition that costs an afternoon here\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
-        "lines": 18,
+        "content": "# mini-py - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of mini-py, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(draft, review me)* - the commands are read from the manifests; conventions and gotchas are open questions\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)\n\n## Gotchas\n\n- open question: the precondition that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
+        "lines": 19,
         "template": "references/templates/AGENTS.md",
         "why": "agent (always)"
       },

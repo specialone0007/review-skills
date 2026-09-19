@@ -719,7 +719,7 @@ def gate_inventory(repo: Path) -> tuple[set[str], dict[str, set[str]] | None]:
 
 
 
-MOVED_HEADING = re.compile(r"^ {0,3}(#{3,6})[ \t]+.*\(from [^)]+\.(?:md|mdx)\)[ \t]*$")
+MOVED_HEADING = re.compile(r"^ {0,3}(#{2,6})[ \t]+(?:.*\(from [^)]+\.(?:md|mdx)\)|From \S+\.(?:md|mdx))[ \t]*$")
 
 
 def blank_moved(lines: list[str]) -> list[str]:
@@ -877,6 +877,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
     # is a person's prose, never a draft: it is blanked out before the sections are judged, so a
     # README table pasted under a drafted section does not fail G1 for lacking a bracket.
     lines = blank_moved(lines)
+    # the agent file's prose is never judged: its commands are read from the manifests (G14 already
+    # holds it to forty lines) and its conventions and gotchas are a person's, marked or not
+    if Path(rel).name == "AGENTS.md":
+        lines = []
     for heading, start, end in sections(lines):
         body = [l for l in lines[start:end] if l.strip()]
         if not body:
