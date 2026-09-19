@@ -260,6 +260,7 @@
       "weak": false
     },
     {
+      "_seed_text": "docs/limits.md \u00a7 One very long token",
       "applies": "auth library: passport",
       "bucket": "reference",
       "companions": [],
@@ -267,12 +268,12 @@
       "covered_by": null,
       "default_path": "docs/reference/SECURITY.md",
       "extra_seeds": [],
-      "matched_by": "",
-      "matched_heading": null,
+      "matched_by": "docs/limits.md has a section to seed from",
+      "matched_heading": "One very long token",
       "misplaced": null,
       "near_name": null,
       "runner_up": null,
-      "seed": null,
+      "seed": "docs/limits.md",
       "template": "reference/SECURITY.md",
       "unit": null,
       "universal": true,
@@ -490,7 +491,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'security' (the repo has auth library: passport) - apply creates docs/reference/SECURITY.md from the template",
+      "message": "no doc covers 'security' (the repo has auth library: passport; docs/limits.md has a section to seed from) - apply creates docs/reference/SECURITY.md from the template",
       "path": "docs/structure.json",
       "rule": "R12",
       "severity": "P2"
@@ -584,8 +585,8 @@
     "files": {
       "AGENTS.md": {
         "concern": "agent",
-        "content": "# exporter - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of exporter, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(draft, review me)* - the commands are read from the manifests; conventions and gotchas are open questions\n\n## Commands\n\n- install: `npm ci` [package.json]\n- run: `npm run dev:start` [package.json: scripts.dev:start]\n- build: `npm run build` [package.json: scripts.build]\n- test: `npm run test` [package.json: scripts.test]\n\n## Conventions\n\n- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)\n\n## Gotchas\n\n- open question: the precondition that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
-        "lines": 22,
+        "content": "# exporter - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of exporter, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(draft, review me)* - the commands are read from the manifests; conventions and gotchas are open questions\n\n## Commands\n\n- install: `npm ci` [package.json]\n- run: `npm run dev:start` [package.json: scripts.dev:start]\n- build: `npm run build` [package.json: scripts.build]\n- test: `npm run test` [package.json: scripts.test]\n\n## Conventions\n\n- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)\n\n## Gotchas\n\n- open question: the precondition that costs an afternoon here\n- `postinstall` runs on every install: `npm install` executes it [package.json: scripts.postinstall]\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
+        "lines": 23,
         "template": "references/templates/AGENTS.md",
         "why": "agent (always)"
       },
@@ -604,7 +605,7 @@
         "why": "GitHub surfaces a root CONTRIBUTING.md; one line pointing at docs/guides/CONTRIBUTING.md"
       },
       "docs/INDEX.md": {
-        "content": "# exporter docs\n\n> An intentionally defective fixture. See ../README.md for why.\n\n> **This document owns:** the map of every doc in this repository - one line each with what it owns and its state.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`. A doc whose own marker says `auto` was reshaped by the tool and is listed as `unreviewed`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - unreviewed\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is JOBS's. - unreviewed\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. Existing text to fold in: docs/getting-started/SETUP.md \u00a7 Config. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton\n- [Jobs](reference/JOBS.md): what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and the retry design. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. - skeleton\n\n## History\n\n- [Changelog](history/CHANGELOG.md): the user-visible changes by version, newest first. Keep a Changelog headings; never drafted from commits. - unreviewed\n\n## Root files\n\n- [DEPLOY.md](../DEPLOY.md): The README links this file, so a reader reaches it in one hop - unreviewed\n",
+        "content": "# exporter docs\n\n> An intentionally defective fixture. See ../README.md for why.\n\n> **This document owns:** the map of every doc in this repository - one line each with what it owns and its state.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`. A doc whose own marker says `auto` was reshaped by the tool and is listed as `unreviewed`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - unreviewed\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. What runs unattended is JOBS's. - unreviewed\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. Existing text to fold in: docs/getting-started/SETUP.md \u00a7 Config. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. Existing text to fold in: docs/limits.md \u00a7 One very long token. - skeleton\n- [Jobs](reference/JOBS.md): what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and the retry design. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. - skeleton\n\n## History\n\n- [Changelog](history/CHANGELOG.md): the user-visible changes by version, newest first. Keep a Changelog headings; never drafted from commits. - unreviewed\n\n## Root files\n\n- [DEPLOY.md](../DEPLOY.md): The README links this file, so a reader reaches it in one hop - unreviewed\n",
         "lines": 41,
         "template": "INDEX.md (built in)",
         "why": "the central index"
@@ -678,7 +679,8 @@
       },
       "docs/reference/SECURITY.md": {
         "concern": "security",
-        "lines": 27,
+        "content": "# Security\n\n> **This document owns:** how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. *(skeleton, write me)*\n\n*Read this if you handle auth, secrets or personal data.*\n\n<!-- concern: security; fill: auth, env, routes, schema -->\n\n*Existing text to fold in: [docs/limits.md \u00a7 One very long token](../limits.md#one-very-long-token) - written by a person; fill seeds from it, and it stays where it is until a person moves it.*\n\n## Authentication\n\n*The library or scheme, the middleware file, which routes require it. From the dependencies and the route files. When the inventory found no auth library, middleware or roles, one sentence says so with the scan behind it - public by design is a fact worth writing down.*\n\n## Authorisation and roles\n\n*The roles or permissions the schema or code defines, and what each may do. Names from the code.*\n\n## Secrets handling\n\n*What is secret-specific: rotation, who has access, what is never committed. Which names are secrets is CONFIGURATION's secret column (link its rows) and how values reach a unit is DEPLOYMENT's (link How values reach a unit); never a value or a location that holds one.*\n\n## Data classes\n\n*Which tables or fields hold personal or sensitive data, and what that implies for logs, exports and deletion.*\n\n## Known gaps\n\n*Dated bullets with an owner or an open question. A gap written down is one somebody can close.*\n",
+        "lines": 29,
         "template": "references/templates/reference/SECURITY.md",
         "why": "security (auth library: passport)"
       }
@@ -712,7 +714,7 @@
         "- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. Existing text to fold in: docs/getting-started/SETUP.md \u00a7 Config. - skeleton",
         "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
         "- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton",
-        "- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton",
+        "- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. Existing text to fold in: docs/limits.md \u00a7 One very long token. - skeleton",
         "- [Jobs](reference/JOBS.md): what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and the retry design. - skeleton"
       ],
       "Root files": [
@@ -729,7 +731,7 @@
       "- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. Existing text to fold in: docs/getting-started/SETUP.md \u00a7 Config. - skeleton",
       "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
       "- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton",
-      "- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton",
+      "- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. Existing text to fold in: docs/limits.md \u00a7 One very long token. - skeleton",
       "- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. - skeleton",
       "- [Jobs](reference/JOBS.md): what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and the retry design. - skeleton",
       "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - unreviewed",

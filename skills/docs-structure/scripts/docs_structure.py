@@ -418,7 +418,7 @@ CONCERNS = [
     ("agent", None, lambda inv: "always", lambda inv: AGENT_FILE,
      set(), ["CLAUDE.md"]),
     ("setup", "getting-started", lambda inv: "always", lambda inv: "SETUP.md",
-     {"setup", "install", "installation", "getting started", "quickstart", "quick start", "prerequisites", "first run"}, []),
+     {"setup", "install", "installation", "getting started", "quickstart", "quick start", "prerequisites", "first run", "local development", "run locally", "running locally"}, []),
     ("onboarding", "getting-started", lambda inv: "always", lambda inv: "ONBOARDING.md",
      {"onboarding", "glossary", "reading order", "new here", "start here"}, []),
     ("develop", "guides", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
@@ -471,7 +471,7 @@ CONCERNS = [
     ("decisions", "explanation", _decisions, lambda inv: "decisions/README.md",
      {"decisions", "decision records", "adr", "adrs", "architecture decisions", "rfcs"}, ["ADR-0001-first-decision.md"]),
     ("changelog", "history", _changelog, lambda inv: "CHANGELOG.md",
-     {"changelog", "change log", "release notes", "history", "what's new"}, []),
+     {"changelog", "change log", "release notes", "what's new", "releases"}, []),
     ("research", "history", lambda inv: None, lambda inv: "research/LOG.md",
      {"research", "experiments", "experiment", "findings", "lab notebook"}, ["log/YYYY-MM.md"]),
     # Evidence, not habit: a repo that plans in files says so by having one.
@@ -1628,6 +1628,12 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 # production" for the deploy map): the skeleton names it as the text to fold in; a named
                 # section beats a README that merely has a section
                 kws_ = {tokens(k).strip() for k in keywords}
+                if cid == "integrations":
+                    # the third parties the inventory named (S3, Redis, OpenAI, Resend) are the words a person's doc uses
+                    for sdk in ((inv.get("integrations") or {}).get("sdks") or []):
+                        kws_.update(w for w in tokens(str(sdk.get("service") or "")).split() if len(w) > 2)
+                if cid == "security":
+                    kws_.update({"auth", "token", "tokens", "jwt", "secret", "secrets", "login", "session", "sessions", "error handling"})
 
                 anti = SEED_ANTI.get(cid, set())
                 ev_units = concern_units(cid, inv)
@@ -1651,8 +1657,10 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                             continue
                         best_here = (0, None)
                         for _, lvl, t in d.headings:
-                            if lvl not in (2, 3, 4) or is_start_here_heading(t):
+                            if lvl not in ((1, 2, 3, 4) if cid == "integrations" else (2, 3, 4)) or is_start_here_heading(t):
                                 continue
+                            if re.search(r"(^|\s)(GET|POST|PUT|PATCH|DELETE)\s+/", t) or ("/" in t and ":" in t):
+                                continue  # a route is an endpoint, not a section to seed from
                             tt = tokens(t)
                             if any(f" {a_} " in tt for a_ in anti):
                                 continue
@@ -1665,7 +1673,8 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                         if best_here[1]:
                             ranked.append((best_here[0], d.rel, best_here[1]))
                     ranked.sort(key=lambda x: (-x[0], x[1]))
-                    return ranked[:3]
+                    # a second or third seed needs two hits, or one hit from the unit that holds the evidence
+                    return ranked[:1] + [r_ for r_ in ranked[1:] if r_[0] >= 4][:2]
 
                 ranked_seeds = section_seed(True)
                 if ranked_seeds:
@@ -1933,7 +1942,10 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
     if not onb_written and len(stops) < 3:
         for u in sorted({r["unit"] for r in coverage if r.get("unit")})[:3]:
             if (repo / u / "README.md").is_file():
-                stops.append(f"[how to run {u}]({u}/README.md)")
+                ud = Doc(repo / u / "README.md", repo)
+                setup_kws = {"setup", "install", "installation", "getting started", "quickstart", "quick start", "local development", "run locally"}
+                sec_ = next((t for _, lvl, t in ud.headings if lvl in (2, 3) and any(f" {k} " in tokens(t) for k in setup_kws)), None)
+                stops.append(f"[how to run {u}]({u}/README.md{('#' + slug(sec_)) if sec_ else ''})")
         stops.append(f"[the commands]({agent}#commands)")
     if onboarding and not onb_written and stops:
         order = "Until the fourth is written, the first stops: " + ", ".join(stops) + ". "
@@ -2025,6 +2037,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     cmds: list[str] = []
     seen: set[str] = set()
     compose_gotcha = ""
+    script_gotchas: list[str] = []
 
     def add(label: str, cmd: str, src: str, note: str = "") -> None:
         if label in seen or len(cmds) >= 14:
@@ -2084,6 +2097,10 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
                     stem = sname.rsplit(".", 1)[0].lower()
                     if stem in ("validate", "check", "lint", "format", "test", "ci") and sname.endswith((".sh", ".ps1", ".py")):
                         add(f"{stem} (script)", f"{pre}./scripts/{sname}", f"{posix(sdir / sname, repo)}")
+                    if stem in ("venv_setup", "setup", "install", "bootstrap", "dev_setup") and sname.endswith((".sh", ".ps1", ".py")):
+                        # the person's install path is listed first; the package-manager line stays as the second, marked
+                        cmds.insert(0, f"- install (script): `{pre}./scripts/{sname}` [{posix(sdir / sname, repo)}] - the install a person wrote; the line below is the lockfile's guess")
+                        seen.add("install (script)")
             elif "pyright" in tools:
                 add("typecheck", f"{pre}{runner}pyright", f"{p['evidence']}: tool.pyright")
         elif man in ("requirements.txt",):
@@ -2104,6 +2121,13 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             if (repo / script).is_file() and tracked_file(repo, script):
                 head = [l.strip().lstrip("#").strip() for l in read(repo / script).splitlines()[1:12] if l.strip().startswith("#")]
                 head = [h for h in head if h and not h.startswith("!")]
+                # the rest of the header is where a person writes the preconditions: quote the sentences
+                # that carry one, up to three, as gotchas
+                for h_ in head[1:]:
+                    if len(script_gotchas) >= 3:
+                        break
+                    if re.search(r"\b(must|without|not started|don't|do not|fails|before|first|only|never)\b", h_, re.I) and len(h_) > 20:
+                        script_gotchas.append(f"- {h_[:200]} [{script}: header comment]")
                 quote = " ".join(head)
                 cut = quote.find(". ")
                 quote = (quote[:cut + 1] if 0 < cut < 240 else quote[:240].rsplit(" ", 1)[0])
@@ -2164,7 +2188,9 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             back = os.path.relpath(repo / "CLAUDE.md", repo / unit).replace("\\", "/")
             fold = (fold + "\n" if fold else "") + f"- existing text to fold in: [{back} § {hits[0]}]({back}#{slug(hits[0])}) - the parent agent-instruction file has a section on this unit"
     lines += ["", "## Conventions", "", "- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)"] + ([fold] if fold else [])
-    lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([compose_gotcha] if compose_gotcha else []) + ([fold] if fold else [])
+    post = [f"- `postinstall` runs on every install: `{p_.get('package_manager') or 'npm'} install` executes it [{p_['evidence']}: scripts.postinstall]"
+            for p_ in inv.get("packages") or [] if "postinstall" in (p_.get("scripts") or []) and ((unit and str(Path(p_.get("path", ".")).as_posix()) == unit) or (not unit and p_.get("path") in (".", "")))]
+    lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([compose_gotcha] if compose_gotcha else []) + script_gotchas + post + ([fold] if fold else [])
     lines += [
               "", "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
     return "\n".join(lines) + "\n"
