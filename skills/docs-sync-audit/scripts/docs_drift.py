@@ -10,12 +10,13 @@ Read-only. Standard library only. Writes nothing.
 
 Only checks claims that have a definite answer:
 
-  commands   `npm run x`, `make x`, `./scripts/x` in a fenced block, against the
-             scripts, targets and files that actually exist
+  commands   `npm run x`, `make x`, `./scripts/x` in a fenced block or in a backticked
+             span in prose, against the scripts, targets and files that actually exist
   links      relative Markdown links and images, against the filesystem
   paths      backticked paths, against the filesystem (opt-in, --check-paths)
   env vars   names documented in docs or .env.example, against names actually
-             read by the code, in both directions
+             read by the code (source files, and ${NAME} / $NAME in shell scripts,
+             Dockerfiles, compose files, Makefiles and Procfiles), in both directions
   staleness  a doc untouched for far longer than the code it describes
 
 It does not judge prose. Wording, tone, completeness and accuracy of explanation
@@ -80,6 +81,8 @@ CMD_DOTNET = re.compile(r"\bdotnet\s+(?:run|test|build|publish)\s+(?:[^\s]+\s+)*
 CMD_GO = re.compile(r"\bgo\s+(?:run|build|test|install)\s+(?:-\S+\s+)*(\./[A-Za-z0-9_./-]+)")
 CMD_CARGO_BIN = re.compile(r"\bcargo\s+(?:run|build|install)\s+(?:[^\s]+\s+)*?--bin\s+([A-Za-z0-9_-]+)")
 
+# A backticked span that is a command: starts with a runner or ./ and has an argument.
+INLINE_CMD = re.compile(r"^(?:\./\S+|(?:npm|pnpm|yarn|bun|make|python3?|node|bash|sh|ruby|elixir|php|perl|mix|deno|dotnet|go|cargo)\s+\S)")
 MD_LINK = re.compile(r"!?\[[^\]]*\]\((?:<([^>\n]+)>|([^)\s]+))")
 BACKTICK = re.compile(r"`([^`\n]+)`")
 
@@ -114,6 +117,15 @@ ENV_IN_CODE = [
     re.compile(r"""import\.meta\.env\.([A-Z][A-Z0-9_]*)"""),
     re.compile(r"""\benv\(\s*['"]([A-Z][A-Z0-9_]*)['"]"""),
 ]
+# ${NAME}, ${NAME:?}, $NAME in a shell script, a Dockerfile, a compose file, a Makefile or a
+# Procfile: the deploy-side read that blocks a deploy when unset. $(VAR) in a Makefile is a make
+# variable, not the environment; $1 and ${#x} are shell, and the pattern wants a letter first.
+SHELL_ENV = re.compile(r"\$\{([A-Z][A-Z0-9_]{2,})(?:[:}\-?])|\$([A-Z][A-Z0-9_]{2,})(?![A-Za-z0-9_{(])")
+SHELL_EXTS = {".sh", ".bash", ".ps1", ".zsh"}
+SHELL_LOCAL = re.compile(r"^\s*(?:(?:export|local|declare|readonly|typeset)\s+(?:-\w+\s+)*)?([A-Z][A-Z0-9_]{2,})\s*[:?+]?="
+                         r"|^\s*(?:for|read|select)\s+(?:-\w+\s+)*([A-Z][A-Z0-9_]{2,})\b"
+                         r"|^\s*(?:ARG|ENV)\s+([A-Z][A-Z0-9_]{2,})\b", re.M)
+SHELL_NAMES = re.compile(r"^(?:Dockerfile(?:\..*)?|docker-compose.*\.ya?ml|compose\..*\.ya?ml|compose\.ya?ml|Makefile|GNUmakefile|Procfile)$")
 # const { A, B } = process.env - one line, several names.
 ENV_DESTRUCTURE = re.compile(r"\{([^}]*)\}\s*=\s*process\.env\b")
 # Variables the platform, the shell or the runtime sets. Reading them is not a documentation
@@ -139,6 +151,10 @@ PLATFORM_ENV = {
     # import.meta.env built-ins, set by Vite, not by an operator.
     "DEV", "PROD", "MODE", "SSR", "BASE_URL", "LANGUAGE", "WSL_DISTRO_NAME", "WSL_INTEROP", "MSYSTEM",
     "JAVA_HOME", "JAVA_OPTS", "JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS",
+    # Shell builtins, now that shell scripts are read.
+    "OSTYPE", "HOSTTYPE", "MACHTYPE", "SHLVL", "PPID", "RANDOM", "SECONDS", "LINENO", "BASH_SOURCE",
+    "UID", "EUID", "IFS", "OLDPWD", "PS1", "PS2", "PS4", "OPTARG", "OPTIND", "REPLY", "PIPESTATUS",
+    "FUNCNAME", "BASH_VERSION", "ZSH_VERSION", "SCRIPT_DIR",
 }
 # Prefixes that belong to a tool or a CI system wholesale; nothing an application names starts
 # with these. Vendor names (AWS_, GOOGLE_, SENTRY_, HF_) are deliberately absent: an application
@@ -149,7 +165,7 @@ PLATFORM_PREFIXES = ("npm_", "GITHUB_", "RUNNER_", "CI_", "VERCEL_", "RAILWAY_",
 # example.env, env.example: an env sample under another name, read as a sample and not as code.
 ENV_SAMPLE_NAME = re.compile(r"^(?:example|sample)\.env$|^env\.(?:example|sample)$")
 ENV_NAME = re.compile(r"\b([A-Z][A-Z0-9_]{2,})\b")
-DEAD_CONTEXT = re.compile(r"\b(read by nothing|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid|its [^.]{0,30}variable)\b", re.I)
+DEAD_CONTEXT = re.compile(r"\b(read by nothing|read by (?:the |a |an )?[^.]{0,40}(?:sdk|library|librar|provider|framework|runtime|tool|package)|handled by|consumed by|nothing (?:in [^.]{0,40})?reads|no code [^.]{0,30}reads|no longer (?:read|used)|unused|dead|deprecated|removed|retired|not (?:read|used)|legacy|third[- ]party|someone else's|set by [^.]{0,30}platform|never use|do not use|don't use|must not be used|avoid|its [^.]{0,30}variable)\b", re.I)
 # (?<![\w-]) not \b: "zero-config" is not a word about configuration.
 CONFIG_CONTEXT = re.compile(r"(?<![A-Za-z0-9_-])(env|environment|variable|export|secret|config|configur\w*|setting|\.env|dotenv|flag|knob)\b", re.I)
 # For a bare name in prose only: "Set UPLOAD_SIGNING_KEY to the signing key" has none of the
@@ -304,24 +320,42 @@ def fenced_blocks(text: str, *, skip_away: bool = False) -> list[tuple[int, str]
 def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
     """Env var names the code reads, mapped to every location that reads them."""
     found: dict[str, list[str]] = {}
+
+    def note(name: str, where: str) -> None:
+        # os.getenv("X") matches both the os.getenv and the bare getenv( pattern; one
+        # location per line, or the readers list carried every reader twice.
+        locs = found.setdefault(name, [])
+        if where not in locs:
+            locs.append(where)
+
     for rel in files:
-        if Path(rel).suffix not in CODE_EXTS or any(p in SKIP_DIRS for p in Path(rel).parts):
+        base = Path(rel).name
+        shell = Path(rel).suffix in SHELL_EXTS or SHELL_NAMES.match(base) is not None
+        if (Path(rel).suffix not in CODE_EXTS and not shell) or any(p in SKIP_DIRS for p in Path(rel).parts):
             continue
         if any(p.startswith(".") and p != ".github" for p in Path(rel).parts[:-1]):
             continue  # tooling under a dot-folder; its docs are skipped, so its reads are too
         text = read(repo / rel)
-        if not text or "env" not in text.lower():
+        if not text or ("env" not in text.lower() and "$" not in text):
             continue
+        local_names: set[str] = set()
+        if shell or Path(rel).suffix == ".sh":
+            for groups in SHELL_LOCAL.findall(text):
+                local_names.add(next(g for g in groups if g))
         for i, line in enumerate(text.splitlines(), start=1):
             # A JSDoc line "* The values above use `process.env.X`" is prose, not a read.
             if line.lstrip().startswith(("//", "* ", "*/", "/*", "#")):
                 continue
             for pattern in ENV_IN_CODE:
                 for name in pattern.findall(line):
-                    found.setdefault(name, []).append(f"{rel}:{i}")
+                    note(name, f"{rel}:{i}")
             for group in ENV_DESTRUCTURE.findall(line):
                 for name in ENV_NAME.findall(group):
-                    found.setdefault(name, []).append(f"{rel}:{i}")
+                    note(name, f"{rel}:{i}")
+            if shell or Path(rel).suffix == ".sh":
+                for braced, bare in SHELL_ENV.findall(line):
+                    if (braced or bare) not in local_names:
+                        note(braced or bare, f"{rel}:{i}")
     return found
 
 
@@ -459,7 +493,7 @@ def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
     return out
 
 
-def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], dict[str, str]]:
+def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], dict[str, str], set[str], dict[str, str]]:
     """Env var names named in docs or declared in an env sample file.
 
     Only the key to the left of `=` is ever read from an env file. The value is a
@@ -471,6 +505,14 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
     # say "this is a promised knob": a Railway reference token in a comment, or `MIN_VOLUME_24H`
     # as shorthand for the real name, became "documented but nothing reads it".
     weak: dict[str, str] = {}
+    # Names whose documentation itself says nothing here reads them: the doc line, or in an env
+    # sample the comment block above the key. "# Read by the agno / provider SDKs, not by this
+    # repository's own code" two lines above `# ANTHROPIC_API_KEY=` was invisible, and the key
+    # was reported as dead. Tested on every doc that names the variable, not the first in sort order.
+    dead_by_doc: set[str] = set()
+    # A name that only appears inside a fenced code block: `os.getenv('YDC_API_KEY')` in a usage
+    # example is a mention, not configuration documentation, and the row should say which.
+    mentioned: dict[str, str] = {}
     for rel in files:
         base = Path(rel).name
         is_env_sample = base.startswith(".env") or ENV_SAMPLE_NAME.match(base) is not None
@@ -485,6 +527,7 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
         # documented outside an env sample. The sample parser read that shape; the prose
         # path only read backticks and table cells, and reported the variable undocumented.
         fenced = set() if is_env_sample else {ln for ln, _ in fenced_blocks(text)}
+        block: list[str] = []  # the comment lines directly above the current env-sample key
         for i, line in enumerate(text.splitlines(), start=1):
             if i in fenced:
                 m_f = re.match(r"^\s*(?:export\s+|set\s+|\$env:)?([A-Z][A-Z0-9_]{2,})=", line)
@@ -492,25 +535,35 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
                     # Weak: a blog post's `export ZSH_THEME=` and a prompt template's
                     # `QUERY_PLAN_FILE=` are not promises this repository makes.
                     weak.setdefault(m_f.group(1), f"{rel}:{i}")
+                for name in ENV_NAME.findall(line):
+                    if "_" in name and not name.endswith("_"):
+                        mentioned.setdefault(name, f"{rel}:{i}")
                 continue
             if is_env_sample:
                 stripped = line.strip()
                 # "# KENER_API_KEY=" is how an optional variable is documented in an env sample;
                 # skipping every comment line made thirteen documented names "undocumented".
+                commented_key = stripped.startswith("#")
                 stripped = re.sub(r"^#\s*(?=(?:export\s+)?[A-Z][A-Z0-9_]*\s*=)", "", stripped)
                 if stripped.startswith("#"):
                     # "# FALKORDB_URL points the graph client at ..." - a comment in an env
                     # sample is documentation of whatever it names. Low confidence, and it only
                     # ever suppresses a finding.
+                    block.append(stripped)
                     for name in ENV_NAME.findall(stripped):
                         if "_" in name and not name.endswith("_"):
                             weak.setdefault(name, f"{rel}:{i}")
                     continue
                 if not stripped or "=" not in stripped:
+                    block = []
                     continue
                 key = re.sub(r"^export\s+", "", stripped.split("=", 1)[0].strip()).strip()
                 if ENV_NAME.fullmatch(key or ""):
                     documented.setdefault(key, f"{rel}:{i}")
+                    if DEAD_CONTEXT.search(" ".join(block + [line])):
+                        dead_by_doc.add(key)
+                if not commented_key:
+                    block = []
             else:
                 # In prose, a backticked all-caps token is weak evidence: `SKILL.md`
                 # and `README` are not configuration. Require an underscore, which is
@@ -524,6 +577,8 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
                     cells = [c.strip().strip("`") for c in line_live.strip().strip("|").split("|")]
                     if cells and re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", cells[0]) and "_" in cells[0] and not cells[0].endswith("_"):
                         documented.setdefault(cells[0], f"{rel}:{i}")
+                        if DEAD_CONTEXT.search(line_live):
+                            dead_by_doc.add(cells[0])
                 # No backticks at all: "Set UPLOAD_SIGNING_KEY to the signing key before starting."
                 # An older README or an exported wiki writes it that way. Weak evidence, so the
                 # row "not documented anywhere" cannot be flatly false.
@@ -553,7 +608,56 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
                     if not (CONFIG_CONTEXT.search(window) or CONFIG_SUFFIX.search(name)):
                         continue
                     documented.setdefault(name, f"{rel}:{i}")
-    return documented, weak
+                    if DEAD_CONTEXT.search(line_live):
+                        dead_by_doc.add(name)
+    return documented, weak, dead_by_doc, mentioned
+
+
+def dependency_tokens(repo: Path, files: list[str]) -> dict[str, str]:
+    """Lower-case name tokens of every declared dependency, mapped to the dependency that
+    carries them. `ANTHROPIC_API_KEY` documented in a sample and read by the `anthropic` package,
+    not by this repository, was reported as dead configuration; the prefix says who reads it."""
+    out: dict[str, str] = {}
+
+    def take(dep: str) -> None:
+        dep = dep.strip().strip('"\'').lower()
+        dep = re.split(r"[\s=<>!~\[;@]", dep.lstrip("@"), maxsplit=1)[0] if dep else dep
+        for tok in re.split(r"[-_./]", dep):
+            if len(tok) >= 3 and tok not in out:
+                out[tok] = dep
+
+    for rel in files:
+        base = Path(rel).name
+        if any(p in SKIP_DIRS for p in Path(rel).parts):
+            continue
+        text = read(repo / rel)
+        if not text:
+            continue
+        if base == "package.json":
+            try:
+                data = json.loads(text)
+            except ValueError:
+                continue
+            for key in ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies"):
+                if isinstance(data.get(key), dict):
+                    for dep in data[key]:
+                        take(dep)
+        elif base in ("pyproject.toml", "Cargo.toml", "Pipfile"):
+            for m in re.finditer(r"^\s*\"?([A-Za-z0-9_.\-\[\]]+)\"?\s*(?:=|>=|==|~=|<|>|,|$)", text, re.M):
+                take(m.group(1))
+            for m in re.finditer(r"[\"']([A-Za-z0-9_.\-]+)(?:\[[^\]]*\])?\s*(?:[<>=!~][^\"']*)?[\"']", text):
+                take(m.group(1))
+        elif base.startswith("requirements") and base.endswith(".txt"):
+            for line in text.splitlines():
+                if line.strip() and not line.lstrip().startswith(("#", "-")):
+                    take(line)
+        elif base == "go.mod":
+            for m in re.finditer(r"^\s*([a-z0-9.\-]+(?:/[A-Za-z0-9_.\-]+)+)\s+v", text, re.M):
+                take(m.group(1).rsplit("/", 1)[-1])
+        elif base in ("Gemfile", "composer.json", "mix.exs"):
+            for m in re.finditer(r"[\"']([A-Za-z0-9_./\-]+)[\"']", text):
+                take(m.group(1).rsplit("/", 1)[-1])
+    return out
 
 
 def path_epochs(repo: Path) -> dict[str, int]:
@@ -617,27 +721,36 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         if not text:
             continue
 
-        # 1. commands
-        for lineno, line in fenced_blocks(text, skip_away=True):
+        # 1. commands. Fenced lines, and a backticked command in prose: "run `python3
+        # scripts/x.py setup`" is how a setup step is often written, and it was never read.
+        fenced_lines = fenced_blocks(text, skip_away=True)
+        fenced_nos = {ln for ln, _ in fenced_blocks(text)}
+        cmd_lines: list[tuple[int, str, bool]] = [(ln, line, False) for ln, line in fenced_lines]
+        for i, line in enumerate(text.splitlines(), start=1):
+            if i in fenced_nos:
+                continue
+            for chunk in BACKTICK.findall(line):
+                if INLINE_CMD.match(chunk.strip()):
+                    cmd_lines.append((i, chunk.strip(), True))
+        for lineno, line, inline in cmd_lines:
+            tag = " (inline command in prose)" if inline else ""
+            if line.lstrip().startswith("#"):
+                continue  # a comment inside a fenced block: "# make sure the port is free"
             for script in set(CMD_NPM.findall(line)):
                 if not all_npm:
-                    continue
-                if line.lstrip().startswith("#"):
                     continue
                 if script not in all_npm:
                     near = ", ".join(sorted(s for s in all_npm if s.startswith(script.split(":")[0]))[:4])
                     hint = f" Closest existing: {near}." if near else ""
                     add("missing-script", "high", doc, lineno,
-                        f"documents `{script}`, which is not a script in any package.json.{hint}",
+                        f"documents `{script}`, which is not a script in any package.json.{hint}{tag}",
                         source="package.json")
             for target in set(CMD_MAKE.findall(line)):
                 if (make_targets and target not in make_targets
                         and target not in ("-j", "all", "sure", "the", "it", "a", "this", "that", "them", "changes", "any", "your", "these")):
                     add("missing-make-target", "high", doc, lineno,
-                        f"documents `make {target}`, which is not a target in the Makefile.",
+                        f"documents `make {target}`, which is not a target in the Makefile.{tag}",
                         source="Makefile")
-            if line.lstrip().startswith("#"):
-                continue  # a comment inside a fenced block: "# make sure the port is free"
             for proj in set(CMD_DOTNET.findall(line)):
                 if PLACEHOLDER.search(proj):
                     continue
@@ -645,7 +758,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 if not (exists_exact(repo / p_) or exists_exact(repo / Path(doc).parent / p_)
                         or any(f == p_ or f.startswith(p_ + "/") for f in file_set)):
                     add("missing-script-file", "high", doc, lineno,
-                        f"documents `dotnet run --project {proj}`, and no such project exists.")
+                        f"documents `dotnet run --project {proj}`, and no such project exists.{tag}")
             for pkg in set(CMD_GO.findall(line)):
                 p_ = pkg.rstrip("/").lstrip("./")
                 if p_.endswith("...") or PLACEHOLDER.search(p_) or not p_:
@@ -653,11 +766,11 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 if not (exists_exact(repo / p_) or exists_exact(repo / Path(doc).parent / p_)
                         or any(f.startswith(p_ + "/") for f in file_set)):
                     add("missing-script-file", "high", doc, lineno,
-                        f"documents `go run {pkg}`, and no such package directory exists.")
+                        f"documents `go run {pkg}`, and no such package directory exists.{tag}")
             for bin_ in set(CMD_CARGO_BIN.findall(line)):
                 if cargo_bins is not None and bin_ not in cargo_bins and not PLACEHOLDER.search(bin_):
                     add("missing-script-file", "high", doc, lineno,
-                        f"documents `cargo run --bin {bin_}`, which is not a binary target in any Cargo.toml.",
+                        f"documents `cargo run --bin {bin_}`, which is not a binary target in any Cargo.toml.{tag}",
                         source="Cargo.toml")
             for whole, inner in CMD_SCRIPT.findall(line):
                 candidate = (inner or whole).lstrip("./")
@@ -678,7 +791,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                     same = [f for f in file_set if f.endswith("/" + Path(candidate).name) or f == Path(candidate).name]
                     hint = f" A file of that name exists at {same[0]}." if same else ""
                     add("missing-script-file", "high", doc, lineno,
-                        f"documents running `{candidate}`, which does not exist.{hint}")
+                        f"documents running `{candidate}`, which does not exist.{hint}{tag}")
 
         # 2 and 3. links and backticked paths
         for i, line in enumerate(text.splitlines(), start=1):
@@ -688,7 +801,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 t = (angled or plain).split("#")[0].split("?")[0].strip()
                 if not t or t.startswith(("http://", "https://", "mailto:", "#", "tel:", "data:")):
                     continue
-                if PLACEHOLDER.search(t) or "/actions/workflows/" in t or t.startswith("../../"):
+                if PLACEHOLDER.search(t) or "/actions/workflows/" in t:
                     continue  # a GitHub-relative badge or repository URL, not a file
                 # [`extract`](crate::extract) is a rustdoc link; (Router::fallback), (tower_http::trace)
                 # and a bare identifier with neither a slash nor a dot are the language's own
@@ -706,6 +819,10 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                     continue
                 base = repo if t.startswith("/") else repo / Path(doc).parent
                 target = base / t.lstrip("/")
+                # ../../ from a nested README is an ordinary relative link and was skipped
+                # wholesale; one that climbs out of the repository names a sibling checkout.
+                if not str(os.path.normpath(str(target))).startswith(str(os.path.normpath(str(repo)))):
+                    continue
                 trimmed = t.rstrip("/").lstrip("/")
                 if not any(exists_exact(p) for p in (target, base / (trimmed + ".md"), base / trimmed / "index.md",
                                                      base / trimmed / "README.md")):
@@ -751,8 +868,13 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         if Path(rel).name == "build.rs":
             for built in re.findall(r"cargo:rustc-env=([A-Z][A-Z0-9_]*)=", read(repo / rel) or ""):
                 in_code.pop(built, None)  # set by the build script, read by the crate: not a knob
-    in_docs, weak_docs = env_names_documented(repo, files)
+    in_docs, weak_docs, dead_by_doc, mentioned_docs = env_names_documented(repo, files)
     dead = unreferenced_modules(repo, files)
+    deps = dependency_tokens(repo, files)
+    # SCRAPE_CREATORS_API_KEY documented, SCRAPECREATORS_API_KEY read: a legacy alias, and the
+    # reviewer had to grep to see it. Names that differ only by underscores map to each other.
+    squashed_code = {n_.replace("_", ""): n_ for n_ in in_code}
+    squashed_docs = {n_.replace("_", ""): n_ for n_ in in_docs}
     # A config module - a zod schema, a pydantic Settings class, a struct with env tags, a
     # compose file with ${NAME} - reads a variable without any of the patterns above. Before
     # saying nothing reads a documented name, look for the bare token anywhere outside the
@@ -762,17 +884,17 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                and not any(p in SKIP_DIRS for p in Path(f).parts)]
     # Read once: every documented name used to re-read every non-doc file.
     non_doc_text = {rel: read(repo / rel) for rel in non_doc}
-    non_doc_tokens = set(re.findall(r"[A-Z][A-Z0-9_]{2,}", NL.join(non_doc_text.values())))
-    _token_cache: dict[str, str] = {}
+    # One tokenising pass per file, token -> first file. A regex per documented name over every
+    # non-doc file was names x bytes: 23 of 27 seconds on a six-unit monorepo.
+    token_file: dict[str, str] = {}
+    token_re = re.compile(r"(?<![A-Za-z0-9_])[A-Z][A-Z0-9_]{2,}(?![A-Za-z0-9_])")
+    for rel, text in non_doc_text.items():
+        if text:
+            for tok in token_re.findall(text):
+                token_file.setdefault(tok, rel)
 
     def mentioned_in_code(name: str) -> str | None:
-        if name not in _token_cache:
-            hit = None
-            if name in non_doc_tokens:
-                pat = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"(?![A-Za-z0-9_])")
-                hit = next((rel for rel, text in non_doc_text.items() if text and pat.search(text)), None)
-            _token_cache[name] = hit or ""
-        return _token_cache[name] or None
+        return token_file.get(name)
 
     _line_cache: dict[str, list[str]] = {}
 
@@ -793,12 +915,21 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
             continue
         if not readers and mentioned_in_code(name):
             continue  # read through a mechanism the patterns do not parse; not a missing knob
-        if not readers and DEAD_CONTEXT.search(doc_line_text(doc_path, int(doc_line))):
+        if not readers and (name in dead_by_doc or DEAD_CONTEXT.search(doc_line_text(doc_path, int(doc_line)))):
             continue  # the doc itself says nothing reads it; that is the correct state, recorded
         if not readers:
+            alias = squashed_code.get(name.replace("_", ""))
+            hint = f" A name differing only by underscore, `{alias}`, is read by the code." if alias and alias != name else ""
+            prefix = name.lower().split("_", 1)[0]
+            if len(prefix) >= 3 and prefix in deps:
+                add("documented-unused-env", "low", doc_path, int(doc_line),
+                    f"`{name}` is documented and nothing in this repository's own code reads it; its prefix "
+                    f"matches the dependency `{deps[prefix]}`, so the library reads it, not this code.{hint}",
+                    source=f"dependency {deps[prefix]}")
+                continue
             add("documented-unused-env", "medium", doc_path, int(doc_line),
                 f"`{name}` is documented but nothing in the code reads it. "
-                "Either it is dead configuration or the docs promise a knob that does not exist.",
+                f"Either it is dead configuration or the docs promise a knob that does not exist.{hint}",
                 source="no reader found")
         elif all(r.rsplit(":", 1)[0] in dead for r in readers):
             where_read = ", ".join(readers[:3])
@@ -809,10 +940,21 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     # Example, fixture and test code reads variables the product never does - a vendored sample
     # under examples/ read ANTHROPIC_API_KEY and the whole repository was told it was
     # undocumented. Those folders still count as readers for the other direction.
-    sample = re.compile(r"(^|/)(examples?|fixtures?|__fixtures__|testdata|tests?|__tests__|specs?|samples?|demos?|benchmarks?)/", re.I)
+    sample_re = re.compile(r"(^|/)(examples?|fixtures?|__fixtures__|testdata|tests?|__tests__|specs?|samples?|demos?|benchmarks?)/", re.I)
+
+    def sample(path: str):
+        # src/lib/samples/ holds product code (audio samples); a sample folder is only sample
+        # code when no src/ or app/ segment comes before it.
+        m = sample_re.search(path)
+        if m and not {"src", "app", "lib"} & set(path[:m.start()].split("/")):
+            return m
+        return None
+
     platform_skipped = 0
+    sample_skipped = 0
     for name, readers in sorted(in_code.items()):
-        if all(sample.search(r.rsplit(":", 1)[0]) for r in readers):
+        if all(sample(r.rsplit(":", 1)[0]) for r in readers):
+            sample_skipped += 1
             continue
         # Platform and toolchain names only. A two-letter "GO" prefix ate GOOGLE_CLIENT_SECRET
         # and GOTRUE_JWT_SECRET; AWS_ and SENTRY_ ate an application's own bucket and token
@@ -822,11 +964,16 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
             platform_skipped += 1
             continue
         if name not in in_docs and name not in weak_docs:
-            ordered = sorted(readers, key=lambda r: bool(sample.search(r)))
-            add("undocumented-env", "medium", "(docs)", None,
-                f"`{name}` is read by the code but is not documented anywhere, "
-                "and is not in an env sample file.",
-                source=ordered[0], readers=ordered)
+            ordered = sorted(readers, key=lambda r: bool(sample(r)))
+            alias = squashed_docs.get(name.replace("_", ""))
+            hint = f" A name differing only by underscore, `{alias}`, is documented." if alias and alias != name else ""
+            if name in mentioned_docs:
+                detail = (f"`{name}` is read by the code and named only inside a code block at "
+                          f"{mentioned_docs[name]}; it is not documented as configuration anywhere.{hint}")
+            else:
+                detail = (f"`{name}` is read by the code but is not documented anywhere, "
+                          f"and is not in an env sample file.{hint}")
+            add("undocumented-env", "medium", "(docs)", None, detail, source=ordered[0], readers=ordered)
 
     # 5. staleness
     epochs = path_epochs(repo)
@@ -866,7 +1013,8 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         "totals": {"docs_checked": len(docs), "findings": len(findings),
                    "npm_scripts_found": len(all_npm), "make_targets_found": len(make_targets),
                    "env_names_in_code": len(in_code), "env_names_documented": len(in_docs),
-                   "env_names_skipped_as_platform": platform_skipped},
+                   "env_names_skipped_as_platform": platform_skipped,
+                   "env_names_skipped_as_sample_code": sample_skipped},
         "findings": findings,
         "warnings": warnings,
     }
@@ -878,7 +1026,8 @@ def render(d: dict, top: int) -> str:
          f"Docs checked: {t['docs_checked']}   Findings: {t['findings']}",
          f"Known npm scripts: {t['npm_scripts_found']}   make targets: {t['make_targets_found']}",
          f"Env names in code: {t['env_names_in_code']}   documented: {t['env_names_documented']}"
-         f"   skipped as platform/toolchain: {t.get('env_names_skipped_as_platform', 0)}", ""]
+         f"   skipped as platform/toolchain: {t.get('env_names_skipped_as_platform', 0)}"
+         f"   read only by sample code: {t.get('env_names_skipped_as_sample_code', 0)}", ""]
 
     if not d["findings"]:
         L.append("No machine-verifiable drift found. Prose accuracy is still unchecked.")
