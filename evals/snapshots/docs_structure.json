@@ -188,7 +188,7 @@
       "seed": null,
       "template": "reference/ARCHITECTURE.md",
       "unit": null,
-      "universal": false,
+      "universal": true,
       "weak": false
     },
     {

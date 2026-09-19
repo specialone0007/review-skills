@@ -398,9 +398,7 @@ CONCERNS = [
      {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, []),
     ("release", "guides", lambda inv: (_first(inv.get("release") or [], "release") if _lib_or_cli(inv) else None), lambda inv: "RELEASING.md",
      {"releasing", "release", "releases", "publish", "publishing", "versioning"}, []),
-    ("architecture", "reference", lambda inv: ("always" if ({"application", "monorepo", "infrastructure"} & set(inv.get("kinds") or []))
-                                               or len(inv.get("packages") or []) > 1 or len({s.get("name") for s in inv.get("services") or []}) > 1
-                                               else None), lambda inv: "ARCHITECTURE.md",
+    ("architecture", "reference", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
      {"architecture", "components", "services", "system", "data flow", "how it works", "modules", "structure", "containers"}, []),
     ("configuration", "reference", _configuration, lambda inv: "CONFIGURATION.md",
      {"configuration", "config", "environment variables", "env", "settings", "variables", "flags"}, []),
@@ -436,7 +434,7 @@ CONCERNS = [
     ("plan", "history", lambda inv: _plan_evidence(inv), lambda inv: "plans/TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
 ]
-UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",

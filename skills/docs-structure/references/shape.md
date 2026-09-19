@@ -127,7 +127,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 
 | doc | concern | read this if you | owns | earned by | sections · fill |
 | --- | --- | --- | --- | --- | --- |
-| `ARCHITECTURE.md` | architecture | need the map | context, containers, building blocks, runtime, the deployment view, quality and risks (arc42, sections 3, 5, 6, 7, 10, 11) | more than one package or service, or the application/monorepo/infrastructure kind | Context · Containers · Building blocks · Runtime · Deployment view · Quality and risks · fill: packages, services, env, routes, schema, decisions |
+| `ARCHITECTURE.md` | architecture | need the map | context, containers, building blocks, runtime, the deployment view, quality and risks (arc42, sections 3, 5, 6, 7, 10, 11) | always; a single-package library still has a context, building blocks and the qualities it pays for | Context · Containers · Building blocks · Runtime · Deployment view · Quality and risks · fill: packages, services, env, routes, schema, decisions |
 | `CONFIGURATION.md` | configuration | need to know what a variable does | every environment variable and flag: name, unit that reads it, required or not, where its example lives | eight or more environment names, or a config file the code reads | Variables by unit · Files · Flags · fill: env, services, packages |
 | `DATA_MODEL.md` | data | touch the database | tables by area, relationships, conventions, the migration inventory | a schema or migrations | Tables by area · Relationships · Conventions · Inventory · fill: schema, decisions |
 | `API.md` | http | call it over HTTP | authentication, endpoints, errors, one end-to-end call | HTTP routes or an OpenAPI file (a library's own examples do not count) | Authentication · Endpoints · Errors · Typical end-to-end call · Notes · fill: routes, auth, env, packages |
@@ -168,7 +168,7 @@ what a typical repository of each kind ends up with, so a reader can sanity-chec
 | kind | always | earned by evidence | never |
 | --- | --- | --- | --- |
 | application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, PRODUCT, ARCHITECTURE | DEPLOYMENT, OPERATIONS, CONTRIBUTING, CONFIGURATION, DATA_MODEL, API, INTEGRATIONS, SECURITY, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
-| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, OVERVIEW | CONTRIBUTING, RELEASING, PUBLIC_API, ARCHITECTURE (more than one package), CONFIGURATION (a config file), CHANGELOG, decisions/ | PRODUCT, DEPLOYMENT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
+| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, OVERVIEW, ARCHITECTURE | CONTRIBUTING, RELEASING, PUBLIC_API, CONFIGURATION (a config file), CHANGELOG, decisions/ | PRODUCT, DEPLOYMENT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
 | cli | as library, with CLI instead of PUBLIC_API; both when both entries exist | | |
 | monorepo | the application set at the root as the map; per unit: README.md and AGENTS.md | per unit with a Dockerfile or deploy config: `<unit>/docs/DEPLOYMENT.md`; per unit with health or cron: `<unit>/docs/OPERATIONS.md`; the root DEPLOYMENT and OPERATIONS become the map variant (a table of units and links) | a unit never owns architecture, product, security or data; those stay at the root |
 | infrastructure | README, AGENTS.md, SETUP, ONBOARDING, TESTING, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONFIGURATION | SECURITY, decisions/, CHANGELOG | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
@@ -184,8 +184,8 @@ Worked examples from real runs, so the numbers mean something:
   `explanation/` only PRODUCT, so those two stay flat: `docs/DEVELOPMENT.md`, `docs/PRODUCT.md`,
   `docs/getting-started/{SETUP,ONBOARDING}.md`, `docs/reference/{ARCHITECTURE,DATA_MODEL,API,CLI}.md`.
 - A single-package library with tests and a publish script: OVERVIEW, SETUP, ONBOARDING, DEVELOPMENT,
-  TESTING, RELEASING, PUBLIC_API. Seven docs, so buckets exist; `explanation/` holds only OVERVIEW and
-  stays flat.
+  TESTING, ARCHITECTURE, RELEASING, PUBLIC_API. Eight docs, so buckets exist; `explanation/` holds only
+  OVERVIEW and stays flat.
 
 ## The index grammar
 
