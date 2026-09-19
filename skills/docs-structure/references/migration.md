@@ -28,9 +28,9 @@ The checker reports every step; apply performs all of them in one run and the us
    gets `SETUP.md`, `ONBOARDING.md`, `DEVELOPMENT.md`, `CONTRIBUTING.md`, `CONFIGURATION.md`,
    `INTEGRATIONS.md`, `SECURITY.md`, plus the earned `JOBS.md`, `decisions/`, `CHANGELOG.md`,
    one `DEPLOYMENT.md` and `OPERATIONS.md` under each unit that deploys on its own, and an
-   `AGENTS.md` under each such unit whose manifest has scripts. The root gets a one-line
-   `CONTRIBUTING.md` (and `CHANGELOG.md`, when the changelog lives under history) so GitHub
-   surfaces them.
+   `AGENTS.md` under each such unit whose manifest has scripts. `CONTRIBUTING.md` sits at the
+   root, where GitHub renders it; the root gets a one-line `CHANGELOG.md` when the changelog
+   lives under history, so GitHub surfaces it.
 4. **`AGENTS.md`** at the root, forty lines at most: the commands as the manifests name them,
    each with its source (the agent file owns them; the README's Commands section is a link),
    conventions and gotchas as open questions. A `CLAUDE.md` with content of its own stays and gets
@@ -74,8 +74,8 @@ New skeletons (21): `AGENTS.md`; `docs/getting-started/SETUP.md`, `ONBOARDING.md
 `docs/history/CHANGELOG.md` (earned by the one tag); `server/AGENTS.md`, `server/docs/DEPLOYMENT.md`,
 `server/docs/OPERATIONS.md`; `agents/eclipse-agentos/docs/DEPLOYMENT.md`,
 `agents/eclipse-agentos/docs/OPERATIONS.md`; `strudel-validator/AGENTS.md`,
-`strudel-validator/docs/DEPLOYMENT.md`. Plus the root `CONTRIBUTING.md` and `CHANGELOG.md`
-pointers. The index is rewritten (52 lines); the README block is regenerated and the README is
+`strudel-validator/docs/DEPLOYMENT.md`. Plus the root `CONTRIBUTING.md` and the root `CHANGELOG.md`
+pointer. The index is rewritten (52 lines); the README block is regenerated and the README is
 fitted into the template.
 
 Known before the migration PR: the drafted `DATA_MODEL.md` carries a `meaning` column that reads
@@ -109,8 +109,8 @@ New skeletons (27): `AGENTS.md`; `docs/getting-started/SETUP.md`, `ONBOARDING.md
 `decisions/ADR-0001-first-decision.md`; `docs/history/CHANGELOG.md`; `DEPLOYMENT.md` and
 `OPERATIONS.md` under each of the six units (the `apps/web` and `services/research` READMEs seed
 theirs); `AGENTS.md` under `apps/web`, `services/ingest-bot`, `services/notifier`,
-`services/podcast` and `services/prediction-engine`. Plus the root `CONTRIBUTING.md` and
-`CHANGELOG.md` pointers. The root `DEPLOYMENT.md` becomes the map variant once the unit guides exist; its eleven
+`services/podcast` and `services/prediction-engine`. Plus the root `CONTRIBUTING.md` and the
+root `CHANGELOG.md` pointer. The root `DEPLOYMENT.md` becomes the map variant once the unit guides exist; its eleven
 parts are the merge candidate R3 already names. The index is rewritten (102 lines): the
 buckets, then the hand groups "Product and plan", "Build and run", "Notifications and podcasts",
 "Forecast quality and settlement" and "Research" with every row they had, then Units with the

@@ -501,7 +501,9 @@ def canonical_paths(rows: list[dict], docs_root: str, root_docs: bool, release_t
     folder. A fixed path is one an agent can hop to without counting docs, and the sixteen always-on
     docs fill every bucket anyway; a doc count that changed the path of PRODUCT was the old rule's
     bug. A repository whose docs live at the root keeps them flat there. The changelog stays at the
-    root when a release tool writes it there."""
+    root when a release tool writes it there. CONTRIBUTING.md lives at the root: GitHub renders the
+    root file in its Contributing tab, and a one-line pointer there showed one line; the index still
+    lists it under Guides."""
     out = {}
     for r in rows:
         if r["bucket"] is None:
@@ -511,6 +513,8 @@ def canonical_paths(rows: list[dict], docs_root: str, root_docs: bool, release_t
         out[r["concern"]] = rel if root_docs else f"{docs_root}/{rel}"
     if release_tool and "changelog" in out:
         out["changelog"] = "CHANGELOG.md"
+    if "contribute" in out:
+        out["contribute"] = "CONTRIBUTING.md"
     return out
 
 
@@ -2333,14 +2337,14 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), own, doc_state(d))
         lines_out.append(line)
         groups.setdefault(group_for(c), []).append(line)
-    # GitHub surfaces CONTRIBUTING.md and CHANGELOG.md at the root; the docs live in the shape, so
-    # the root carries one line pointing at each - written when the root has none, or when the
-    # root file is the one this run moves into the shape
-    for cid, label in (("contribute", "Contributing"), ("changelog", "Changelog")):
+    # GitHub surfaces CHANGELOG.md at the root; when the changelog lives under history the root
+    # carries one line pointing at it - written when the root has none, or when the root file is
+    # the one this run moves into the shape. CONTRIBUTING.md needs no pointer: it lives at the root.
+    for cid, label in (("changelog", "Changelog"),):
         row = next((c for c in coverage if c["concern"] == cid and not c.get("unit")), None)
         if row is None or root_docs:
             continue
-        root_name = "CONTRIBUTING.md" if cid == "contribute" else "CHANGELOG.md"
+        root_name = "CHANGELOG.md"
         if row["default_path"] == root_name:
             continue
         have_root = tracked_file(repo, root_name) or (repo / root_name).exists()

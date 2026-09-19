@@ -28,7 +28,6 @@ docs/
     DEPLOYMENT.md
     OPERATIONS.md
     TESTING.md
-    CONTRIBUTING.md
     RELEASING.md
   reference/                    LOOK UP - complete, dry, shaped like the thing it describes
     ARCHITECTURE.md
@@ -50,7 +49,7 @@ docs/
   history/                      RECORD  - what happened, dated; only the changelog's Unreleased section moves
     CHANGELOG.md                (at the root instead, pinned, when a release tool writes it there)
     research/LOG.md + research/log/YYYY-MM.md
-CONTRIBUTING.md                 one line pointing at docs/guides/CONTRIBUTING.md, so GitHub surfaces it
+CONTRIBUTING.md                 how a change gets in; at the root because GitHub renders the root file in its Contributing tab (a Guides doc in the index)
 CHANGELOG.md                    one line pointing at docs/history/CHANGELOG.md, when the changelog lives there
 <unit>/                         each package or service of a monorepo
   README.md                     what this unit is and how to run it alone
@@ -128,7 +127,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | `DEPLOYMENT.md` | deploy | ship it | every deployable unit with its platform, environment, URL and deploying branch; how values reach it (the names and the example file's path are CONFIGURATION's); the steps; the rollback | always; with no deploy config in the repo the doc says where deployment is configured instead (an open question until a person answers) | Units · How values reach a unit · Deploy steps · Rollback · Known traps · fill: services, env, ci, ops, decisions. Monorepo root: the map variant (Units · Order · Rollback), each unit's own guide holding the steps |
 | `OPERATIONS.md` | operate | are on call or something is down | health checks, alerts, what to do when a thing breaks, who is on call (what runs unattended is JOBS's) | always; the health route or alert file found is the evidence, and a library says it is not operated | Health · Alerts · When something is wrong · On call · fill: ops, jobs, services, env, decisions |
 | `TESTING.md` | testing | are writing or running tests | runners, layout, how to run one file or in watch mode (the test command itself is AGENTS.md's), what CI runs including scheduled workflows, gaps | always; with no runner or tests folder the doc says so under Coverage and gaps, which is the fact a newcomer needs most | Runners and layout · Running tests · What CI runs · Coverage and gaps · fill: tests, ci, packages |
-| `CONTRIBUTING.md` | contribute | want to land a change | branch and commit rules, the pull request, review, the code conventions a linter does not enforce, the licence (what CI runs is TESTING's) | always; how a change gets in exists in every team repo, public or private - with no LICENSE the doc says the repo is private and takes no outside contributions. The root keeps a one-line `CONTRIBUTING.md` pointing here, so GitHub surfaces it | Before you start · Making a change · Code conventions · Review · fill: tree, ci, tests, packages |
+| `CONTRIBUTING.md` (root) | contribute | want to land a change | branch and commit rules, the pull request, review, the code conventions a linter does not enforce, the licence (what CI runs is TESTING's) | always; how a change gets in exists in every team repo, public or private - with no LICENSE the doc says the repo is private and takes no outside contributions. It lives at the root, not under guides/: GitHub renders the root file in its Contributing tab, and a pointer there showed one line. The index lists it under Guides with a root link | Before you start · Making a change · Code conventions · Review · fill: tree, ci, tests, packages |
 | `RELEASING.md` | release | cut a version | versioning, cutting and publishing (tag, changelog entry, artifact, registry); putting an artifact into an environment is DEPLOYMENT's | any kind: a publish or release script or workflow, or a release tool's config (release-please, semantic-release, changesets, standard-version) - an application that cuts versions needs it as much as a library | Versioning · Release steps · What a release contains · Rolling back a release · fill: release, packages, ci, decisions |
 
 ### reference
@@ -280,7 +279,7 @@ The index lists every Markdown file the repository tracks outside dependencies, 
 
 `none YYYY-MM-DD` is the state of an always-on doc a person confirmed says nothing applies here (a library's DEPLOYMENT, a repo with no third party), so an agent knows there is nothing to read without the hop. A changelog pinned at the root lists under History with a root link. Rules the checker reads from it: one line per doc, a dash, the doc as a Markdown link to its relative path, a colon, the owner text, a dash and the state (the example above abbreviates the links to their titles);
 the bucket H2s in this fixed order, a bucket omitted when empty; `Units` for unit READMEs, unit
-AGENTS.md files and unit docs; `Notes beside code` for Markdown inside a source tree; the front door, the agent file, CLAUDE.md and the root pointers (LICENSE, CONTRIBUTING, CHANGELOG, CODE_OF_CONDUCT, SECURITY and the other files GitHub surfaces by name) are not listed - they are reached from the Start-here block or by GitHub itself; `Root files` for Markdown at the repository root that is not a
+AGENTS.md files and unit docs; `Notes beside code` for Markdown inside a source tree; the front door, the agent file, CLAUDE.md and the root pointers (LICENSE, the CHANGELOG pointer, CODE_OF_CONDUCT, SECURITY and the other files GitHub surfaces by name) are not listed; the root CONTRIBUTING.md is a Guides doc and is - they are reached from the Start-here block or by GitHub itself; `Root files` for Markdown at the repository root that is not a
 community file. R1 counts a doc reachable when the index lists it or the inside index of `decisions/`,
 `research/`, `tasklist/` (its sibling `TASKLIST.md`) or a split parts folder does. R9 checks the
 tasklist counts through the manifest's `counts` entry, which the proposed manifest carries. R14 reads the trailing state. A table-shaped index is an R15
@@ -419,7 +418,7 @@ list grammar, and writes the AGENTS.md skeleton; the user reviews the diff and c
 | `docs/TASKLIST.md` + `docs/tasklist/` | `docs/plans/TASKLIST.md` + `docs/plans/tasklist/` |
 | `docs/research/` | `docs/history/research/` |
 | `CHANGELOG.md` at the root | `docs/history/CHANGELOG.md`, the root file becomes a one-line pointer (GitHub still surfaces it) - unless a release tool writes it, in which case it stays and is pinned |
-| `CONTRIBUTING.md` at the root | `docs/guides/CONTRIBUTING.md`, the root file becomes a one-line pointer |
+| `docs/guides/CONTRIBUTING.md`, or `docs/CONTRIBUTING.md` | `CONTRIBUTING.md` at the root, where GitHub renders it |
 | every other doc | the same name under its bucket |
 
 Owner lines, review markers and source brackets survive a move untouched. Split parts folders move
