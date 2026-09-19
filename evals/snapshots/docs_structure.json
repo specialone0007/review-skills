@@ -192,6 +192,24 @@
       "weak": false
     },
     {
+      "applies": "3 environment names",
+      "bucket": "reference",
+      "companions": [],
+      "concern": "configuration",
+      "covered_by": null,
+      "default_path": "docs/reference/CONFIGURATION.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "reference/CONFIGURATION.md",
+      "unit": null,
+      "universal": true,
+      "weak": false
+    },
+    {
       "applies": "4 routes (next-app-router 1, spring 3)",
       "bucket": "reference",
       "companions": [],
@@ -412,6 +430,14 @@
     {
       "level": "warn",
       "line": 1,
+      "message": "no doc covers 'configuration' (the repo has 3 environment names) - apply creates docs/reference/CONFIGURATION.md from the template",
+      "path": "docs/structure.json",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
       "message": "no doc covers 'http' (the repo has 4 routes (next-app-router 1, spring 3)) - apply creates docs/reference/API.md from the template",
       "path": "docs/structure.json",
       "rule": "R12",
@@ -520,8 +546,8 @@
         "why": "agent (always)"
       },
       "docs/INDEX.md": {
-        "content": "# exporter docs\n\n> An intentionally defective fixture. See ../README.md for why.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - unreviewed\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. - skeleton\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, scheduled jobs, alerts, what to do when each one fires, and who is on call. - unreviewed\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n- [Pipelines](explanation/PIPELINES.md): what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and how each one fails and retries. - skeleton\n\n## History\n\n- [Changelog](CHANGELOG.md): the user-visible changes by version, newest first. Keep a Changelog headings; never drafted from commits. - unreviewed\n",
-        "lines": 33,
+        "content": "# exporter docs\n\n> An intentionally defective fixture. See ../README.md for why.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - unreviewed\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. - skeleton\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, scheduled jobs, alerts, what to do when each one fires, and who is on call. - unreviewed\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n- [Pipelines](explanation/PIPELINES.md): what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and how each one fails and retries. - skeleton\n\n## History\n\n- [Changelog](CHANGELOG.md): the user-visible changes by version, newest first. Keep a Changelog headings; never drafted from commits. - unreviewed\n",
+        "lines": 34,
         "template": "INDEX.md (built in)",
         "why": "the central index"
       },
@@ -579,6 +605,12 @@
         "template": "references/templates/reference/ARCHITECTURE.md",
         "why": "architecture (always)"
       },
+      "docs/reference/CONFIGURATION.md": {
+        "concern": "configuration",
+        "lines": 19,
+        "template": "references/templates/reference/CONFIGURATION.md",
+        "why": "configuration (3 environment names)"
+      },
       "docs/reference/SECURITY.md": {
         "concern": "security",
         "lines": 27,
@@ -613,6 +645,7 @@
       ],
       "Reference": [
         "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
+        "- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton",
         "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
         "- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton"
       ]
@@ -624,6 +657,7 @@
       "- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton",
       "- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository \u2014 branches, review, checks that must pass, and the license contributions fall under. - skeleton",
       "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
+      "- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton",
       "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
       "- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton",
       "- [Product](explanation/PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton",
@@ -721,7 +755,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 11
+      "warnings": 12
     },
     "R13": {
       "failures": 0,
@@ -859,7 +893,7 @@
   ],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 14,
+    "concerns_missing": 15,
     "docs_checked": 10,
     "failures": 8,
     "moves": 3,
@@ -872,7 +906,7 @@
       "reviewed": 0,
       "skeleton": 0
     },
-    "warnings": 19
+    "warnings": 20
   },
   "unreachable": [
     "docs/crlf-sample.md",

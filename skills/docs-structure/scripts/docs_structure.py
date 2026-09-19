@@ -201,7 +201,7 @@ DEFAULT_MANIFEST = {
     "requiredDocs": None,
     # A README section stops counting as coverage once the evidence behind a concern is this large:
     # routes for http, tables for data, deployable units for deploy and architecture. 0 turns it off.
-    "heavyEvidence": {"http": 20, "data": 10, "deploy": 3, "architecture": 3, "configuration": 8, "integrations": 3},
+    "heavyEvidence": {"http": 20, "data": 10, "deploy": 3, "architecture": 3, "integrations": 3},
     "templatesDir": None,
     # Accepted so an older manifest still loads; the index is grouped by bucket now and this is ignored.
     "indexGroups": None,
@@ -358,8 +358,9 @@ def _changelog(inv):
 
 
 def _configuration(inv):
+    # Always: "nothing is read" is an answer an agent needs as much as a table of names.
     n = int(inv.get("env_count") or 0)
-    return f"{n} environment names" if n >= 8 else None
+    return f"{n} environment names" if n else "always"
 
 
 def _contribute(inv):
@@ -434,7 +435,7 @@ CONCERNS = [
     ("plan", "history", lambda inv: _plan_evidence(inv), lambda inv: "plans/TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
 ]
-UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",
@@ -1457,8 +1458,6 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             reason = "manifest"
         elif docs_only:
             continue  # a repo of notes is asked for nothing it did not ask for
-        elif cid == "configuration" and int(heavy_cfg.get("configuration") or 0) and int(inv.get("env_count") or 0) < int(heavy_cfg["configuration"]):
-            continue
         elif cid == "integrations" and int(heavy_cfg.get("integrations") or 0) and int((inv.get("integrations") or {}).get("count") or 0) < int(heavy_cfg["integrations"]) and len((inv.get("integrations") or {}).get("outward_env_names") or []) < 3:
             continue
         else:

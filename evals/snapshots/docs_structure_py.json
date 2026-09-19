@@ -139,6 +139,24 @@
       "weak": false
     },
     {
+      "applies": "3 environment names",
+      "bucket": "reference",
+      "companions": [],
+      "concern": "configuration",
+      "covered_by": null,
+      "default_path": "docs/reference/CONFIGURATION.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "reference/CONFIGURATION.md",
+      "unit": null,
+      "universal": true,
+      "weak": false
+    },
+    {
       "applies": "schema: alembic/versions/0001_initial.py",
       "bucket": "reference",
       "companions": [],
@@ -274,6 +292,14 @@
     {
       "level": "warn",
       "line": 1,
+      "message": "no doc covers 'configuration' (the repo has 3 environment names) - apply creates docs/reference/CONFIGURATION.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
       "message": "no doc covers 'data' (the repo has schema: alembic/versions/0001_initial.py) - apply creates docs/reference/DATA_MODEL.md from the template",
       "path": "README.md",
       "rule": "R12",
@@ -318,8 +344,8 @@
         "why": "agent (always)"
       },
       "docs/INDEX.md": {
-        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n\n## Explanation\n\n- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n",
-        "lines": 26,
+        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton\n- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n\n## Explanation\n\n- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n",
+        "lines": 27,
         "template": "INDEX.md (built in)",
         "why": "the central index"
       },
@@ -371,6 +397,12 @@
         "template": "references/templates/reference/CLI.md",
         "why": "commands (cli: pyproject.toml)"
       },
+      "docs/reference/CONFIGURATION.md": {
+        "concern": "configuration",
+        "lines": 19,
+        "template": "references/templates/reference/CONFIGURATION.md",
+        "why": "configuration (3 environment names)"
+      },
       "docs/reference/DATA_MODEL.md": {
         "concern": "data",
         "lines": 23,
@@ -416,6 +448,7 @@
       ],
       "Reference": [
         "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
+        "- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton",
         "- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton",
         "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
         "- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton"
@@ -427,6 +460,7 @@
       "- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton",
       "- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton",
       "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
+      "- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton",
       "- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton",
       "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
       "- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton",
@@ -507,7 +541,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 10
+      "warnings": 11
     },
     "R13": {
       "failures": 0,
@@ -607,7 +641,7 @@
   "split_candidates": [],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 10,
+    "concerns_missing": 11,
     "docs_checked": 1,
     "failures": 0,
     "moves": 0,
@@ -620,7 +654,7 @@
       "reviewed": 1,
       "skeleton": 0
     },
-    "warnings": 10
+    "warnings": 11
   },
   "unreachable": [],
   "warnings": []
