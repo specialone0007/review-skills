@@ -22,11 +22,13 @@
     {
       "first_seen": {
         "API_TOKEN": "src/config.js",
+        "ARCHIVE_EXPORT_DIR": "src/config.js",
         "MAX_EXPORT_ROWS": "src/config.js"
       },
       "kind": "code-reads",
       "names": [
         "API_TOKEN",
+        "ARCHIVE_EXPORT_DIR",
         "MAX_EXPORT_ROWS"
       ],
       "source": "code"
@@ -92,7 +94,7 @@
       "Running",
       "Configuration"
     ],
-    "lines": 20,
+    "lines": 22,
     "title": "mini-app"
   },
   "release": [],

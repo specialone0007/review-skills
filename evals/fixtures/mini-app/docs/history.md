@@ -4,7 +4,7 @@ The cap was 42.5% from the first release.
 
 ## First release
 
-Exports shipped with the cap in place. Nothing else was configurable.
+Exports shipped with the cap in place; the export folder came from `ARCHIVE_EXPORT_DIR`. Nothing else was configurable.
 
 ## Second release
 

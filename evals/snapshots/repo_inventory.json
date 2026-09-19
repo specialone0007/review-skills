@@ -53,17 +53,17 @@
     {
       "dir": "docs",
       "files": 11,
-      "lines": 268
+      "lines": 273
     },
     {
       "dir": "(root)",
       "files": 9,
-      "lines": 103
+      "lines": 107
     },
     {
       "dir": "src",
       "files": 12,
-      "lines": 88
+      "lines": 89
     },
     {
       "dir": "tests",
@@ -146,19 +146,24 @@
       "path": "docs/quoted.md"
     },
     {
-      "bytes": 517,
+      "bytes": 595,
       "lines": 28,
       "path": "docs/history.md"
+    },
+    {
+      "bytes": 570,
+      "lines": 22,
+      "path": "README.md"
+    },
+    {
+      "bytes": 515,
+      "lines": 21,
+      "path": "package.json"
     },
     {
       "bytes": 515,
       "lines": 17,
       "path": "docs/gated.md"
-    },
-    {
-      "bytes": 434,
-      "lines": 19,
-      "path": "package.json"
     },
     {
       "bytes": 416,
@@ -176,18 +181,13 @@
       "path": "src/routes/exports.js"
     },
     {
-      "bytes": 371,
-      "lines": 20,
-      "path": "README.md"
-    },
-    {
       "bytes": 359,
       "lines": 7,
       "path": "docs/guide/advanced.md"
     },
     {
-      "bytes": 310,
-      "lines": 12,
+      "bytes": 351,
+      "lines": 17,
       "path": "docs/setup.md"
     },
     {
@@ -204,6 +204,11 @@
       "bytes": 247,
       "lines": 8,
       "path": "tests/format-date.test.js"
+    },
+    {
+      "bytes": 241,
+      "lines": 7,
+      "path": "src/config.js"
     },
     {
       "bytes": 241,
@@ -234,11 +239,6 @@
       "bytes": 193,
       "lines": 0,
       "path": "Dockerfile"
-    },
-    {
-      "bytes": 189,
-      "lines": 6,
-      "path": "src/config.js"
     },
     {
       "bytes": 183,
@@ -307,7 +307,7 @@
   "totals": {
     "doc_files": 12,
     "files": 35,
-    "lines": 484,
+    "lines": 494,
     "test_files": 3
   },
   "warnings": []

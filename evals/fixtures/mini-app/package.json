@@ -2,6 +2,8 @@
   "name": "@mini/exporter",
   "version": "0.0.0",
   "private": true,
+  "license": "Apache-2.0",
+  "engines": { "node": ">=20" },
   "type": "module",
   "scripts": {
     "dev:start": "node src/server.js",

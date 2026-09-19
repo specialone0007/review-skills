@@ -18,6 +18,11 @@ Only checks claims that have a definite answer:
              read by the code (source files, and ${NAME} / $NAME in shell scripts,
              Dockerfiles, compose files, Makefiles and Procfiles), in both directions
   staleness  a doc untouched for far longer than the code it describes
+  facts      the package's own version pinned in a doc, the runtime version a doc
+             requires, the licence a doc names, and a localhost port a doc gives,
+             against the manifests, the LICENSE file, compose, Dockerfile and code
+
+    python docs_drift.py --claims README.md   # every mechanical claim in one doc, with its line
 
 It does not judge prose. Wording, tone, completeness and accuracy of explanation
 are the reviewing agent's job; this exists so the agent does not spend forty tool
@@ -56,6 +61,19 @@ SKIP_DIRS = {
     "__pycache__", ".next", "coverage", ".terraform", "site-packages",
 }
 DOC_EXTS = {".md", ".mdx", ".rst", ".txt"}
+# A .txt that is a manifest, not a document: requirements.txt was in the doc inventory and
+# could carry a stale-doc row.
+MANIFEST_TXT = re.compile(r"^(?:requirements|constraints)[^/]*\.txt$|^cmakelists\.txt$|^robots\.txt$|^(?:license|licence|notice|copying)[^/]*\.txt$", re.I)
+# An archived report or a dated plan described the repository accurately at the time; its
+# commands and links are history, not promises. Findings there are advice and staleness is
+# expected. Same heuristic as docs-structure's record folders.
+RECORD = re.compile(r"(^|/)(archive|archived|plans|specs|log|logs|builds|adr|adrs|decisions|rfcs|changelogs|audit-[^/]*|[^/]*\d{4}-\d{2}-\d{2}[^/]*)/", re.I)
+RECORD_NAME = re.compile(r"^(changelog|changes|history|news|release[-_]?notes?|releases|upgrading|migration[-_]guide)\b", re.I)
+
+
+def in_record(path: str) -> bool:
+    return bool(RECORD.search(path)) or bool(RECORD_NAME.match(Path(path).stem))
+
 # The languages where a module is imported by file name, which is the only case in which
 # "nothing imports this file" can be decided from the text.
 # Ruby is out: Rails autoloads app/ and lib/ by convention, so a .rb file nothing requires is
@@ -73,7 +91,13 @@ CMD_NPM = re.compile(r"\b(?:npm|pnpm|yarn|bun)\s+run\s+([A-Za-z0-9:_.-]+)")
 # colon, a dot or a dash is taken, so the package manager's own verbs (install, add, exec,
 # dlx, create, why, outdated, ...) and the lifecycle words that npm itself defines
 # (test, start, stop, restart) are never reported. `npm x` is not shorthand for anything.
-CMD_PM_SHORT = re.compile(r"\b(?:pnpm|yarn|bun)\s+(?!run\b|install\b|add\b|remove\b|exec\b|dlx\b|create\b|why\b|outdated\b|update\b|link\b|--|-)([a-z][A-Za-z0-9_]*[:.\-][A-Za-z0-9:_.\-]*)")
+# `pnpm dev`, `yarn build`: the package manager's own verbs are excluded, everything else is a
+# script name and is checked when the repository declares scripts at all.
+PM_VERBS = ("run|install|i|add|remove|rm|uninstall|exec|dlx|create|why|outdated|update|up|upgrade|link|unlink|init|publish|pack|"
+            "cache|config|info|list|ls|audit|login|logout|version|help|setup|import|patch|env|store|fetch|prune|dedupe|"
+            "rebuild|root|bin|licenses|workspace|workspaces|w|x|c|npx|node|test|start|stop|restart|deploy|self-update|"
+            "ci|cat-file|cat-index|find-hash|doctor|approve-builds|set|get|prefer|search|owner|team|access|adduser")
+CMD_PM_SHORT = re.compile(r"\b(?:pnpm|yarn|bun)\s+(?!(?:" + PM_VERBS + r")\b|--|-)([a-z][A-Za-z0-9:_.\-]*)\b")
 # `make VAR=value target` and `make -j4 target`: the target is the first word that is neither
 # an assignment nor a flag.
 # An assignment starts with a name character and a flag with a dash, so the two alternatives never
@@ -254,7 +278,20 @@ def exists_exact(path: Path) -> bool:
         return False
 
 
+_READ_CACHE: dict[str, str] = {}
+
+
 def read(path: Path) -> str:
+    key = str(path)
+    if key in _READ_CACHE:
+        return _READ_CACHE[key]
+    text = _read_uncached(path)
+    if len(_READ_CACHE) < 20000:
+        _READ_CACHE[key] = text
+    return text
+
+
+def _read_uncached(path: Path) -> str:
     try:
         if path.stat().st_size > MAX_READ:
             return ""
@@ -519,7 +556,7 @@ def unreferenced_modules(repo: Path, files: list[str]) -> set[str]:
     return out
 
 
-def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], dict[str, str], set[str], dict[str, str]]:
+def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], dict[str, str], set[str], dict[str, str], dict[str, str]]:
     """Env var names named in docs or declared in an env sample file.
 
     Only the key to the left of `=` is ever read from an env file. The value is a
@@ -539,9 +576,19 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
     # A name that only appears inside a fenced code block: `os.getenv('YDC_API_KEY')` in a usage
     # example is a mention, not configuration documentation, and the row should say which.
     mentioned: dict[str, str] = {}
+    # A name documented only in a record folder or a CHANGELOG-like doc: history, not a live
+    # promise. It used to count as documented and silence the row; now the row says where.
+    record_only: dict[str, str] = {}
     for rel in files:
         base = Path(rel).name
         is_env_sample = base.startswith(".env") or ENV_SAMPLE_NAME.match(base) is not None
+        if not is_env_sample and in_record(rel):
+            text_r = read(repo / rel)
+            for j, line_r in enumerate(text_r.splitlines(), start=1):
+                for name_r in ENV_NAME.findall(line_r):
+                    if "_" in name_r and not name_r.endswith("_"):
+                        record_only.setdefault(name_r, f"{rel}:{j}")
+            continue
         if not is_env_sample and Path(rel).suffix not in DOC_EXTS:
             continue
         if any(p.startswith(".") and p != ".github" for p in Path(rel).parts[:-1]):
@@ -641,7 +688,10 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
                     documented.setdefault(name, f"{rel}:{i}")
                     if DEAD_CONTEXT.search(line_live):
                         dead_by_doc.add(name)
-    return documented, weak, dead_by_doc, mentioned
+    for k in list(record_only):
+        if k in documented or k in weak:
+            del record_only[k]
+    return documented, weak, dead_by_doc, mentioned, record_only
 
 
 def dependency_tokens(repo: Path, files: list[str]) -> dict[str, str]:
@@ -723,6 +773,178 @@ def dependency_tokens(repo: Path, files: list[str]) -> dict[str, str]:
     return out
 
 
+PIN = re.compile(r"(?:(?:npm|pnpm|yarn|bun)\s+(?:i|install|add)\s+(?:-\S+\s+)*|pip3?\s+install\s+(?:-\S+\s+)*|pipx\s+install\s+|cargo\s+install\s+|gem\s+install\s+|uv\s+(?:pip\s+install|add)\s+)"
+                 r"([@A-Za-z0-9_./-]+?)(?:==|@|:)v?(\d+\.\d+(?:\.\d+)?)\b"
+                 r"|\b([A-Za-z0-9_./-]+):v?(\d+\.\d+(?:\.\d+)?)(?=[-A-Za-z0-9]*\s|[-A-Za-z0-9]*$)")
+RUNTIME_CLAIM = re.compile(r"\b(Node(?:\.js)?|Python|Go(?:lang)?|Rust|Ruby|PHP|Java|\.NET|Deno|Bun)\s*(?:>=|≥|v\.?|version\s*)?\s*(\d+(?:\.\d+)?)\b", re.I)
+RUNTIME_CONTEXT = re.compile(r"require|need|minimum|prerequisit|install|or (?:later|newer|higher|above)|\+|>=|version|supported|use", re.I)
+RUNTIME_KEY = {"node": "node", "node.js": "node", "nodejs": "node", "python": "python", "go": "go", "golang": "go",
+               "rust": "rust", "ruby": "ruby", "php": "php", "java": "java", ".net": "dotnet", "deno": "deno", "bun": "bun"}
+DOC_PORT = re.compile(r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{2,5})\b")
+LICENCE_FAMILY = [("agpl", r"\bAGPL\b|Affero"), ("lgpl", r"\bLGPL\b|Lesser General Public"), ("gpl", r"\bGPL\b|GNU General Public"),
+                  ("apache", r"\bApache\b"), ("mit", r"\bMIT\b"), ("bsd", r"\bBSD\b"), ("mpl", r"\bMPL\b|Mozilla Public"),
+                  ("isc", r"\bISC\b"), ("unlicense", r"\bUnlicense\b"), ("proprietary", r"\bproprietary\b|UNLICENSED|All rights reserved")]
+
+
+def licence_family(text: str) -> str:
+    for fam, pat in LICENCE_FAMILY:
+        if re.search(pat, text, re.I if fam in ("proprietary",) else 0):
+            return fam
+    return ""
+
+
+def manifest_facts(repo: Path, files: list[str]) -> dict:
+    """What the manifests, the LICENSE file, compose, Dockerfiles and the code say about the
+    package's name and version, the runtime it requires, its licence and the ports it uses."""
+    out: dict = {"name": "", "names": set(), "version": "", "version_source": "", "runtimes": {},
+                 "licence": set(), "licence_source": "", "ports": set(), "ports_source": ""}
+    port_sources: list[str] = []
+    for rel in files:
+        if any(p in SKIP_DIRS for p in Path(rel).parts):
+            continue
+        base = Path(rel).name
+        depth = rel.count("/")
+        low = base.lower()
+        if base == "package.json" and depth == 0:
+            try:
+                data = json.loads(read(repo / rel))
+            except ValueError:
+                data = {}
+            if isinstance(data, dict):
+                if isinstance(data.get("name"), str):
+                    out["name"] = data["name"]; out["names"].add(data["name"].lower())
+                if isinstance(data.get("version"), str):
+                    out["version"], out["version_source"] = data["version"], rel
+                eng = (data.get("engines") or {}).get("node") if isinstance(data.get("engines"), dict) else None
+                if isinstance(eng, str):
+                    m = re.search(r"(\d+(?:\.\d+)?)", eng)
+                    if m:
+                        out["runtimes"].setdefault("node", (m.group(1), rel))
+                lic = data.get("license")
+                if isinstance(lic, str) and licence_family(lic) and not out.get("licence_file"):
+                    out["licence"].add(licence_family(lic)); out["licence_source"] = out["licence_source"] or rel
+                elif isinstance(lic, str) and licence_family(lic) and licence_family(lic) not in out["licence"]:
+                    out["licence_conflict"] = (licence_family(lic), rel, sorted(out["licence"])[0], out["licence_source"])
+        elif base == "pyproject.toml" and depth == 0:
+            text = read(repo / rel)
+            m = re.search(r"^\[project\][^\[]*?^name\s*=\s*\"([^\"]+)\"", text, re.M | re.S) or re.search(r"^\[tool\.poetry\][^\[]*?^name\s*=\s*\"([^\"]+)\"", text, re.M | re.S)
+            if m:
+                out["name"] = out["name"] or m.group(1); out["names"].add(m.group(1).lower()); out["names"].add(m.group(1).lower().replace("-", "_"))
+            m = re.search(r"^version\s*=\s*\"(\d+\.\d+(?:\.\d+)?)\"", text, re.M)
+            if m and not out["version"]:
+                out["version"], out["version_source"] = m.group(1), rel
+            m = re.search(r"(?:requires-python|python_requires|python)\s*=\s*\"[^0-9]*(\d+\.\d+)", text)
+            if m:
+                out["runtimes"].setdefault("python", (m.group(1), rel))
+            m = re.search(r"^license\s*=\s*(?:\{\s*text\s*=\s*)?\"([^\"]+)\"", text, re.M) or re.search(r"License :: OSI Approved :: ([^\"]+)", text)
+            if m and licence_family(m.group(1)):
+                out["licence"].add(licence_family(m.group(1))); out["licence_source"] = out["licence_source"] or rel
+        elif base == "Cargo.toml" and depth == 0:
+            text = read(repo / rel)
+            m = re.search(r"^\[package\][^\[]*?^name\s*=\s*\"([^\"]+)\"", text, re.M | re.S)
+            if m:
+                out["name"] = out["name"] or m.group(1); out["names"].add(m.group(1).lower())
+            m = re.search(r"^\[package\][^\[]*?^version\s*=\s*\"(\d+\.\d+(?:\.\d+)?)\"", text, re.M | re.S)
+            if m and not out["version"]:
+                out["version"], out["version_source"] = m.group(1), rel
+            m = re.search(r"^rust-version\s*=\s*\"(\d+\.\d+)", text, re.M)
+            if m:
+                out["runtimes"].setdefault("rust", (m.group(1), rel))
+            m = re.search(r"^license\s*=\s*\"([^\"]+)\"", text, re.M)
+            if m and licence_family(m.group(1)):
+                out["licence"].add(licence_family(m.group(1))); out["licence_source"] = out["licence_source"] or rel
+        elif base == "go.mod" and depth == 0:
+            m = re.search(r"^go\s+(\d+\.\d+)", read(repo / rel), re.M)
+            if m:
+                out["runtimes"].setdefault("go", (m.group(1), rel))
+        elif base in (".nvmrc", ".node-version") and depth == 0:
+            m = re.search(r"(\d+(?:\.\d+)?)", read(repo / rel))
+            if m:
+                out["runtimes"].setdefault("node", (m.group(1), rel))
+        elif base == ".python-version" and depth == 0:
+            m = re.search(r"(\d+\.\d+)", read(repo / rel))
+            if m:
+                out["runtimes"].setdefault("python", (m.group(1), rel))
+        elif base == "VERSION" and depth == 0 and not out["version"]:
+            m = re.match(r"\s*v?(\d+\.\d+(?:\.\d+)?)", read(repo / rel))
+            if m:
+                out["version"], out["version_source"] = m.group(1), rel
+        elif low.startswith(("license", "licence", "copying")) and depth == 0:
+            fam = licence_family(read(repo / rel)[:600])
+            if fam:
+                # The LICENSE file is the truth; a manifest field that disagrees with it is its own row.
+                if out["licence"] and fam not in out["licence"]:
+                    out["licence_conflict"] = (sorted(out["licence"])[0], out["licence_source"], fam, rel)
+                out["licence"] = {fam}; out["licence_source"] = rel; out["licence_file"] = True
+        if base.startswith("Dockerfile") or base.endswith(".dockerfile"):
+            for m in re.finditer(r"^\s*EXPOSE\s+([\d\s/tcpud]+)", read(repo / rel), re.M):
+                for port in re.findall(r"\d{2,5}", m.group(1)):
+                    out["ports"].add(port); port_sources.append(rel)
+        elif base.startswith(("docker-compose", "compose.")) or base in ("compose.yml", "compose.yaml"):
+            for m in re.finditer(r"[\"']?(\d{2,5}):(\d{2,5})[\"']?", read(repo / rel)):
+                out["ports"].add(m.group(1)); out["ports"].add(m.group(2)); port_sources.append(rel)
+        elif Path(rel).suffix in CODE_EXTS or base in ("Procfile",) or Path(rel).suffix in (".json", ".toml", ".yml", ".yaml"):
+            text = read(repo / rel)
+            if not text or not re.search(r"PORT|listen|port", text):
+                continue
+            for m in re.finditer(r"PORT\b[^\n]{0,60}?\b(\d{4,5})\b|\.listen\(\s*(\d{4,5})|--port[=\s]+(\d{4,5})|\bport\s*[:=]\s*(\d{4,5})\b", text):
+                port = next(g for g in m.groups() if g)
+                out["ports"].add(port); port_sources.append(rel)
+    out["ports_source"] = ", ".join(sorted(set(port_sources))[:4])
+    return out
+
+
+CLAIM_BEHAVIOUR = re.compile(r"\b(default|required|must|retries|roles?|only when)\b", re.I)
+CLAIM_PATH = re.compile(r"(?<![\w/])(?:\./)?[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z0-9]{1,5}\b")
+CLAIM_VERSION = re.compile(r"\bv?\d+\.\d+(?:\.\d+)?\b")
+CLAIM_CMD = re.compile(r"^\s*(?:\$\s*)?(?:\./|npm|pnpm|yarn|bun|npx|make|python3?|pip3?|uv|poetry|node|deno|bash|sh|go|cargo|dotnet|docker|kubectl|helm|terraform|git|curl|gem|bundle|mix|ruby|php|java|mvn|gradle)\b")
+
+
+def claims_for(text: str) -> list[dict]:
+    """Every mechanical claim in one doc, with its line: the checklist a deep inspection settles.
+    Same output on every shell, which the two greps it replaces were not."""
+    out: list[dict] = []
+    seen: set[tuple] = set()
+
+    def put(line: int, kind: str, claim: str) -> None:
+        key = (line, kind, claim)
+        if claim and key not in seen:
+            seen.add(key); out.append({"line": line, "kind": kind, "claim": claim})
+
+    fenced = {ln for ln, _ in fenced_blocks(text)}
+    for i, line in enumerate(text.splitlines(), start=1):
+        if i in fenced:
+            if CLAIM_CMD.match(line) and not line.lstrip().startswith("#"):
+                put(i, "command", line.strip()[:160])
+            for m in re.finditer(r"^\s*(?:export\s+)?([A-Z][A-Z0-9_]{2,})=", line):
+                put(i, "env", m.group(1))
+            continue
+        for chunk in BACKTICK.findall(line):
+            c = chunk.strip()
+            if CLAIM_CMD.match(c):
+                put(i, "command", c[:160])
+            elif re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", c) and "_" in c:
+                put(i, "env", c)
+            elif "/" in c or re.search(r"\.[A-Za-z0-9]{1,5}$", c):
+                put(i, "path", c)
+            else:
+                put(i, "name", c)
+        stripped = re.sub(r"`[^`]*`", " ", line)
+        for m in ENV_NAME.finditer(stripped):
+            if "_" in m.group(1) and not m.group(1).endswith("_"):
+                put(i, "env", m.group(1))
+        for m in CLAIM_PATH.finditer(stripped):
+            if not m.group(0).startswith(("http", "www.")):
+                put(i, "path", m.group(0))
+        for m in DOC_PORT.finditer(stripped):
+            put(i, "port", m.group(0))
+        for m in CLAIM_VERSION.finditer(stripped):
+            put(i, "version", m.group(0))
+        if CLAIM_BEHAVIOUR.search(stripped):
+            put(i, "behaviour", stripped.strip()[:160])
+    return out
+
+
 def path_epochs(repo: Path) -> dict[str, int]:
     """The newest commit time of every path, from one git log pass.
 
@@ -768,16 +990,23 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
     # agent, not to a reader of this repository; .github is the one GitHub itself documents.
     docs = [f for f in files
             if Path(f).suffix in DOC_EXTS and not any(p in SKIP_DIRS for p in Path(f).parts)
-            and not any(p.startswith(".") and p != ".github" for p in Path(f).parts[:-1])]
-    # An archived report or a dated plan described the repository accurately at the time; its
-    # commands and links are history, not promises. Findings there are advice and staleness is
-    # expected. Same heuristic as docs-structure's record folders.
-    record = re.compile(r"(^|/)(archive|archived|plans|specs|log|logs|builds|adr|adrs|decisions|rfcs|changelogs|audit-[^/]*|[^/]*\d{4}-\d{2}-\d{2}[^/]*)/", re.I)
+            and not any(p.startswith(".") and p != ".github" for p in Path(f).parts[:-1])
+            and not MANIFEST_TXT.match(Path(f).name)]
+    has_makefile = any(Path(f).name in ("Makefile", "GNUmakefile", "makefile") or f.endswith(".mk") for f in files)
+    facts = manifest_facts(repo, files)
 
-    record_name = re.compile(r"^(changelog|changes|history|news|release[-_]?notes?|releases|upgrading|migration[-_]guide)\b", re.I)
+    PM_ELSEWHERE = re.compile(r"\s(?:--filter|-F|--workspace|-w|-C|--dir|--prefix|--cwd)[\s=]|cd\s+\S+\s*(?:&&|;)")
 
-    def in_record(path: str) -> bool:
-        return bool(record.search(path)) or bool(record_name.match(Path(path).stem))
+    def nearest_scripts(doc: str, cwd: str = "") -> tuple[str, set[str]]:
+        """The scripts of the package.json nearest above the doc: a monorepo doc under apps/web
+        means apps/web/package.json, and a name that only another package declares is not this
+        doc's command."""
+        parts = Path(cwd).parts if cwd else Path(doc).parent.parts
+        for i in range(len(parts), -1, -1):
+            key = "/".join(parts[:i]) or "."
+            if key in npm_scripts:
+                return key, npm_scripts[key]
+        return "", set()
 
     for doc in docs:
         text = read(repo / doc)
@@ -789,6 +1018,23 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         fenced_lines = fenced_blocks(text, skip_away=True)
         fenced_nos = {ln for ln, _ in fenced_blocks(text)}
         cmd_lines: list[tuple[int, str, bool]] = [(ln, line, False) for ln, line in fenced_lines]
+        # A relative `cd apps/web` earlier in the same fence moves every later command there.
+        fence_cwd: dict[int, str] = {}
+        cur = ""
+        last_ln = -2
+        for ln, line in fenced_lines:
+            if ln != last_ln + 1:
+                cur = ""  # a new fence
+            m_cd = re.match(r"^\s*cd\s+([A-Za-z0-9_./-]+)", line)
+            if m_cd:
+                target = m_cd.group(1).rstrip("/")
+                for cand in (os.path.normpath(os.path.join(cur or str(Path(doc).parent), target)), os.path.normpath(target)):
+                    cand = cand.replace("\\", "/")
+                    if cand in (".", "") or any(f.startswith(cand + "/") for f in file_set):
+                        cur = "" if cand == "." else cand
+                        break
+            fence_cwd[ln] = cur
+            last_ln = ln
         for i, line in enumerate(text.splitlines(), start=1):
             if i in fenced_nos:
                 continue
@@ -808,12 +1054,31 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                     add("missing-script", "high", doc, lineno,
                         f"documents `{script}`, which is not a script in any package.json.{hint}{tag}",
                         source="package.json")
+                else:
+                    where, own = nearest_scripts(doc, fence_cwd.get(lineno, "") if not inline else "")
+                    holders = sorted(k for k, v in npm_scripts.items() if script in v)[:3]
+                    # A table row or sentence that names the unit the command runs in - `apps/web` ...
+                    # `pnpm build` - is not a claim that it runs here.
+                    named_here = any(h != "." and (h in line or Path(h).name in line) for h in holders)
+                    if where and script not in own and not PM_ELSEWHERE.search(" " + line) and not named_here:
+                        add("missing-script", "low", doc, lineno,
+                            f"documents `{script}`, which is not a script in the package nearest this doc "
+                            f"({where}/package.json); it exists in {', '.join(h + '/package.json' for h in holders)}. "
+                            f"Run from the wrong directory it fails.{tag}",
+                            source=f"{where}/package.json")
             for target in set(CMD_MAKE.findall(line)):
-                if (make_targets and target not in make_targets
-                        and target not in ("-j", "all", "sure", "the", "it", "a", "this", "that", "them", "changes", "any", "your", "these")):
+                if target in ("-j", "all", "sure", "the", "it", "a", "this", "that", "them", "changes", "any", "your", "these", "up", "do", "of", "and", "or", "to"):
+                    continue
+                if make_targets and target not in make_targets:
                     add("missing-make-target", "high", doc, lineno,
                         f"documents `make {target}`, which is not a target in the Makefile.{tag}",
                         source="Makefile")
+                elif not has_makefile and re.search(r"(?:^|\s|`)make\s+" + re.escape(target) + r"\b", line):
+                    # A doc telling the reader to run make in a repository with no Makefile at all
+                    # was skipped, not reported.
+                    add("missing-make-target", "high", doc, lineno,
+                        f"documents `make {target}`, and the repository has no Makefile.{tag}",
+                        source="(no Makefile)")
             for proj in set(CMD_DOTNET.findall(line)):
                 if PLACEHOLDER.search(proj):
                     continue
@@ -925,6 +1190,49 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 add("missing-path", "medium", doc, i,
                     f"references `{c}`, which does not exist in the repository.")
 
+        # 3b. facts with a definite answer: the package's own version pinned in a doc, the runtime
+        # version a doc requires, the licence a doc names, a localhost port a doc gives.
+        fenced_set = {ln for ln, _ in fenced_blocks(text)}
+        for i, line in enumerate(text.splitlines(), start=1):
+            if facts["version"] and facts["name"]:
+                for m in PIN.finditer(line):
+                    pkg, ver = (m.group(1) or m.group(3) or ""), (m.group(2) or m.group(4) or "")
+                    if pkg.lower() in facts["names"] and ver and ver != facts["version"]:
+                        add("version-pin", "medium", doc, i,
+                            f"pins `{pkg}` at {ver}; the manifest version is {facts['version']}.",
+                            source=facts["version_source"])
+            if i not in fenced_set and facts["runtimes"] and RUNTIME_CONTEXT.search(line):
+                for m in RUNTIME_CLAIM.finditer(line):
+                    lang = RUNTIME_KEY.get(m.group(1).lower().rstrip("."), "")
+                    have = facts["runtimes"].get(lang)
+                    if not have:
+                        continue
+                    said = m.group(2)
+                    same = said.split(".")[0] == have[0].split(".")[0] if lang != "python" else \
+                        ".".join(said.split(".")[:2]) == ".".join(have[0].split(".")[:2])
+                    if not same:
+                        add("runtime-version", "medium", doc, i,
+                            f"says {m.group(1)} {said}; the manifest requires {have[0]}.", source=have[1])
+            if facts["licence"] and i not in fenced_set and re.search(r"licen[cs]e", line, re.I):
+                fam = licence_family(line)
+                if fam and fam not in facts["licence"]:
+                    add("license-mismatch", "medium", doc, i,
+                        f"names the {fam.upper()} licence; the manifest and LICENSE file say {', '.join(sorted(facts['licence'])).upper()}.",
+                        source=facts["licence_source"])
+            if facts["ports"]:
+                for m in DOC_PORT.finditer(line):
+                    port = m.group(1)
+                    if port not in facts["ports"]:
+                        add("port-mismatch", "low", doc, i,
+                            f"gives localhost:{port}; no compose mapping, EXPOSE, listen call or PORT default in the repository uses {port} "
+                            f"(known: {', '.join(sorted(facts['ports'], key=int)[:8])}).",
+                            source=facts["ports_source"])
+
+    if facts.get("licence_conflict"):
+        a, a_src, b, b_src = facts["licence_conflict"]
+        add("license-mismatch", "medium", a_src, None,
+            f"the manifest says {a.upper()} while {b_src} is the {b.upper()} licence text.", source=b_src)
+
     # 4. env vars, both directions
     in_code = env_names_from_code(repo, files)
     exported_by = dict(e.split("=", 1) for e in in_code.pop("__exported__", []))
@@ -932,7 +1240,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         if Path(rel).name == "build.rs":
             for built in re.findall(r"cargo:rustc-env=([A-Z][A-Z0-9_]*)=", read(repo / rel) or ""):
                 in_code.pop(built, None)  # set by the build script, read by the crate: not a knob
-    in_docs, weak_docs, dead_by_doc, mentioned_docs = env_names_documented(repo, files)
+    in_docs, weak_docs, dead_by_doc, mentioned_docs, record_only_docs = env_names_documented(repo, files)
     dead = unreferenced_modules(repo, files)
     deps = dependency_tokens(repo, files)
     # SCRAPE_CREATORS_API_KEY documented, SCRAPECREATORS_API_KEY read: a legacy alias, and the
@@ -1041,6 +1349,11 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                 detail += f" A shell script in the repository exports it ({exported_by[name]}), so it may be plumbing between scripts rather than an operator knob."
                 add("undocumented-env", "low", "(docs)", None, detail, source=ordered[0], readers=ordered)
                 continue
+            if name in record_only_docs:
+                detail = (f"`{name}` is read by the code and documented only in a record - {record_only_docs[name]} - "
+                          f"which is history, not a live promise; no live doc or env sample names it.{hint}")
+                add("undocumented-env", "low", "(docs)", None, detail, source=ordered[0], readers=ordered)
+                continue
             add("undocumented-env", "medium", "(docs)", None, detail, source=ordered[0], readers=ordered)
 
     # 5. staleness
@@ -1133,7 +1446,26 @@ def main() -> int:
                           "noise buries the unambiguous findings. Markdown links are always checked."))
     ap.add_argument("--no-git-root", action="store_true",
                     help="Treat --repo literally instead of expanding to the enclosing git repository root.")
+    ap.add_argument("--claims", metavar="DOC",
+                    help="Print every mechanical claim in one doc (commands, names, paths, env names, ports, versions, "
+                         "behaviour lines) with its line number, and exit. The checklist a deep inspection settles.")
     args = ap.parse_args()
+    if args.claims:
+        doc = Path(args.claims)
+        if not doc.is_absolute():
+            doc = Path(args.repo).resolve() / doc
+        if not doc.is_file():
+            print(f"error: not a file: {doc}", file=sys.stderr)
+            return 2
+        rows = claims_for(read(doc))
+        behaviour = sum(1 for r in rows if r["kind"] == "behaviour")
+        if args.format == "json":
+            print(json.dumps({"doc": str(doc), "claims": rows, "count": len(rows), "behaviour_lines": behaviour}, indent=2))
+        else:
+            for r in rows:
+                print(f"L{r['line']}\t{r['kind']}\t{r['claim']}")
+            print(f"claims: {len(rows)}   behaviour lines: {behaviour}")
+        return 0
 
     repo = Path(args.repo).resolve()
     if not repo.is_dir():
