@@ -69,6 +69,11 @@ CODE_EXTS = {
 FENCE = re.compile(r"^(?:```|~~~)")
 # Commands worth checking. Anything else in a fenced block is left alone.
 CMD_NPM = re.compile(r"\b(?:npm|pnpm|yarn|bun)\s+run\s+([A-Za-z0-9:_.-]+)")
+# `pnpm registry:build` and `yarn dev` run a script without the word `run`. Only a name with a
+# colon, a dot or a dash is taken, so the package manager's own verbs (install, add, exec,
+# dlx, create, why, outdated, ...) and the lifecycle words that npm itself defines
+# (test, start, stop, restart) are never reported. `npm x` is not shorthand for anything.
+CMD_PM_SHORT = re.compile(r"\b(?:pnpm|yarn|bun)\s+(?!run\b|install\b|add\b|remove\b|exec\b|dlx\b|create\b|why\b|outdated\b|update\b|link\b|--|-)([a-z][A-Za-z0-9_]*[:.\-][A-Za-z0-9:_.\-]*)")
 # `make VAR=value target` and `make -j4 target`: the target is the first word that is neither
 # an assignment nor a flag.
 # An assignment starts with a name character and a flag with a dash, so the two alternatives never
@@ -120,11 +125,15 @@ ENV_IN_CODE = [
 # ${NAME}, ${NAME:?}, $NAME in a shell script, a Dockerfile, a compose file, a Makefile or a
 # Procfile: the deploy-side read that blocks a deploy when unset. $(VAR) in a Makefile is a make
 # variable, not the environment; $1 and ${#x} are shell, and the pattern wants a letter first.
-SHELL_ENV = re.compile(r"\$\{([A-Z][A-Z0-9_]{2,})(?:[:}\-?])|\$([A-Z][A-Z0-9_]{2,})(?![A-Za-z0-9_{(])")
+SHELL_ENV = re.compile(r"\$\{([A-Z][A-Z0-9_]{2,})(?:[:}\-?])|\$(?:env:)?([A-Z][A-Z0-9_]{2,})(?![A-Za-z0-9_{(])")
+# In a Makefile ${NAME} and $(NAME) are make variables; only the recipe shell's $${NAME} reads the
+# environment.
+MAKE_ENV = re.compile(r"\$\$\{?([A-Z][A-Z0-9_]{2,})\b")
 SHELL_EXTS = {".sh", ".bash", ".ps1", ".zsh"}
 SHELL_LOCAL = re.compile(r"^\s*(?:(?:export|local|declare|readonly|typeset)\s+(?:-\w+\s+)*)?([A-Z][A-Z0-9_]{2,})\s*[:?+]?="
                          r"|^\s*(?:for|read|select)\s+(?:-\w+\s+)*([A-Z][A-Z0-9_]{2,})\b"
-                         r"|^\s*(?:ARG|ENV)\s+([A-Z][A-Z0-9_]{2,})\b", re.M)
+                         r"|^\s*(?:ARG|ENV)\s+([A-Z][A-Z0-9_]{2,})\b"
+                         r"|^\s*\$([A-Z][A-Z0-9_]{2,})\s*=", re.M)
 SHELL_NAMES = re.compile(r"^(?:Dockerfile(?:\..*)?|docker-compose.*\.ya?ml|compose\..*\.ya?ml|compose\.ya?ml|Makefile|GNUmakefile|Procfile)$")
 # const { A, B } = process.env - one line, several names.
 ENV_DESTRUCTURE = re.compile(r"\{([^}]*)\}\s*=\s*process\.env\b")
@@ -320,6 +329,7 @@ def fenced_blocks(text: str, *, skip_away: bool = False) -> list[tuple[int, str]
 def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
     """Env var names the code reads, mapped to every location that reads them."""
     found: dict[str, list[str]] = {}
+    exported: dict[str, str] = {}  # NAME -> file:line of an `export NAME=` in some shell file
 
     def note(name: str, where: str) -> None:
         # os.getenv("X") matches both the os.getenv and the bare getenv( pattern; one
@@ -342,20 +352,31 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
         if shell or Path(rel).suffix == ".sh":
             for groups in SHELL_LOCAL.findall(text):
                 local_names.add(next(g for g in groups if g))
+            for m in re.finditer(r"^\s*export\s+([A-Z][A-Z0-9_]{2,})=", text, re.M):
+                exported.setdefault(m.group(1), f"{rel}:{text[:m.start()].count(NL) + 1}")
         for i, line in enumerate(text.splitlines(), start=1):
             # A JSDoc line "* The values above use `process.env.X`" is prose, not a read.
             if line.lstrip().startswith(("//", "* ", "*/", "/*", "#")):
                 continue
             for pattern in ENV_IN_CODE:
-                for name in pattern.findall(line):
-                    note(name, f"{rel}:{i}")
+                for m in pattern.finditer(line):
+                    # os.environ["X"] = value and process.env.X = value set the variable for
+                    # a child; the docs must not be told to document a knob the script sets.
+                    if re.match(r"\s*['\"]?\s*\]?\s*=(?!=)", line[m.end():]):
+                        continue
+                    note(m.group(1), f"{rel}:{i}")
             for group in ENV_DESTRUCTURE.findall(line):
                 for name in ENV_NAME.findall(group):
                     note(name, f"{rel}:{i}")
-            if shell or Path(rel).suffix == ".sh":
+            if base in ("Makefile", "GNUmakefile"):
+                for name in MAKE_ENV.findall(line):
+                    if name not in local_names:
+                        note(name, f"{rel}:{i}")
+            elif shell or Path(rel).suffix == ".sh":
                 for braced, bare in SHELL_ENV.findall(line):
                     if (braced or bare) not in local_names:
                         note(braced or bare, f"{rel}:{i}")
+    found["__exported__"] = [f"{k}={v}" for k, v in exported.items()]
     return found
 
 
@@ -528,6 +549,7 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
         # path only read backticks and table cells, and reported the variable undocumented.
         fenced = set() if is_env_sample else {ln for ln, _ in fenced_blocks(text)}
         block: list[str] = []  # the comment lines directly above the current env-sample key
+        last_key = ""
         for i, line in enumerate(text.splitlines(), start=1):
             if i in fenced:
                 m_f = re.match(r"^\s*(?:export\s+|set\s+|\$env:)?([A-Z][A-Z0-9_]{2,})=", line)
@@ -548,7 +570,9 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
                 if stripped.startswith("#"):
                     # "# FALKORDB_URL points the graph client at ..." - a comment in an env
                     # sample is documentation of whatever it names. Low confidence, and it only
-                    # ever suppresses a finding.
+                    # ever suppresses a finding. The line after a key explains that key too.
+                    if last_key and DEAD_CONTEXT.search(stripped):
+                        dead_by_doc.add(last_key)
                     block.append(stripped)
                     for name in ENV_NAME.findall(stripped):
                         if "_" in name and not name.endswith("_"):
@@ -556,12 +580,14 @@ def env_names_documented(repo: Path, files: list[str]) -> tuple[dict[str, str], 
                     continue
                 if not stripped or "=" not in stripped:
                     block = []
+                    last_key = ""
                     continue
                 key = re.sub(r"^export\s+", "", stripped.split("=", 1)[0].strip()).strip()
                 if ENV_NAME.fullmatch(key or ""):
                     documented.setdefault(key, f"{rel}:{i}")
                     if DEAD_CONTEXT.search(" ".join(block + [line])):
                         dead_by_doc.add(key)
+                    last_key = key
                 if not commented_key:
                     block = []
             else:
@@ -643,10 +669,29 @@ def dependency_tokens(repo: Path, files: list[str]) -> dict[str, str]:
                     for dep in data[key]:
                         take(dep)
         elif base in ("pyproject.toml", "Cargo.toml", "Pipfile"):
-            for m in re.finditer(r"^\s*\"?([A-Za-z0-9_.\-\[\]]+)\"?\s*(?:=|>=|==|~=|<|>|,|$)", text, re.M):
-                take(m.group(1))
-            for m in re.finditer(r"[\"']([A-Za-z0-9_.\-]+)(?:\[[^\]]*\])?\s*(?:[<>=!~][^\"']*)?[\"']", text):
-                take(m.group(1))
+            # Only inside a dependency section. Every quoted string took the package's own
+            # `name = "agentos-railway"` as a dependency and blamed a library that does not exist.
+            section = ""
+            in_dep_list = False
+            for line in text.splitlines():
+                head = re.match(r"^\s*\[([^\]]+)\]\s*$", line)
+                if head:
+                    section = head.group(1).lower()
+                    in_dep_list = False
+                    continue
+                key = re.match(r"^\s*([A-Za-z0-9_.\-]+)\s*=\s*(\[?)", line)
+                dep_section = bool(re.search(r"depend|packages", section)) and "tool." not in section.replace("tool.poetry", "")
+                if key and re.match(r"(?:dev-|optional-)?dependencies$", key.group(1)):
+                    in_dep_list = key.group(2) == "["
+                    continue
+                if in_dep_list:
+                    if line.strip().startswith("]"):
+                        in_dep_list = False
+                        continue
+                    for m in re.finditer(r"[\"']([A-Za-z0-9_.\-]+)", line):
+                        take(m.group(1))
+                elif dep_section and key:
+                    take(key.group(1))
         elif base.startswith("requirements") and base.endswith(".txt"):
             for line in text.splitlines():
                 if line.strip() and not line.lstrip().startswith(("#", "-")):
@@ -736,7 +781,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
             tag = " (inline command in prose)" if inline else ""
             if line.lstrip().startswith("#"):
                 continue  # a comment inside a fenced block: "# make sure the port is free"
-            for script in set(CMD_NPM.findall(line)):
+            for script in set(CMD_NPM.findall(line)) | set(CMD_PM_SHORT.findall(line)):
                 if not all_npm:
                     continue
                 if script not in all_npm:
@@ -864,6 +909,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
 
     # 4. env vars, both directions
     in_code = env_names_from_code(repo, files)
+    exported_by = dict(e.split("=", 1) for e in in_code.pop("__exported__", []))
     for rel in files:
         if Path(rel).name == "build.rs":
             for built in re.findall(r"cargo:rustc-env=([A-Z][A-Z0-9_]*)=", read(repo / rel) or ""):
@@ -973,6 +1019,10 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
             else:
                 detail = (f"`{name}` is read by the code but is not documented anywhere, "
                           f"and is not in an env sample file.{hint}")
+            if name in exported_by:
+                detail += f" A shell script in the repository exports it ({exported_by[name]}), so it may be plumbing between scripts rather than an operator knob."
+                add("undocumented-env", "low", "(docs)", None, detail, source=ordered[0], readers=ordered)
+                continue
             add("undocumented-env", "medium", "(docs)", None, detail, source=ordered[0], readers=ordered)
 
     # 5. staleness
