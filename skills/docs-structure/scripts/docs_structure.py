@@ -1653,14 +1653,14 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                         # a person's section at the root scope, or a unit README's section (a unit doc
                         # never covers a root concern, but its section is the text to seed from)
                         in_unit = any(d.rel.startswith(u + "/") for u in units)
-                        if not scope(d) and not (in_unit and d.path.name.upper().startswith("README")):
+                        if not scope(d) and not in_unit:
                             continue
                         best_here = (0, None)
                         for _, lvl, t in d.headings:
                             if lvl not in ((1, 2, 3, 4) if cid == "integrations" else (2, 3, 4)) or is_start_here_heading(t):
                                 continue
-                            if re.search(r"(^|\s)(GET|POST|PUT|PATCH|DELETE)\s+/", t) or ("/" in t and ":" in t):
-                                continue  # a route is an endpoint, not a section to seed from
+                            if re.search(r"(^|\s)(GET|POST|PUT|PATCH|DELETE)\s+/", t) or ("/" in t and ":" in t) or t.strip().startswith(("\"", "'", "`")):
+                                continue  # a route or a quoted message is not a section to seed from
                             tt = tokens(t)
                             if any(f" {a_} " in tt for a_ in anti):
                                 continue
@@ -2126,7 +2126,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
                 for h_ in head[1:]:
                     if len(script_gotchas) >= 3:
                         break
-                    if re.search(r"\b(must|without|not started|don't|do not|fails|before|first|only|never)\b", h_, re.I) and len(h_) > 20:
+                    if re.search(r"\b(must|without|not started|don't|do not|fails|before|first|only|never)\b", h_, re.I) and len(h_) > 20 and not h_.rstrip().endswith((":", ",")):
                         script_gotchas.append(f"- {h_[:200]} [{script}: header comment]")
                 quote = " ".join(head)
                 cut = quote.find(". ")
