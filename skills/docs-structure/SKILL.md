@@ -11,7 +11,7 @@ Check the shape of a repository's documentation, build the docs it is missing, a
 ## Core Rules
 
 - Stay read-only until the user says "apply". The plan report is the contract: apply never does what the report did not list.
-- Which docs a repo needs comes from its evidence inventory (`scripts/docs_evidence.py`): a table of concerns, each one earned by something the repo contains or held by every repo. Where each doc lives is fixed by the shape in `references/shape.md`: five buckets by reader intent (getting-started, guides, reference, explanation, history), flat under seven docs, a bucket folder once it would hold two. Twelve are unconditional - the README, the agent file, setup, onboarding, the daily loop, testing, deployment, what it is, the architecture, the configuration, the integrations, security - and every other concern has to be earned; an `unknown` ecosystem means fill writes only open questions; every default is overridable in the manifest. There is no compatibility mode: a doc that covers a concern at another path is a move (R15), and apply does the move.
+- Which docs a repo needs comes from its evidence inventory (`scripts/docs_evidence.py`): a table of concerns, each one earned by something the repo contains or held by every repo. Where each doc lives is fixed by the shape in `references/shape.md`: five buckets by reader intent (getting-started, guides, reference, explanation, history), flat under seven docs, a bucket folder once it would hold two. Fourteen are unconditional - the README, the agent file, setup, onboarding, the daily loop, testing, deployment, operations, contributing, what it is, the architecture, the configuration, the integrations, security - and every other concern has to be earned; an `unknown` ecosystem means fill writes only open questions; every default is overridable in the manifest. There is no compatibility mode: a doc that covers a concern at another path is a move (R15), and apply does the move.
 - Never rewrite prose a human wrote. Fill writes only into template skeletons, and everything it writes is a marked draft that the checker counts until a person reviews it.
 - Every drafted sentence restates a repository artefact and carries its path, key or commit in brackets. No evidence, no sentence: the section gets one `open question:` line instead.
 - A file git ignores is not repository evidence, however much it reads like the team's rules: a gitignored `CLAUDE.md` is one developer's copy and reaches nobody who clones the repo. The inventory lists such files under `tree.ignored_governance_files`, the gate refuses a bracket that cites one, and fill writes an open question where it would have quoted it.
@@ -50,7 +50,7 @@ Record folders are `history` (the shape's record bucket), `plans`, `specs`, `arc
 
 What no repo check can see: a doc that describes something outside the repo should say when a person last looked, with `verified against <source> on <date>`. Fill writes such a line only when the user states the check was done; the skill never claims to have looked at a platform it did not read.
 
-The inventory says what the repo **is** (kinds: application, library, cli, infrastructure, docs-only, monorepo; a repo can be several) and what it **contains**. A concern applies when the inventory finds the thing it describes. Twelve apply to every repo with code: the README, the agent file, setup, onboarding, develop, testing, deploy, purpose, architecture, configuration, integrations and security. `references/shape.md` is the full spec - one row per doc with its reader, what it owns, its sections and the scenario table per kind; this table is the summary.
+The inventory says what the repo **is** (kinds: application, library, cli, infrastructure, docs-only, monorepo; a repo can be several) and what it **contains**. A concern applies when the inventory finds the thing it describes. Fourteen apply to every repo with code: the README, the agent file, setup, onboarding, develop, testing, deploy, operate, contribute, purpose, architecture, configuration, integrations and security. `references/shape.md` is the full spec - one row per doc with its reader, what it owns, its sections and the scenario table per kind; this table is the summary.
 
 | concern | bucket · file | applies when | drafted from |
 | --- | --- | --- | --- |
@@ -60,13 +60,13 @@ The inventory says what the repo **is** (kinds: application, library, cli, infra
 | onboarding | getting-started · `ONBOARDING.md` | always | readme, packages, schema, routes |
 | develop | guides · `DEVELOPMENT.md` | always | packages, tree, ci, tests, env |
 | deploy | guides · `DEPLOYMENT.md` | always; with no deploy config in the repo the doc says where deployment is configured; in a monorepo the root doc is the map variant and each unit with its own Dockerfile or platform config gets `<unit>/docs/DEPLOYMENT.md` | services, env, ci, ops, decisions |
-| operate | guides · `OPERATIONS.md` | health checks, cron or alerts exist; per unit as for deploy | ops, jobs, services, env, decisions |
+| operate | guides · `OPERATIONS.md` | always; the health route or alert file found is the evidence, a library says it is not operated; per unit as for deploy | ops, jobs, services, env, decisions |
 | testing | guides · `TESTING.md` | always; with no runner or tests folder the doc says so under Coverage and gaps | tests, ci, packages |
-| contribute | guides · `CONTRIBUTING.md` | a LICENSE, CONTRIBUTING or CODE_OF_CONDUCT exists, or a pull request template under `.github` - never the remote host alone | tree, ci, tests, packages |
+| contribute | guides · `CONTRIBUTING.md` | always - how a change gets in exists in every team repo; with no LICENSE the doc says the repo is private and takes no outside contributions | tree, ci, tests, packages |
 | release | guides · `RELEASING.md` | library or CLI kind with a version or publish script | release, packages, ci, decisions |
 | architecture | reference · `ARCHITECTURE.md` (arc42-lite: context, containers, building blocks, runtime, deployment view, quality and risks) | always | packages, services, env, routes, schema, decisions |
 | configuration | reference · `CONFIGURATION.md` | always; with nothing read, the doc says so | env, services, packages |
-| data | reference · `DATA_MODEL.md` | schema or migrations exist | schema, decisions |
+| data | reference · `DATA_MODEL.md` | schema or migrations exist, or a store SDK (Redis, S3, Mongo, Supabase, Firestore, DynamoDB, ...) | schema, decisions |
 | http | reference · `API.md` | HTTP routes or an OpenAPI file exist (a library's own examples and tests do not count) | routes, auth, env, packages |
 | commands | reference · `CLI.md` | a CLI entry point exists | cli, packages, readme |
 | exports | reference · `PUBLIC_API.md` | library kind with a public entry | exports, packages, tests, decisions |
@@ -76,7 +76,7 @@ The inventory says what the repo **is** (kinds: application, library, cli, infra
 | purpose | explanation · `PRODUCT.md`; `OVERVIEW.md` for a library or CLI | always | readme, packages, routes, decisions, tree |
 | pipelines | explanation · `PIPELINES.md` | a queue, worker or scheduler library, cron, or a scheduled workflow | jobs, ops, services, env |
 | decisions | explanation · `decisions/README.md` + `ADR-NNNN-<slug>.md` | an adr, rfcs or decisions folder, or three or more decision-like commits | decisions; the first record is a skeleton |
-| changelog | history · `CHANGELOG.md` | a CHANGELOG at the root (moved here) or three or more tags | never drafted |
+| changelog | history · `CHANGELOG.md` | a CHANGELOG at the root (moved here), any tag, or any deploy config | never drafted |
 | research | history · `research/LOG.md` + `log/` | manifest opt-in only | never drafted |
 | plan | history · `plans/TASKLIST.md` + `tasklist/` + `ROADMAP.md` | plan-like docs, or a `plans`, `roadmap`, `tasklist` or `tasks` folder | tree (plan-like docs only; never as checkboxes) |
 

@@ -118,9 +118,9 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | --- | --- | --- | --- | --- | --- |
 | `DEVELOPMENT.md` | develop | change code here every day | the daily loop: branch, run, debug, lint, test, open a PR | always | Daily loop · Branch and PR · Run and debug · Lint and format · Common problems · fill: packages, tree, ci, tests, env |
 | `DEPLOYMENT.md` | deploy | ship it | every deployable unit, its environment, the steps, the rollback | always; with no deploy config in the repo the doc says where deployment is configured instead (an open question until a person answers) | Units · Environment per unit · Deploy steps · Rollback · Known traps · fill: services, env, ci, ops, decisions. Monorepo root: the map variant (Units · Order · Rollback), each unit's own guide holding the steps |
-| `OPERATIONS.md` | operate | are on call or something is down | health checks, scheduled jobs, alerts, what to do when a thing breaks | a health route, cron, alert rules, or a platform healthcheck | Health · Scheduled jobs · Alerts · When something is wrong · On call · fill: ops, jobs, services, env, decisions |
+| `OPERATIONS.md` | operate | are on call or something is down | health checks, scheduled jobs, alerts, what to do when a thing breaks | always; the health route or alert file found is the evidence, and a library says it is not operated | Health · Scheduled jobs · Alerts · When something is wrong · On call · fill: ops, jobs, services, env, decisions |
 | `TESTING.md` | testing | are writing or running tests | runners, layout, how to run, what CI runs, gaps | always; with no runner or tests folder the doc says so under Coverage and gaps, which is the fact a newcomer needs most | Runners and layout · Running tests · What CI runs · Coverage and gaps · fill: tests, ci, packages |
-| `CONTRIBUTING.md` | contribute | want to land a change | branch and commit rules, checks that must pass, review | LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, a `.github` PR template, or a github.com/gitlab.com remote | Before you start · Making a change · Checks that must pass · Review · fill: tree, ci, tests, packages |
+| `CONTRIBUTING.md` | contribute | want to land a change | branch and commit rules, checks that must pass, review | always; how a change gets in exists in every team repo, public or private - with no LICENSE the doc says the repo is private and takes no outside contributions | Before you start · Making a change · Checks that must pass · Review · fill: tree, ci, tests, packages |
 | `RELEASING.md` | release | cut a version | versioning, the release steps, what a release contains, rolling one back | library or CLI kind with a version or publish script | Versioning · Release steps · What a release contains · Rolling back a release · fill: release, packages, ci, decisions |
 
 ### reference
@@ -129,7 +129,7 @@ with code. The fill keys are the inventory keys the section drafts are allowed t
 | --- | --- | --- | --- | --- | --- |
 | `ARCHITECTURE.md` | architecture | need the map | context, containers, building blocks, runtime, the deployment view, quality and risks (arc42, sections 3, 5, 6, 7, 10, 11) | always; a single-package library still has a context, building blocks and the qualities it pays for | Context · Containers · Building blocks · Runtime · Deployment view · Quality and risks · fill: packages, services, env, routes, schema, decisions |
 | `CONFIGURATION.md` | configuration | need to know what a variable does | every environment variable and flag: name, unit that reads it, required or not, where its example lives | always; with nothing read, the doc says so and where it looked | Variables by unit · Files · Flags · fill: env, services, packages |
-| `DATA_MODEL.md` | data | touch the database | tables by area, relationships, conventions, the migration inventory | a schema or migrations | Tables by area · Relationships · Conventions · Inventory · fill: schema, decisions |
+| `DATA_MODEL.md` | data | touch the database | tables by area, relationships, conventions, the migration inventory | a schema or migrations, or a store SDK (Redis, S3, Mongo, Supabase, Firestore, DynamoDB, ...) - data lives somewhere | Tables by area · Relationships · Conventions · Inventory · fill: schema, decisions |
 | `API.md` | http | call it over HTTP | authentication, endpoints, errors, one end-to-end call | HTTP routes or an OpenAPI file (a library's own examples do not count) | Authentication · Endpoints · Errors · Typical end-to-end call · Notes · fill: routes, auth, env, packages |
 | `CLI.md` | commands | run it from a shell | install and invoke, commands, exit codes, configuration | a CLI entry point | Install and invoke · Commands · Exit codes and output · Configuration · fill: cli, packages, readme |
 | `PUBLIC_API.md` | exports | import it | install and import, the exported surface, usage, stability | library kind with a public entry | Install and import · Exported surface · Usage · Stability and versioning · fill: exports, packages, tests, decisions |
@@ -154,7 +154,7 @@ has, and all of them when it has all three.
 
 | doc | concern | read this if you | owns | earned by | sections · fill |
 | --- | --- | --- | --- | --- | --- |
-| `CHANGELOG.md` | changelog | want to know what changed for a user | user-visible changes by version, Keep-a-Changelog headings | an existing CHANGELOG at the root (moved here, its root copy becomes a link) or three or more tags | Unreleased · one H2 per version · Added, Changed, Fixed, Removed · never drafted; the skeleton carries the headings only |
+| `CHANGELOG.md` | changelog | want to know what changed for a user | user-visible changes by version, Keep-a-Changelog headings | an existing CHANGELOG at the root (moved here, its root copy becomes a link), any tag, or any deploy config - things that ship have changes | Unreleased · one H2 per version · Added, Changed, Fixed, Removed · never drafted; the skeleton carries the headings only |
 | `research/LOG.md` + `research/log/YYYY-MM.md` | research | run experiments | dated entries, one file per month | manifest opt-in only | Entries; never drafted |
 | `plans/ROADMAP.md` | plan | want to know what is next | the ordered list of what is planned, dated | plan-like docs, or a `plans`, `roadmap`, `tasklist` or `tasks` folder | Now · Next · Later · Done · never drafted as checkboxes |
 | `plans/TASKLIST.md` + `plans/tasklist/phase-NN-<slug>.md` | plan | are executing the plan | the phase table and the living checklists | the same | the phase table with counts (R9) and one file per phase |
@@ -167,11 +167,11 @@ what a typical repository of each kind ends up with, so a reader can sanity-chec
 
 | kind | always | earned by evidence | never |
 | --- | --- | --- | --- |
-| application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT, PRODUCT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY | OPERATIONS, CONTRIBUTING, DATA_MODEL, API, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
-| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT (one line: published, not deployed), OVERVIEW, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY | CONTRIBUTING, RELEASING, PUBLIC_API, CHANGELOG, decisions/ | PRODUCT, OPERATIONS, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
+| application | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT, OPERATIONS, CONTRIBUTING, PRODUCT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY | DATA_MODEL, API, DESIGN_SYSTEM, PIPELINES, decisions/, CHANGELOG, plans/ | OVERVIEW, RELEASING, PUBLIC_API, CLI (unless it also ships one) |
+| library | README, AGENTS.md, SETUP, ONBOARDING, DEVELOPMENT, TESTING, DEPLOYMENT (one line: published, not deployed), OPERATIONS (one line: not operated), CONTRIBUTING, OVERVIEW, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY | RELEASING, PUBLIC_API, CHANGELOG, decisions/ | PRODUCT, DESIGN_SYSTEM, PIPELINES, API (its own examples and tests are not routes) |
 | cli | as library, with CLI instead of PUBLIC_API; both when both entries exist | | |
 | monorepo | the application set at the root as the map; per unit: README.md and AGENTS.md | per unit with a Dockerfile or deploy config: `<unit>/docs/DEPLOYMENT.md`; per unit with health or cron: `<unit>/docs/OPERATIONS.md`; the root DEPLOYMENT and OPERATIONS become the map variant (a table of units and links) | a unit never owns architecture, product, security or data; those stay at the root |
-| infrastructure | README, AGENTS.md, SETUP, ONBOARDING, TESTING, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONFIGURATION, INTEGRATIONS, SECURITY | decisions/, CHANGELOG | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
+| infrastructure | README, AGENTS.md, SETUP, ONBOARDING, TESTING, ARCHITECTURE, DEPLOYMENT, OPERATIONS, CONTRIBUTING, CONFIGURATION, INTEGRATIONS, SECURITY | decisions/, CHANGELOG | PRODUCT, API, DATA_MODEL, DESIGN_SYSTEM |
 | docs-only | nothing | only what the manifest pins | everything else |
 
 Worked examples from real runs, so the numbers mean something:
@@ -180,11 +180,11 @@ Worked examples from real runs, so the numbers mean something:
   cron job and OpenAI, Railway and Zep SDKs: sixteen docs plus the index, AGENTS.md and two unit
   deployment guides. Every bucket folder exists.
 - A two-route Python service with alembic and a CLI entry: PRODUCT, SETUP, ONBOARDING, DEVELOPMENT,
-  TESTING, DEPLOYMENT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY, DATA_MODEL, API, CLI. Thirteen docs, so buckets exist; `guides/` holds only DEVELOPMENT and
+  TESTING, DEPLOYMENT, OPERATIONS, CONTRIBUTING, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY, DATA_MODEL, API, CLI. Fifteen docs, so buckets exist; `guides/` holds only DEVELOPMENT and
   `explanation/` only PRODUCT, so those two stay flat: `docs/DEVELOPMENT.md`, `docs/PRODUCT.md`,
   `docs/getting-started/{SETUP,ONBOARDING}.md`, `docs/reference/{ARCHITECTURE,DATA_MODEL,API,CLI}.md`.
 - A single-package library with tests and a publish script: OVERVIEW, SETUP, ONBOARDING, DEVELOPMENT,
-  TESTING, DEPLOYMENT, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY, RELEASING, PUBLIC_API. Twelve docs, so buckets exist; `explanation/` holds only
+  TESTING, DEPLOYMENT, OPERATIONS, CONTRIBUTING, ARCHITECTURE, CONFIGURATION, INTEGRATIONS, SECURITY, RELEASING, PUBLIC_API. Fourteen docs, so buckets exist; `explanation/` holds only
   OVERVIEW and stays flat.
 
 ## The index grammar

@@ -8,7 +8,7 @@
 
 ## Before you start
 
-*License, code of conduct, and where to ask. From the governance files present.*
+*License, code of conduct, and where to ask, from the governance files present. With no LICENSE file: one sentence that the repository is private and takes no outside contributions, then the access and the protected branch.*
 
 ## Making a change
 

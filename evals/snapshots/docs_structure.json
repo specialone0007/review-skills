@@ -134,7 +134,7 @@
       "seed": null,
       "template": "guides/OPERATIONS.md",
       "unit": null,
-      "universal": false,
+      "universal": true,
       "weak": false
     },
     {
@@ -170,7 +170,7 @@
       "seed": null,
       "template": "guides/CONTRIBUTING.md",
       "unit": null,
-      "universal": false,
+      "universal": true,
       "weak": false
     },
     {

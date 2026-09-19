@@ -151,7 +151,13 @@ INTEGRATION_LIBS = {
     "notion": "Notion", "@notionhq/client": "Notion", "twitter-api-v2": "X/Twitter", "tweepy": "X/Twitter",
     "spotify-web-api-node": "Spotify", "spotipy": "Spotify", "expo-server-sdk": "Expo push", "web-push": "Web push",
     "onesignal-node": "OneSignal", "@onesignal/node-onesignal": "OneSignal", "kener": "Kener",
+    "mongoose": "MongoDB", "mongodb": "MongoDB", "pymongo": "MongoDB", "motor": "MongoDB",
+    "@aws-sdk/client-dynamodb": "DynamoDB", "@google-cloud/firestore": "Firestore", "cassandra-driver": "Cassandra",
+    "neo4j-driver": "Neo4j", "@clickhouse/client": "ClickHouse", "@elastic/elasticsearch": "Elasticsearch", "elasticsearch": "Elasticsearch",
 }
+# Integrations that hold this repository's data: a repo with one of these and no schema still has a data model.
+STORE_SERVICES = {"Redis", "Upstash", "AWS S3", "Supabase", "Firebase", "Firestore", "MongoDB", "DynamoDB", "Cassandra", "Neo4j",
+                  "ClickHouse", "Elasticsearch", "Pinecone", "Weaviate", "Cloudinary", "Vercel Blob", "Google Cloud", "Zep"}
 OUTWARD_ENV = re.compile(r"_(API_KEY|APIKEY|DSN|WEBHOOK_URL|WEBHOOK_SECRET|CLIENT_ID|CLIENT_SECRET|ACCESS_TOKEN|BUCKET|PROJECT_ID)$")
 ROLE_RE = re.compile(r"\b(enum\s+\w*(Role|Permission)\w*|role\s*[:=]|permissions?\s*[:=]|is_admin|isAdmin)\b", re.I)
 
@@ -1277,6 +1283,7 @@ def det_surfaces(ctx: Ctx, inv: dict) -> None:
     if sdks or outward:
         inv["integrations"] = {"sdks": [{"service": r["service"], "packages": sorted(set(r["packages"])), "units": sorted(r["units"])} for r in sdks.values()],
                                "count": len(sdks), "outward_env_names": outward[:60],
+                               "stores": sorted(s for s in sdks if s in STORE_SERVICES),
                                "evidence": manifest_of[sorted(next(iter(sdks.values()))["units"])[0]] if sdks else env_names[outward[0]][0]}
     else:
         inv["integrations"] = None

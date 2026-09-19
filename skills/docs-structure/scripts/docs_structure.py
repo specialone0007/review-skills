@@ -340,9 +340,10 @@ def _pipelines(inv):
 
 
 def _operate(inv):
-    # a health route or an alert file, read without guessing; a cron hint earns pipelines, not this
+    # Always: anything deployed is operated. The health route or alert file found is the reason shown;
+    # a library says it is not operated.
     ops = [o for o in inv.get("ops") or [] if not o.get("hint")]
-    return f"ops: {ops[0].get('evidence')}" if ops else None
+    return f"ops: {ops[0].get('evidence')}" if ops else "always"
 
 
 def _decisions(inv):
@@ -354,12 +355,13 @@ def _decisions(inv):
 
 
 def _changelog(inv):
+    # A changelog file, any tag, or anything that ships: things that deploy have changes worth listing.
     ch = inv.get("changelog") or {}
     if ch.get("file"):
         return f"file: {ch['file']}"
-    if int(ch.get("tag_count") or 0) >= 3:
-        return f"{ch['tag_count']} tags"
-    return None
+    if int(ch.get("tag_count") or 0) >= 1:
+        return f"{ch['tag_count']} tag(s)"
+    return _svc(inv)
 
 
 def _configuration(inv):
@@ -369,13 +371,15 @@ def _configuration(inv):
 
 
 def _contribute(inv):
+    # Always: how a change gets in - branch, commit, PR, checks, review - exists in every team repo,
+    # public or private. The governance files found are the reason shown.
     tree = inv.get("tree") or {}
     gov = [g for g in tree.get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))]
     if gov:
         return "governance: " + ", ".join(gov)
     if tree.get("pr_template"):
         return "a pull request template under .github"
-    return None
+    return "always"
 
 
 # The concern model of references/shape.md. One row per document the shape can propose:
@@ -409,7 +413,9 @@ CONCERNS = [
      {"architecture", "components", "services", "system", "data flow", "how it works", "modules", "structure", "containers"}, []),
     ("configuration", "reference", _configuration, lambda inv: "CONFIGURATION.md",
      {"configuration", "config", "environment variables", "env", "settings", "variables", "flags"}, []),
-    ("data", "reference", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables") else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"] else None)), lambda inv: "DATA_MODEL.md",
+    ("data", "reference", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables")
+                                       else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"]
+                                             else ("stores: " + ", ".join((inv.get("integrations") or {}).get("stores") or [])) if (inv.get("integrations") or {}).get("stores") else None)), lambda inv: "DATA_MODEL.md",
      {"data model", "schema", "database", "tables", "migrations", "entities", "storage"}, []),
     ("http", "reference", lambda inv: (f"{inv['routes']['count']} routes ({', '.join(f'{k} {v}' for k, v in sorted(inv['routes'].get('by_framework', {}).items()))})" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API.md",
      {"api", "endpoints", "endpoint", "routes", "openapi", "rest", "http", "api reference"}, []),
@@ -441,7 +447,7 @@ CONCERNS = [
     ("plan", "history", lambda inv: _plan_evidence(inv), lambda inv: "plans/TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
 ]
-UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration", "deploy", "integrations", "security"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration", "deploy", "integrations", "security", "operate", "contribute"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",

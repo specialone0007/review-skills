@@ -8,7 +8,7 @@
 
 ## Health
 
-*Every health or readiness endpoint and what it checks. From the configs and route files.*
+*Every health or readiness endpoint and what it checks. From the configs and route files. A library or a repo nothing runs says in one sentence that it is not operated, and the doc ends there.*
 
 ## Scheduled jobs
 
