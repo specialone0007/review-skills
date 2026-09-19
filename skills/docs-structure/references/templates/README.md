@@ -12,7 +12,7 @@
 
 ## Quickstart
 
-*Numbered: a link to SETUP § Prerequisites, then install, run, the URL or command that proves it works. For an application the install and run commands are a checked copy of AGENTS.md § Commands; for a library or CLI they are the consumer's install and first call, a checked copy of PUBLIC_API § Install and import or CLI § Install and invoke - the one place a command is repeated, so a reader can start without a hop (R11 diffs the copy against its owner). SETUP owns the full path; this is the sixty-second version.*
+*Numbered: a link to SETUP § Prerequisites, then install, run, the URL or command that proves it works. For an application the install and run commands are a checked copy of AGENTS.md § Commands; for a library or CLI they are the consumer's install and first call, a checked copy of PUBLIC_API § Install and import or CLI § Install and invoke (when neither doc exists, AGENTS.md's install and run) - the one place a command is repeated, so a reader can start without a hop (R11 diffs the copy against its owner). SETUP owns the full path; this is the sixty-second version.*
 
 <!-- docs-structure: start here -->
 <!-- /docs-structure: start here -->

@@ -8,7 +8,7 @@
 
 ## Units
 
-*A table: unit, root directory, platform, environment (production, staging), its URL, public or private, which branch deploys there. One row per deployable unit and environment; the data stores are DATA_MODEL's, the health route OPERATIONS's, the build and start commands AGENTS.md's - link, never repeat. This is the one home of the environments and their URLs; API § Calling it links here. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured. A library or CLI says in one sentence that it is published, not deployed, links RELEASING, and the doc ends there.*
+*A table: unit, root directory, platform, environment (production, staging), its URL, public or private, which branch deploys there. One row per deployable unit and environment; the data stores are DATA_MODEL's, the health route OPERATIONS's, the build and start commands AGENTS.md's - link, never repeat. This is the one home of the environments and their URLs; API § Calling it links here. In a unit's own guide this section is one line and a link to the map's row for the unit: the map owns platform, environment, URL and branch. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured. A library or CLI says in one sentence that it is published, not deployed, links RELEASING when it exists (otherwise one open question on where publishing happens), and the doc ends there.*
 
 ## How values reach a unit
 

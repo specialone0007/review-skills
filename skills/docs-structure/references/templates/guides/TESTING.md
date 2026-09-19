@@ -16,7 +16,7 @@
 
 ## What CI runs
 
-*Every workflow: its event (push, pull request, schedule, manual), its jobs, and which of them gate a merge. From the workflow files. A nightly sync or deploy workflow lives here too; JOBS holds only what the code itself schedules.*
+*Every workflow: its event (push, pull request, schedule, manual), its jobs, and which of them gate a merge. From the workflow files. A nightly sync or deploy workflow is listed here by its event and trigger only; its steps are DEPLOYMENT § Deploy steps' (one line and a link). JOBS holds only what the repository itself schedules.*
 
 ## Coverage and gaps
 
