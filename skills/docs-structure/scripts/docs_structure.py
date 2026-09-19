@@ -1493,6 +1493,15 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             if pp in (".", "") or f"{pp}/README.md" in have or not exists_exact(repo / pp / "README.md"):
                 continue
             candidates.append(Doc(repo / pp / "README.md", repo))
+        # a unit's own docs are candidates too: never a cover for a root concern (a unit owns no root
+        # concern) but the doc a skeleton names as the text to fold in
+        for rel in all_markdown(repo):
+            if rel in have or not any(rel.startswith(str(Path(p.get("path", ".")).as_posix()) + "/") for p in inv.get("packages") or [] if p.get("path") not in (None, ".", "")):
+                continue
+            if any(part in CODE_DIRS for part in Path(rel).parts[:-1]):
+                continue
+            candidates.append(Doc(repo / rel, repo))
+            have.add(rel)
     heavy_cfg = manifest.get("heavyEvidence") if isinstance(manifest.get("heavyEvidence"), dict) else {}
     # 1. which concerns apply
     rows: list[dict] = []
