@@ -60,6 +60,8 @@ grep -oE '`[^`]+`|^\s*(\$|npm|make|python|go|cargo|docker)[^`]*' <doc> | wc -l
 grep -ciE '\b(default|required|must|retries|roles?|only when)\b' <doc>
 ```
 
+A shell that mangles `\b` or `\$` returns a count that is too high or zero, and Git Bash on Windows does both; when it happens, put the pattern in a script file or use the `[[:<:]]` and `[$][{]` forms, paste the command that actually produced the number, and name the shell under Assumptions. A zero from a mangled grep is never a mismatch: rerun in the other form before filing anything on it.
+
 ## The Script
 
 `scripts/docs_drift.py` checks only claims with a definite answer. Always run it with `--format json` and never with `--no-git-root` for scope: that flag hides the readers outside the package and manufactures `documented-unused-env` rows. Scope is applied to the rows afterwards, as under Inputs. With `--format json` you get every row; the text mode shows thirty and prints a `TRUNCATED` line past that, and two agents reading a truncated report and a full one would report different findings.
