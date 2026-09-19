@@ -1561,6 +1561,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
         if covered_by and r["pin"] and isinstance(r["pin"], str):
             how = "manifest"
         misplaced, seed, runner_up, near = None, None, None, None
+        matched_seed_heading = None
         if not covered_by and cid == "changelog" and tracked_file(repo, "CHANGELOG.md"):
             misplaced, how = "CHANGELOG.md", "the root changelog"
         elif not covered_by and r["bucket"] is not None:
@@ -1592,12 +1593,25 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             elif readmes:
                 seed = readmes[0][1].rel
                 how = f"{seed} has a section to seed from"
+            if not misplaced and not r["unit"]:
+                # a section a person wrote inside another doc at the root scope (ARCHITECTURE's "Railway,
+                # production" for the deploy map): the skeleton names it as the text to fold in; a named
+                # section beats a README that merely has a section
+                kws_ = {tokens(k).strip() for k in keywords}
+                for d in candidates:
+                    if not scope(d) or d.rel == front_rel or d.path.name in ("CLAUDE.md", AGENT_FILE):
+                        continue
+                    hit = next((t for _, lvl, t in d.headings if lvl in (3, 4) and any(f" {k} " in tokens(t) for k in kws_ if len(k) > 3)), None)
+                    if hit:
+                        seed, how, near = d.rel, f"{d.rel} has a section to seed from", None
+                        matched_seed_heading = hit
+                        break
             if not misplaced and not r["unit"] and units:
                 # a unit's own doc that reads like this concern: a unit never owns a root concern, so it
                 # is not a cover and not a move, but the skeleton and the index name it as the text to fold in
                 unit_hits = []
                 for d in candidates:
-                    if not any(d.rel.startswith(u + "/") for u in units) or d.path.name.upper().startswith("README") or d.path.name in ("CLAUDE.md", AGENT_FILE):
+                    if not any(d.rel.startswith(u + "/") for u in units) or d.path.name in ("CLAUDE.md", AGENT_FILE):
                         continue  # a unit's agent file is not a doc that covers a concern
                     sc = concern_score(d, keywords, r["file"])
                     if sc[0] >= 3:
@@ -1623,12 +1637,14 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             if tracked_file(repo, "CLAUDE.md") and read(repo / "CLAUDE.md").strip() not in ("", "@AGENTS.md"):
                 seed = "CLAUDE.md"
                 how = "CLAUDE.md has content to seed from"
-        matched_heading = None
-        if seed and ": " in how and seed in (front_rel,):
+        matched_heading = matched_seed_heading
+        if seed and ": " in how and not matched_heading:
             doc = next((d for d in candidates if d.rel == seed), None)
             if doc:
                 kws = {tokens(k).strip() for k in keywords}
-                matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3) and any(f" {k} " in tokens(t) for k in kws)), None)
+                matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3, 4) and any(f" {k} " in tokens(t) for k in kws if len(k) > 3)), None)
+        if seed and not matched_heading and seed == front_rel:
+            seed, how = None, ""  # a seed with no section is a dead end, not a pointer
         out.append({"concern": cid, "unit": r["unit"], "bucket": r["bucket"], "applies": r["applies"], "default_path": default_path,
                     "weak": False, "matched_heading": matched_heading, "near_name": near, "template": r["template"],
                     "companions": r["companions"], "covered_by": covered_by, "matched_by": how, "runner_up": runner_up,
@@ -1953,9 +1969,10 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
         if man == "package.json":
             install = {"pnpm": "pnpm install", "yarn": "yarn install", "bun": "bun install"}.get(pm, "npm ci")
             runner = {"pnpm": "pnpm run", "yarn": "yarn", "bun": "bun run"}.get(pm, "npm run")
-            add("install", f"{pre}{install}", f"{p['evidence']}")
+            root_only = (not unit and path in (".", "") and not p.get("workspaces") and bool(unit_dirs(inv, repo)))
+            add("install", f"{pre}{install}" + (" (root only: the manifest declares no workspace; each unit installs from its own folder, see Units)" if root_only else ""), f"{p['evidence']}")
             for label, names in (("run", ("dev", "dev:start", "serve")), ("build", ("build",)), ("test", ("test",)), ("smoke test", ("smoke", "test:smoke")),
-                                 ("lint", ("lint",)), ("typecheck", ("typecheck", "type-check", "tsc")), ("check", ("check",)),
+                                 ("lint", ("lint",)), ("format", ("format", "format:check", "fmt")), ("typecheck", ("typecheck", "type-check", "tsc")), ("check", ("check",)),
                                  ("migrate", ("db:migrate", "migrate", "prisma:migrate", "migration:run")), ("generate", ("db:generate", "generate", "codegen")),
                                  ("seed", ("db:seed", "seed"))):
                 hit = next((n for n in names if n in scripts), None)
@@ -2002,7 +2019,10 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
         # a script at the root whose name says it starts the stack is the run command for all units
         for script in ("dev.sh", "run.sh", "start.sh", "dev.ps1", "run.ps1"):
             if (repo / script).is_file() and tracked_file(repo, script):
-                add("run (dev stack)", f"./{script}", f"{script}; what it starts is its header's, an open question until read")
+                head = [l.strip().lstrip("#").strip() for l in read(repo / script).splitlines()[1:12] if l.strip().startswith("#")]
+                head = [h for h in head if h and not h.startswith("!")]
+                says = (" - " + head[0][:120]) if head else ""
+                add("run (dev stack)", f"./{script}{says}", f"{script}: header comment" if head else script)
                 break
     if unit and "run" not in seen:
         # no run script in the manifest: the platform's start command (first token) leads; a Dockerfile
@@ -2133,7 +2153,10 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(read(t).splitlines()),
                                     "why": f"{c['concern']} ({c['applies']})" + (f" for {c['unit']}" if c.get("unit") else ""), "concern": c["concern"]}
         seed_src = c.get("seed") or c.get("near_name")
-        if seed_src and (repo / seed_src).is_file():
+        # a seed doc that apply moves is named at the path it will have
+        seed_src = {m["from"]: m["to"] for m in moves}.get(seed_src, seed_src) if seed_src else seed_src
+        seed_here = {m["to"]: m["from"] for m in moves}.get(seed_src, seed_src) if seed_src else seed_src
+        if seed_src and (repo / seed_here).is_file():
             # the plan knows where the text is; the skeleton says so in its lead, so the reader who lands
             # here is one hop from it instead of at a dead end
             tl = read(t).splitlines()
@@ -2176,7 +2199,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                 break
         # the index describes the slot, so two docs never claim one fact in the map; the doc's own owner
         # line stays as the person wrote it
-        own = (strip_unearned(owner_text(t), coverage) if t else "") or own
+        own = own or (strip_unearned(owner_text(t), coverage) if t else "")
         title = doc_title(repo / src, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
         line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), own, doc_state(d))
         lines_out.append(line)
@@ -2265,6 +2288,23 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             groups.setdefault(group, []).append(index_line(m_.group(1), target, owns, state))
     if (not have_index or index_is_table) and not root_docs:
         readme = inv.get("readme") or {}
+        rank = {"reviewed": 0, "draft": 1, "unreviewed": 2, "skeleton": 3}
+
+        def state_of(line: str) -> int:
+            m_ = INDEX_LINE.match(line)
+            st = (m_.group(4) or "").strip().split()[0] if m_ and m_.group(4) else "unreviewed"
+            return rank.get(st, 2)
+
+        def unit_of(line: str) -> str:
+            m_ = re.search(r"\]\((\.\./)*([^)#]+)\)", line)
+            p_ = (m_.group(2) if m_ else "").split("/")
+            return "/".join(p_[:-1]) if len(p_) > 1 else ""
+
+        for g_, ls_ in groups.items():
+            if g_ == "Units":
+                ls_.sort(key=lambda l_: (unit_of(l_), state_of(l_)))
+            else:
+                ls_.sort(key=state_of)
         content = index_content(groups, project_name(repo), readme.get("first_paragraph") or "", extra_order)
         files[central_out] = {"template": "INDEX.md (built in)", "lines": len(content.splitlines()), "content": content,
                               "why": "rewrite in the list grammar" if index_is_table else "the central index"}

@@ -413,7 +413,7 @@ def content_lines(lines: list[str]) -> Counter:
         if not l.strip():
             continue
         if not mask[i] and (ds.HEADING_RE.match(l) or ds.owner_marker_hit(l, ["This document owns:", "Part of"])
-                            or l.strip().startswith("<!-- concern:")):
+                            or l.strip().startswith("<!-- concern:") or l.strip().startswith("*Existing text to fold in:")):
             continue
         c[re.sub(r"\]\([^)]*\)", "](#)", l.rstrip())] += 1
     return c
@@ -668,6 +668,30 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                     continue
                 if r not in future and not (repo / r).is_dir():
                     problems.append(f"{rel}: link {target} does not resolve after restructure")
+    # a seed line written before the restructure names a README section that has now moved: it names
+    # the section's new home, or goes away when the home is this very file
+    if give_away:
+        seed_re = re.compile(r"^\*Existing text to fold in: \[" + re.escape(front_rel) + r"(?: § ([^\]]+))?\]\([^)]*\)")
+        for rel, lines in list(out["files"].items()):
+            new_lines = []
+            changed = False
+            for l in lines:
+                m = seed_re.match(l.strip())
+                if not m:
+                    new_lines.append(l)
+                    continue
+                sec = (m.group(1) or "").strip()
+                home = give_away.get(sec, (None, None))[0] if sec else None
+                if home is None:
+                    new_lines.append(l)
+                    continue
+                changed = True
+                if home == rel:
+                    continue  # the text is in this file now, under its own heading
+                relp = os.path.relpath(repo / home, (repo / rel).parent).replace("\\", "/")
+                new_lines.append(f"*Existing text to fold in: [{home} § From {front_rel}]({relp}#from-{ds.slug(front_rel)}) - moved there from the front door; fill seeds from it.*")
+            if changed:
+                out["files"][rel] = new_lines
     # the index line of a skeleton that received a person's text says unreviewed, not skeleton;
     # the index is the shape's own file, so it is outside the line proof
     central = manifest.get("centralIndex") or "docs/INDEX.md"
@@ -687,6 +711,8 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                 continue
             if target in pasted and (m.group(4) or "").strip() == "skeleton":
                 ilines[i] = l[:m.start(4)] + "unreviewed" + l[m.end(4):]
+                if f"Holds text moved from {front_rel}." not in ilines[i]:
+                    ilines[i] = ilines[i].replace(" - unreviewed", f" Holds text moved from {front_rel}. - unreviewed", 1)
                 changed = True
         if changed:
             out["files"][central] = ilines

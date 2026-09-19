@@ -31,4 +31,4 @@
 
 ## Status
 
-*The file and field that hold the version (never the value, which changes every release), the licence file by name, the CI workflow by name. One line each.*
+*The file and field that hold the version (never the value, which changes every release), the licence file by name (none: say so), the CI workflow by name. One line each.*

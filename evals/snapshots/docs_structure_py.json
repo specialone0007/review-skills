@@ -55,12 +55,12 @@
       "concern": "setup",
       "covered_by": null,
       "default_path": "docs/getting-started/SETUP.md",
-      "matched_by": "README.md has a section to seed from",
+      "matched_by": "",
       "matched_heading": null,
       "misplaced": null,
       "near_name": null,
       "runner_up": null,
-      "seed": "README.md",
+      "seed": null,
       "template": "getting-started/SETUP.md",
       "unit": null,
       "universal": true,
@@ -342,7 +342,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'setup' (always; README.md has a section to seed from) - apply creates docs/getting-started/SETUP.md from the template",
+      "message": "no doc covers 'setup' (always) - apply creates docs/getting-started/SETUP.md from the template",
       "path": "README.md",
       "rule": "R12",
       "severity": "P2"
@@ -500,8 +500,7 @@
       },
       "docs/getting-started/SETUP.md": {
         "concern": "setup",
-        "content": "# Setup\n\n> **This document owns:** the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. *(skeleton, write me)*\n\n*Read this if you have never run this repository.*\n\n<!-- concern: setup; fill: packages, tree, ci, env, services -->\n\n*Existing text to fold in: [README.md](../../README.md) - written by a person; fill seeds from it, and it stays where it is until a person moves it.*\n\n## Prerequisites\n\n*Runtimes and tools with the versions the repo pins or its CI installs. Name the file that pins each one.*\n\n## Install\n\n*From clone to installed, as numbered commands: the install command is a checked copy of AGENTS.md \u00a7 Commands (the one place a command is repeated), plus copying example env files by name; never a value.*\n\n## Run it\n\n*The one command that starts it - a checked copy of AGENTS.md \u00a7 Commands - and the URL, port or prompt that appears. From the manifest, never paraphrased.*\n\n## First success\n\n*The smallest thing a new person can do to see it work: a request, a page, a command and its output.*\n\n## If it fails\n\n*Dated bullets. Symptom, cause, fix, the file that was wrong.*\n",
-        "lines": 29,
+        "lines": 27,
         "template": "references/templates/getting-started/SETUP.md",
         "why": "setup (always)"
       },
@@ -668,7 +667,7 @@
         "heading": "Configuration"
       },
       {
-        "content": "## Status\n\n*The file and field that hold the version (never the value, which changes every release), the licence file by name, the CI workflow by name. One line each.*\n",
+        "content": "## Status\n\n*The file and field that hold the version (never the value, which changes every release), the licence file by name (none: say so), the CI workflow by name. One line each.*\n",
         "heading": "Status"
       }
     ],
