@@ -133,7 +133,7 @@ SHELL_EXTS = {".sh", ".bash", ".ps1", ".zsh"}
 SHELL_LOCAL = re.compile(r"^\s*(?:(?:export|local|declare|readonly|typeset)\s+(?:-\w+\s+)*)?([A-Z][A-Z0-9_]{2,})\s*[:?+]?="
                          r"|^\s*(?:for|read|select)\s+(?:-\w+\s+)*([A-Z][A-Z0-9_]{2,})\b"
                          r"|^\s*(?:ARG|ENV)\s+([A-Z][A-Z0-9_]{2,})\b"
-                         r"|^\s*\$([A-Z][A-Z0-9_]{2,})\s*=", re.M)
+                         r"|^\s*\$(?:env:)?([A-Z][A-Z0-9_]{2,})\s*=", re.M)
 SHELL_NAMES = re.compile(r"^(?:Dockerfile(?:\..*)?|docker-compose.*\.ya?ml|compose\..*\.ya?ml|compose\.ya?ml|Makefile|GNUmakefile|Procfile)$")
 # const { A, B } = process.env - one line, several names.
 ENV_DESTRUCTURE = re.compile(r"\{([^}]*)\}\s*=\s*process\.env\b")
@@ -350,8 +350,13 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
             continue
         local_names: set[str] = set()
         if shell or Path(rel).suffix == ".sh":
-            for groups in SHELL_LOCAL.findall(text):
-                local_names.add(next(g for g in groups if g))
+            for m in SHELL_LOCAL.finditer(text):
+                name = next(g for g in m.groups() if g)
+                lineno = text[:m.start()].count(NL) + 1
+                rhs = text[m.end():].split(NL, 1)[0]
+                if re.search(r"\$\{?" + re.escape(name) + r"(?:[:}\-?]|\b)", rhs):
+                    note(name, f"{rel}:{lineno}")  # NAME="${NAME:-x}" reads it, then shadows it
+                local_names.add(name)
             for m in re.finditer(r"^\s*export\s+([A-Z][A-Z0-9_]{2,})=", text, re.M):
                 exported.setdefault(m.group(1), f"{rel}:{text[:m.start()].count(NL) + 1}")
         for i, line in enumerate(text.splitlines(), start=1):
@@ -673,24 +678,37 @@ def dependency_tokens(repo: Path, files: list[str]) -> dict[str, str]:
             # `name = "agentos-railway"` as a dependency and blamed a library that does not exist.
             section = ""
             in_dep_list = False
+            quoted = re.compile(r"[\"']([A-Za-z0-9_.\-]+)")
             for line in text.splitlines():
                 head = re.match(r"^\s*\[([^\]]+)\]\s*$", line)
                 if head:
                     section = head.group(1).lower()
                     in_dep_list = False
-                    continue
-                key = re.match(r"^\s*([A-Za-z0-9_.\-]+)\s*=\s*(\[?)", line)
-                dep_section = bool(re.search(r"depend|packages", section)) and "tool." not in section.replace("tool.poetry", "")
-                if key and re.match(r"(?:dev-|optional-)?dependencies$", key.group(1)):
-                    in_dep_list = key.group(2) == "["
+                    # [dependencies.reqwest] names the dependency in the header.
+                    sub = re.match(r"^(?:[a-z.\-]*?)(?:dev-|build-)?dependencies\.([A-Za-z0-9_.\-]+)$", section)
+                    if sub:
+                        take(sub.group(1))
                     continue
                 if in_dep_list:
-                    if line.strip().startswith("]"):
-                        in_dep_list = False
-                        continue
-                    for m in re.finditer(r"[\"']([A-Za-z0-9_.\-]+)", line):
+                    for m in quoted.finditer(line):
                         take(m.group(1))
-                elif dep_section and key:
+                    if "]" in line:
+                        in_dep_list = False
+                    continue
+                key = re.match(r"^\s*([A-Za-z0-9_.\-]+)\s*=\s*(\[?)", line)
+                if not key:
+                    continue
+                # A key whose value is a list inside a dependency-shaped section, or the
+                # `dependencies = [` key anywhere: the items are dependencies, the key is not.
+                list_section = bool(re.search(r"depend|packages|dependency-groups", section))
+                if key.group(2) == "[" and (list_section or re.match(r"(?:dev-|optional-)?dependencies$", key.group(1))):
+                    rest = line[key.end():]
+                    for m in quoted.finditer(rest):
+                        take(m.group(1))
+                    in_dep_list = "]" not in rest
+                    continue
+                # [dependencies] / [tool.poetry.dependencies] / [packages]: one key per dependency.
+                if list_section and "tool." not in section.replace("tool.poetry", "") and "groups" not in section:
                     take(key.group(1))
         elif base.startswith("requirements") and base.endswith(".txt"):
             for line in text.splitlines():
