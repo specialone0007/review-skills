@@ -16,7 +16,7 @@
 
 ## Secrets handling
 
-*Where secrets live in each environment, which names are secrets, how they reach a unit. Names only, never a value or a location that holds one.*
+*Where secrets live in each environment and how they reach a unit - the vault, the platform, the file that is never committed. Which names exist is CONFIGURATION's (link its secret rows); never a value or a location that holds one.*
 
 ## Data classes
 

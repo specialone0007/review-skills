@@ -719,6 +719,36 @@ def gate_inventory(repo: Path) -> tuple[set[str], dict[str, set[str]] | None]:
 
 
 
+MOVED_HEADING = re.compile(r"^ {0,3}(#{3,6})[ \t]+.*\(from [^)]+\.(?:md|mdx)\)[ \t]*$")
+
+
+def blank_moved(lines: list[str]) -> list[str]:
+    """The lines under a `### <heading> (from <doc>)` block - what the restructure pasted in from
+    another document - replaced by blanks, up to the next heading of the same or a higher level."""
+    out = list(lines)
+    fenced = False
+    level = 0
+    for i, l in enumerate(lines):
+        if FENCE.match(l):
+            fenced = not fenced
+            if level:
+                out[i] = ""
+            continue
+        if fenced:
+            if level:
+                out[i] = ""
+            continue
+        h = HEADING.match(l)
+        if h and level and len(h.group(1)) <= level:
+            level = 0
+        mv = MOVED_HEADING.match(l)
+        if mv:
+            level = len(mv.group(1))
+        if level:
+            out[i] = ""
+    return out
+
+
 def sections(lines: list[str]) -> list[tuple[str, int, int]]:
     """(heading text, first body line index, end index) for the lead and every H2.
 
@@ -843,6 +873,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                     found.append({"doc": rel, "line": i, "rule": "G11",
                                   "message": f"[inventory: {key}] is another concern's evidence (this document fills from {', '.join(sorted(fill_keys))}); the fact belongs in the doc that owns it, link to it from here"})
     _HEADINGS_SEEN[rel] = [h for h, _, _ in sections(lines)]
+    # Text the restructure moved here from another doc - an H3 whose heading ends "(from X.md)" -
+    # is a person's prose, never a draft: it is blanked out before the sections are judged, so a
+    # README table pasted under a drafted section does not fail G1 for lacking a bracket.
+    lines = blank_moved(lines)
     for heading, start, end in sections(lines):
         body = [l for l in lines[start:end] if l.strip()]
         if not body:

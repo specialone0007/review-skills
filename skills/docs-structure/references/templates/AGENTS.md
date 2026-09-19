@@ -1,12 +1,12 @@
 # <project> - for agents
 
-> **This document owns:** the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the README owns the commands and the docs index owns everything else. *(skeleton, write me)*
+> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*
 
 <!-- concern: agent; fill: packages, tree, ci, tests -->
 
 ## Commands
 
-*One link: the README's Commands table. Nothing repeated; a command with two homes drifts.*
+*One bullet per task - install, run, test, lint, build - the command as it is typed, its source in brackets. The README links here and repeats none of it.*
 
 ## Conventions
 

@@ -6,9 +6,9 @@
 
 <!-- concern: http; fill: routes, auth, env, packages -->
 
-## Authentication
+## Calling it
 
-*How a caller proves who it is, and which endpoints need it.*
+*The base URL per environment, the header or cookie a call carries, and which endpoints need it - one line and a link to SECURITY for how identity works. Never the auth model again here.*
 
 ## Endpoints
 

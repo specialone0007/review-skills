@@ -22,6 +22,6 @@
 
 *What it deliberately does not do, and where a user goes instead. Dated bullets from decision-like commits until a human writes them.*
 
-## Roadmap and principles
+## Principles
 
-*Plan-like docs, tags and rules sections, linked. No invented future work.*
+*The rules sections of the agent file or the README, quoted and attributed. What is planned next is ROADMAP's (docs/plans); one line and a link when it exists. No invented future work.*

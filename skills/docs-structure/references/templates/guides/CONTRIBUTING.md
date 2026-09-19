@@ -1,6 +1,6 @@
 # Contributing
 
-> **This document owns:** how a change gets into this repository — branches, review, checks that must pass, and the license contributions fall under. *(skeleton, write me)*
+> **This document owns:** how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. *(skeleton, write me)*
 
 *Read this if you want to land a change here.*
 
@@ -12,11 +12,7 @@
 
 ## Making a change
 
-*Branching, commit conventions, and the PR template if there is one.*
-
-## Checks that must pass
-
-*Lint, type, test and validation commands, and the CI jobs that run them.*
+*Branching, commit conventions, and the PR template if there is one. The checks a PR must pass are TESTING's (What CI runs); one line and a link, never the list again.*
 
 ## Review
 

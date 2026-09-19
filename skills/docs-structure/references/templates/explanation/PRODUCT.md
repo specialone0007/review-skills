@@ -22,13 +22,9 @@
 
 *The metric a user or the team can check, where it is computed and shown, and what "good" looks like. Cost per unit if the product has one.*
 
-## Roadmap
-
-*Phases with a one-line outcome each. Link the task list for the checklist; this is the why, not the what.*
-
 ## Principles
 
-*Short list. Each one should have been used to say no to something at least once.*
+*Short list. Each one should have been used to say no to something at least once. What is planned next is ROADMAP's (docs/plans); one line and a link when it exists.*
 
 ## What we said no to
 

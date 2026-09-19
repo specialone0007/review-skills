@@ -81,7 +81,13 @@ SYNONYMS: dict[str, set[str]] = {
     "containers": {"services", "components", "packages", "apps", "in one diagram", "diagram"},
     "building blocks": {"modules", "components", "structure", "layers", "folders"},
     "runtime": {"data flow", "flow", "request lifecycle", "sequence", "how it works"},
-    "deployment view": {"deployment", "infrastructure", "hosting", "environments"},
+    "deployment view": {"deployment", "infrastructure", "hosting", "environments", "where it runs"},
+    "stores": {"storage", "databases", "database", "data stores", "buckets", "redis", "s3"},
+    "entities and relationships": {"tables", "tables by area", "models", "entities", "relationships", "relations", "schema", "erd"},
+    "migrations": {"migration", "inventory", "schema changes"},
+    "calling it": {"authentication", "auth", "base url", "getting started", "usage", "headers"},
+    "principles": {"roadmap and principles", "values", "rules"},
+    "what runs where": {"deployment", "deployment view", "hosting", "environments"},
     "quality and risks": {"risks", "open questions", "tradeoffs", "trade-offs", "decisions", "key decisions", "non-functional"},
     "variables by unit": {"environment variables", "variables", "env", "settings", "environment"},
     "files": {"config files", "configuration files"},
@@ -454,9 +460,21 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
             rel_link = os.path.relpath(repo / home, (repo / front_rel).parent).replace("\\", "/")
             pointer = f"See [{Path(home).stem.replace('_', ' ')}]({rel_link}#{ds.slug(tsec)})."
             give_away[s_["heading"]] = (home, pointer)
+            # a bare #anchor in the section pointed at a heading of the README; unless that heading
+            # travels with the section it now points back at the README from the doc's folder
+            own_slugs = {ds.slug(s_["heading"])} | {ds.slug(m.group(2).strip()) for l in s_["body"] for m in [ds.HEADING_RE.match(l)] if m}
+            back = os.path.relpath(repo / front_rel, (repo / home).parent).replace("\\", "/")
             body_rebased = rewrite(s_["body"], (repo / front_rel).parent.resolve(), (repo / home).parent.resolve())
+            bmask = fence_mask(body_rebased)
+            body_rebased = [l if bmask[i] else re.sub(r"\]\(#([^)\s]+)\)", lambda m: m.group(0) if m.group(1) in own_slugs else f"]({back}#{m.group(1)})", l)
+                            for i, l in enumerate(body_rebased)]
             prerebased.update(body_rebased)
-            extra_for.setdefault(home, {}).setdefault(tsec, []).append([f"### {s_['heading']} (from {front_rel})"] + body_rebased)
+            # the body's own sub-headings shift one level down so the pasted block is one subtree
+            # (the proof counts heading text, not level; the gate skips the whole block)
+            bmask2 = fence_mask(body_rebased)
+            shifted = [("#" + l if (not bmask2[i] and ds.HEADING_RE.match(l) and len(ds.HEADING_RE.match(l).group(1)) < 6) else l)
+                       for i, l in enumerate(body_rebased)]
+            extra_for.setdefault(home, {}).setdefault(tsec, []).append([f"### {s_['heading']} (from {front_rel})"] + shifted)
             out["docs"].setdefault(front_rel, {}).setdefault("rehomed", []).append({"section": s_["heading"], "to": home, "to_section": tsec})
     inputs: Counter = Counter()
     outputs: Counter = Counter()
@@ -519,8 +537,15 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                 out["files"][rel] = new
                 out["newline"][rel] = "crlf" if text.count("\r\n") * 2 > text.count("\n") else "lf"
                 out["docs"].setdefault(rel, {})["inbound_links_rewritten"] = True
-    # every relative link in an output resolves against the output tree
+    # every relative link in an output resolves against the output tree, and every anchor - bare
+    # or qualified - against the headings of the file it names as that file will be written
     future = set(out["files"]) | {p for p in _tracked(repo) if p not in out["delete"]}
+
+    def slugs_of(lines_: list[str]) -> set[str]:
+        m_ = fence_mask(lines_)
+        return {ds.slug(h.group(2).strip()) for i_, l_ in enumerate(lines_) for h in [ds.HEADING_RE.match(l_)] if h and not m_[i_]}
+
+    slug_cache: dict[str, set[str]] = {}
     for rel, lines in out["files"].items():
         base = (repo / rel).parent
         mask = fence_mask(lines)
@@ -529,8 +554,21 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                 continue
             for m in ds.LINK_RE.finditer(l):
                 target = (m.group(2) or m.group(3) or "").strip()
-                fp = target.partition("#")[0]
-                if not fp or fp.startswith(("http://", "https://", "mailto:", "/")):
+                fp, _, anchor = target.partition("#")
+                if fp.startswith(("http://", "https://", "mailto:", "/")):
+                    continue
+                if anchor and not anchor.startswith(("L", "l")):
+                    if not fp:
+                        if anchor.lower() not in slug_cache.setdefault(rel, slugs_of(lines)):
+                            problems.append(f"{rel}: anchor #{anchor} has no heading after restructure")
+                        continue
+                    try:
+                        tr = ds.posix((base / fp).resolve(), repo)
+                    except ValueError:
+                        tr = ""
+                    if tr in out["files"] and anchor.lower() not in slug_cache.setdefault(tr, slugs_of(out["files"][tr])):
+                        problems.append(f"{rel}: link {target} names a heading {tr} will not have")
+                if not fp:
                     continue
                 absr = (base / ds.unquote(fp)).resolve() if hasattr(ds, "unquote") else (base / fp).resolve()
                 try:

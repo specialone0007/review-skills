@@ -2,7 +2,7 @@
 
 *One sentence: what this is and who it is for. The index reuses this line.*
 
-> **This document owns:** the front door - what this repository is, the quickstart to a first success, the hand-off to the docs, the layout of the tree, the commands as the manifests name them, and where the licence is. Facts a doc owns are one line and a link here. *(skeleton, write me)*
+> **This document owns:** the front door - what this repository is, the quickstart to a first success, the hand-off to the docs, the layout of the tree, and where the licence is. Facts a doc owns are one line and a link here; the commands are AGENTS.md's. *(skeleton, write me)*
 
 <!-- concern: readme; fill: readme, packages, tree, services, env, ci, tests -->
 
@@ -23,7 +23,7 @@
 
 ## Commands
 
-*A table: task, command, source - install, run, test, lint, build, deploy. The command as it is typed, the file it comes from. AGENTS.md links here and repeats none of it.*
+*One line and a link to AGENTS.md § Commands, which owns every command with its source. Never a second table here: a command with two homes drifts.*
 
 ## Configuration
 

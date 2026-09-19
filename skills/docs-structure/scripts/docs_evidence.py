@@ -32,7 +32,7 @@ Keys, the same for every stack:
   jobs        background work: queue, worker and scheduler libraries, cron signals, worker files
   integrations third parties the code talks to: SDK dependencies by service, the env names that
               point outside (`_API_KEY`, `_DSN`, `_WEBHOOK_URL`, `_CLIENT_ID`), the count
-  changelog   CHANGELOG.md presence, its first headings, the tag count
+  changelog   CHANGELOG.md presence, its first headings, the tag count, the release tool that writes it
   env_count   distinct environment names across every source
   readme      the README's headings and first paragraph
   tree        top-level layout and governance files
@@ -162,6 +162,9 @@ OUTWARD_ENV = re.compile(r"_(API_KEY|APIKEY|DSN|WEBHOOK_URL|WEBHOOK_SECRET|CLIEN
 ROLE_RE = re.compile(r"\b(enum\s+\w*(Role|Permission)\w*|role\s*[:=]|permissions?\s*[:=]|is_admin|isAdmin)\b", re.I)
 
 DECISION_RE = re.compile(r"\b(decid|switch|migrat|replace|remov|adopt|revert|drop|deprecat|instead)", re.I)
+RELEASE_TOOL_FILES = ("release-please-config.json", ".release-please-manifest.json", ".releaserc", ".releaserc.json",
+                      ".releaserc.js", ".releaserc.yaml", ".releaserc.yml", "release.config.js", "release.config.cjs",
+                      "release.config.mjs", ".versionrc", ".versionrc.json", ".versionrc.js", ".changeset")
 DEPLOY_ISH = re.compile(r"(deploy|railway|fly|vercel|netlify|heroku|render|kubectl|helm|terraform|docker/build-push|aws-actions|gcloud|azure/)", re.I)
 
 warnings: list[str] = []
@@ -1290,10 +1293,13 @@ def det_surfaces(ctx: Ctx, inv: dict) -> None:
 
     ch = next((p for p in ctx.named("CHANGELOG.md") if p.parent == ctx.repo or p.parent.name.lower() in ("docs", "history")), None)
     tag_count = (inv.get("decisions") or {}).get("tag_count", 0) if isinstance(inv.get("decisions"), dict) else 0
-    if ch or tag_count:
+    # a release tool (release-please, semantic-release, changesets, standard-version) writes the
+    # root CHANGELOG.md itself; the shape pins it there rather than moving what a bot rewrites
+    release_tool = next((n for n in RELEASE_TOOL_FILES if (ctx.repo / n).exists()), "")
+    if ch or tag_count or release_tool:
         heads = [redact(l.lstrip("# ").strip()) for l in read(ch).splitlines() if l.startswith("## ")][:3] if ch else []
         inv["changelog"] = {"file": ctx.rel(ch) if ch else "", "headings": heads, "tag_count": tag_count,
-                            "evidence": ctx.rel(ch) if ch else "(git tags)"}
+                            "release_tool": release_tool, "evidence": ctx.rel(ch) if ch else (release_tool or "(git tags)")}
     else:
         inv["changelog"] = None
 

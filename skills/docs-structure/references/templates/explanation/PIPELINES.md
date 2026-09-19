@@ -2,7 +2,7 @@
 
 > **This document owns:** what runs when nobody clicks - the background jobs, the queues, the schedules, the data flows between them, and how each one fails and retries. *(skeleton, write me)*
 
-*Read this if you need to know what runs on its own and why.*
+*Read this if you need to know what runs when nobody clicks. Every cron, queue and worker has its home here; OPERATIONS links, never lists.*
 
 <!-- concern: pipelines; fill: jobs, ops, services, env -->
 

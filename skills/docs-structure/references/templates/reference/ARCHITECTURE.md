@@ -24,7 +24,7 @@
 
 ## Deployment view
 
-*Which container runs where, from the deploy configs. The per-unit environment table is DEPLOYMENT's; link it.*
+*The topology only: which container runs on which platform, from the deploy configs, one line each. The units table, the environment per unit and the steps are DEPLOYMENT's; link it, never repeat it.*
 
 ## Quality and risks
 

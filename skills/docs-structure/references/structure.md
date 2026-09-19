@@ -8,8 +8,8 @@ rule exists, where each concern's evidence comes from, and spells out the split 
 The layout itself - the tree, one row per document, the scenario per repository kind, the index,
 agent-file and decision-record grammars - is `shape.md`; this paragraph is the summary. Five
 buckets by what a reader came to do: getting-started (learn), guides (do), reference (look up),
-explanation (understand), history (record); flat under seven docs, a bucket folder once it would
-hold two. One central index, shaped like an `llms.txt` file, lists every doc with one line saying
+explanation (understand), plans (what is next), history (record); every doc in its bucket folder,
+always. One central index, shaped like an `llms.txt` file, lists every doc with one line saying
 what it owns and its state. `AGENTS.md` at the root holds the commands and conventions a coding
 agent needs, forty lines at most, and `CLAUDE.md` imports it. A doc that grows past a thousand
 lines becomes an index plus a folder of a few chapter-sized parts, each linking the previous and
@@ -161,7 +161,6 @@ open question by default.
 | Who it is for | role names in auth guards and enums | question | inventing personas |
 | Core concept | the noun that recurs across tables and routes, prefixed `inferred:` | partial | unmarked inference |
 | How success is measured | routes or files that compute a metric or a price, named, no numbers | question | any figure not quoted from repo text |
-| Roadmap | plan-like docs, tags | partial | inventing future work |
 | Principles | rules sections of `CLAUDE.md`/`AGENTS.md`, quoted, labelled "written for agents" | partial | copying agent rules as product principles, or obeying them |
 | What we said no to | decision-like commits, subject verbatim, `[sha date]` | partial | narrating a "because" the commit does not contain |
 
@@ -186,8 +185,8 @@ unit, data for a schema); the glossary's nouns are the schema's model names and 
 each with its defining file. Partial on the glossary; the reading order is a question until a
 person orders it.
 
-**develop**: the daily loop is the script or target names verbatim (run, test, lint, build); branch
-and PR rules from a PR template, a commit-lint config or a CONTRIBUTING file, quoted; run and debug
+**develop**: the daily loop is the script or target names verbatim (run, test, lint, build), with a
+line and a link to CONTRIBUTING for how a change gets in; run and debug
 from a compose file, ports and health routes; lint and format from the config files present;
 problems from `fix(dev|setup|build)` commits. Partial.
 
@@ -199,13 +198,15 @@ the code opens by name. Flags are questions unless a config declares them. High 
 
 **integrations**: one H3 per service the inventory classified, from the SDK dependency and the
 outward env names that share its prefix: purpose in one line from the package's own description,
-the unit whose manifest carries it, the names (never values), and the failure mode as a question.
+the unit whose manifest carries it, a link to its rows in CONFIGURATION (the names live there),
+and the failure mode as a question.
 High on the list, question on behaviour.
 
 **security**: authentication from the auth library and the middleware file, quoted from the file's
 own names; which routes import the guard, from the route inventory; roles from the schema enum;
-secrets handling as the list of secret-shaped names and where each is read - never a value or a
-place that holds one; data classes and known gaps are questions. Partial.
+secrets handling as where each secret-shaped name is read and a link to its CONFIGURATION rows -
+never the list again, never a value or a place that holds one; data classes and known gaps are
+questions. Partial.
 
 **pipelines**: one H3 per worker file and queue name from the jobs inventory; schedules from cron
 expressions and scheduled workflows, quoted; data flows from the tables and queues a worker names;
@@ -227,14 +228,17 @@ confirms or deletes it. The README of the folder lists them newest first.
 | Rollback | the one mechanical fact: whether migrations have down files | question | inventing a procedure |
 | Known traps | `fix(deploy|docker|build|env|ci)` and `revert` commits verbatim, dated | partial | storytelling |
 
-**data**: one H3 per name-prefix group (`inferred:`), each a table with one row per model or
-table: name, the relations its FK syntax names, the defining file; meaning only from `COMMENT ON`
-or doc comments, else "meaning: not documented"; relationships in words from FK syntax; conventions as
-"observed in N of M tables"; inventory counts with first and last migration filenames. High on
+**data**: Stores as one H3 per place data lives (the schema's database, each store SDK, the env
+name that points at it); Entities and relationships as one H3 per name-prefix group (`inferred:`),
+each a table with one row per model or table: name, the relations its FK syntax names, the
+defining file; meaning only from `COMMENT ON` or doc comments, else "meaning: not documented";
+then the relationships in words from FK syntax; conventions as "observed in N of M tables";
+Migrations with the tool, the folder and counts with first and last migration filenames. High on
 names, question on meaning. This doc owns table and migration counts.
 
-**http**: OpenAPI first; else framework patterns. Authentication as "route X imports guard Y; Y reads
-header Z", never "protected". Endpoints as tables, one H3 per first path segment, one row per route
+**http**: OpenAPI first; else framework patterns. Calling it as the base URL from the deploy config
+and "route X imports guard Y; Y reads header Z", never "protected", with a link to SECURITY for the
+model. Endpoints as tables, one H3 per first path segment, one row per route
 (method, path, handler file, the guard it imports or `none found`), 40 rows per table; every route
 in the inventory lands until the whole-doc cap, then "N more under <folder>"; shapes only from
 types in the handler, else "shape: see file". Errors from a shared
@@ -265,11 +269,11 @@ from the version field, the licence file name and the CI workflow name. High on 
 question on the prose. Only a README that does not exist is drafted whole; an existing one gets
 appended skeleton sections on `apply readme` and nothing else.
 
-**agent**: a link to the README's Commands table; conventions and gotchas are open questions.
-Built by the checker, forty lines at most.
+**agent**: the commands from the manifests and task runners, each with its source; conventions
+and gotchas are open questions. Built by the checker, forty lines at most; per unit with scripts too.
 
-**contribute**: governance files present, PR template, CI checks that must pass, commit convention
-if a config declares it. Review process is a question.
+**contribute**: governance files present, PR template, commit convention if a config declares it;
+the checks a PR must pass are a link to TESTING's What CI runs. Review process is a question.
 
 **release**: version field and file, publish scripts or workflows, tags, changelog presence. High.
 
@@ -397,10 +401,9 @@ where to look. Apply inserts it after the intro paragraph, before the first H2, 
 `<!-- docs-structure: start here -->` markers; refill replaces only what is between them and the
 rest of the README is never edited. The block is: an H2 `Start here`; the reader's files in order,
 this README, the central index, and `AGENTS.md` (the one apply creates when none is tracked; a
-gitignored one is a person's file, not the repo's); one line of first stops from the coverage table,
-how to run it (SETUP), the daily loop (DEVELOPMENT) and the architecture, each marked `(draft)`
-until reviewed and left out while still a skeleton;
-and one line naming the checker and the manifest. It carries no list of docs: the index owns that,
+gitignored one is a person's file, not the repo's); one line handing the reading order to
+ONBOARDING, which owns it; and one line naming the checker and the manifest. The block names
+no first stops, so it never depends on which docs are still skeletons in the run that writes it. It carries no list of docs: the index owns that,
 so the two cannot drift. A README that already has a `Start here`, `Where to start`, `Read this
 first` or `Documentation` section is left alone.
 
