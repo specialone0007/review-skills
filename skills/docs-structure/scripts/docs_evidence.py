@@ -542,8 +542,13 @@ def det_python(ctx: Ctx, inv: dict) -> None:
             deps = list(poetry["dependencies"].keys())
         scripts = as_dict(proj.get("scripts")) or as_dict(poetry.get("scripts"))
         pm = "uv" if (p.parent / "uv.lock").exists() else "poetry" if (p.parent / "poetry.lock").exists() else "pip"
+        tool = as_dict(data.get("tool"))
+        tools = sorted(t for t in ("ruff", "mypy", "black", "isort", "flake8", "pyright", "pytest") if t in tool)
+        extras = as_dict(proj.get("optional-dependencies"))
+        dev_extra = next((k for k in ("dev", "test", "lint") if k in extras), "")
         inv["packages"].append(item(ctx, "python", p, name=name, path=ctx.rel(p.parent), language="python", manifest="pyproject.toml", package_manager=pm,
-                                    scripts=sorted(scripts.keys())[:40], dependencies=sorted(set(d for d in deps if d))[:80], version=str(proj.get("version") or poetry.get("version") or "")))
+                                    scripts=sorted(scripts.keys())[:40], dependencies=sorted(set(d for d in deps if d))[:80], version=str(proj.get("version") or poetry.get("version") or ""),
+                                    tools=tools, dev_extra=dev_extra))
         inv["_eco"].add("python")
         seen.add(ctx.rel(p.parent))
         if scripts:

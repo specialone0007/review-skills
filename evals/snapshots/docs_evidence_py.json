@@ -70,6 +70,7 @@
         "sqlalchemy"
       ],
       "detector": "python",
+      "dev_extra": "",
       "evidence": "pyproject.toml",
       "language": "python",
       "manifest": "pyproject.toml",
@@ -78,6 +79,9 @@
       "path": ".",
       "scripts": [
         "mini"
+      ],
+      "tools": [
+        "pytest"
       ],
       "version": "0.1.0"
     }

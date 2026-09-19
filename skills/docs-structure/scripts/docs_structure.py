@@ -1224,7 +1224,7 @@ def top_level_dirs(repo: Path) -> list[str]:
 
 # ---------------------------------------------------------------- init skeleton
 
-INDEX_INTRO = """Pick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`."""
+INDEX_INTRO = """Pick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`. A doc whose own marker says `auto` was reshaped by the tool and is listed as `unreviewed`."""
 
 # The index is grouped by the bucket a doc lives in - what a reader came to do - then the
 # per-package docs and the stray root files. A group with no lines is left out.
@@ -1832,12 +1832,14 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
         # until a person writes ONBOARDING, the block names the docs that already have content
         for cid, label in (("setup", "how to run it"), ("architecture", "the architecture"), ("develop", "the daily loop")):
             row = next((r for r in coverage if r["concern"] == cid and not r.get("unit")), None)
-            if not row or not row.get("covered_by") or not (repo / row["covered_by"]).is_file():
+            src = (row.get("covered_by") or row.get("misplaced")) if row else None
+            if not src or not (repo / src).is_file():
                 continue
-            st = doc_state(Doc(repo / row["covered_by"], repo))
+            st = doc_state(Doc(repo / src, repo))
             if st != "skeleton":
-                stops.append(f"[{label}]({row['covered_by']})" + ("" if st == "reviewed" else f" ({st})"))
-    if not onb_written and not stops:
+                # the link names the path the doc will have after apply's moves
+                stops.append(f"[{label}]({row['default_path'] if row.get('misplaced') else src})" + ("" if st == "reviewed" else f" ({st})"))
+    if not onb_written and len(stops) < 3:
         for u in sorted({r["unit"] for r in coverage if r.get("unit")})[:3]:
             if (repo / u / "README.md").is_file():
                 stops.append(f"[how to run {u}]({u}/README.md)")
@@ -1966,11 +1968,24 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             if "run" not in seen and "start" in scripts:
                 add("run", f"{pre}{runner} start", f"{p['evidence']}: scripts.start")
         elif man == "pyproject.toml":
-            install = {"uv": "uv sync", "poetry": "poetry install"}.get(pm, "pip install -e .")
+            extra = p.get("dev_extra") or ""
+            install = {"uv": "uv sync" + (f" --extra {extra}" if extra else ""), "poetry": "poetry install"}.get(pm, "pip install -e ." + (f"[{extra}]" if extra else ""))
             runner = {"uv": "uv run ", "poetry": "poetry run "}.get(pm, "")
-            add("install", f"{pre}{install}", p["evidence"])
+            add("install", f"{pre}{install}", p["evidence"] + (f": optional-dependencies.{extra}" if extra else ""))
             if any(t.get("runners") and "pytest" in t["runners"] for t in inv.get("tests") or [] if t.get("package") == path):
                 add("test", f"{pre}{runner}pytest", p["evidence"])
+            tools = p.get("tools") or []
+            if "ruff" in tools:
+                add("lint", f"{pre}{runner}ruff check .", f"{p['evidence']}: tool.ruff")
+                add("format", f"{pre}{runner}ruff format --check .", f"{p['evidence']}: tool.ruff")
+            elif "flake8" in tools:
+                add("lint", f"{pre}{runner}flake8", f"{p['evidence']}: tool.flake8")
+            if "black" in tools and "format" not in seen:
+                add("format", f"{pre}{runner}black --check .", f"{p['evidence']}: tool.black")
+            if "mypy" in tools:
+                add("typecheck", f"{pre}{runner}mypy .", f"{p['evidence']}: tool.mypy")
+            elif "pyright" in tools:
+                add("typecheck", f"{pre}{runner}pyright", f"{p['evidence']}: tool.pyright")
         elif man in ("requirements.txt",):
             add("install", f"{pre}pip install -r requirements.txt", p["evidence"])
         elif man == "go.mod":
@@ -2021,9 +2036,20 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     if units_here:
         lines += ["", "## Units", ""]
         for u in units_here:
-            fallback = f"; until it is written, `{u}/README.md` holds the setup" if (repo / u / "README.md").is_file() else ""
-            lines += [f"- [{u}/{AGENT_FILE}]({u}/{AGENT_FILE}) - the commands of `{u}`, run from that folder; the nearest agent file wins (a skeleton today{fallback})"]
+            has_cmds = "- install:" in agent_skeleton(repo, inv, central_rel, u) or "- run" in agent_skeleton(repo, inv, central_rel, u)
+            fallback = f"; `{u}/README.md` holds the setup a person wrote" if (repo / u / "README.md").is_file() else ""
+            state = "a draft: its commands come from the manifest, its conventions are open" if has_cmds else "a skeleton today"
+            lines += [f"- [{u}/{AGENT_FILE}]({u}/{AGENT_FILE}) - the commands of `{u}`, run from that folder; the nearest agent file wins ({state}{fallback})"]
     fold = f"- existing text to fold in: [{seed.name}]({seed.name}) - a person wrote it for agents; move what belongs here, the rest to the doc that owns it" if seed.is_file() and read(seed).strip() not in ("", "@AGENTS.md") else ""
+    if unit and (repo / "CLAUDE.md").is_file():
+        # a parent CLAUDE.md with a heading named after this unit's folder or stack holds this unit's rules
+        parent = read(repo / "CLAUDE.md")
+        needles = {unit.rsplit("/", 1)[-1].lower()}
+        heads = [m.group(1).strip() for m in re.finditer(r"^ {0,3}#{2,3}[ \t]+(.+?)[ \t]*$", parent, re.M)]
+        hits = [h for h in heads if any(n in h.lower() for n in needles)]
+        if hits:
+            back = os.path.relpath(repo / "CLAUDE.md", repo / unit).replace("\\", "/")
+            fold = (fold + "\n" if fold else "") + f"- existing text to fold in: [{back} § {hits[0]}]({back}#{slug(hits[0])}) - the parent agent-instruction file has a section on this unit"
     lines += ["", "## Conventions", "", "- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)"] + ([fold] if fold else [])
     lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([fold] if fold else [])
     lines += [
@@ -2096,7 +2122,8 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(content.splitlines()),
                                         "why": f"{c['concern']} ({c['applies']})" + (f" for {c['unit']}" if c.get("unit") else ""), "concern": c["concern"], "content": content}
             if c.get("unit"):
-                line = index_line(f"Agent file ({c['unit']})", link_to(c["default_path"]), f"the commands of {c['unit']} as its manifest names them, run from the unit, and its conventions.", "skeleton")
+                line = index_line(f"Agent file ({c['unit']})", link_to(c["default_path"]), f"the commands of {c['unit']} as its manifest names them, run from the unit, and its conventions.",
+                                  "draft" if "(draft, review me)" in content else "skeleton")
                 lines_out.append(line)
                 groups.setdefault("Units", []).append(line)
                 continue
@@ -2105,6 +2132,19 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             continue
         files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(read(t).splitlines()),
                                     "why": f"{c['concern']} ({c['applies']})" + (f" for {c['unit']}" if c.get("unit") else ""), "concern": c["concern"]}
+        seed_src = c.get("seed") or c.get("near_name")
+        if seed_src and (repo / seed_src).is_file():
+            # the plan knows where the text is; the skeleton says so in its lead, so the reader who lands
+            # here is one hop from it instead of at a dead end
+            tl = read(t).splitlines()
+            rel_seed = os.path.relpath(repo / seed_src, (repo / c["default_path"]).parent).replace("\\", "/")
+            sec = f" § {c['matched_heading']}" if c.get("matched_heading") else ""
+            note = f"*Existing text to fold in: [{seed_src}{sec}]({rel_seed}{('#' + slug(c['matched_heading'])) if c.get('matched_heading') else ''}) - written by a person; fill seeds from it, and it stays where it is until a person moves it.*"
+            at = next((i for i, l in enumerate(tl) if l.strip().startswith("<!-- concern:")), None)
+            if at is not None:
+                tl = tl[:at + 1] + ["", note] + tl[at + 1:]
+                files[c["default_path"]]["content"] = "\n".join(tl) + "\n"
+                files[c["default_path"]]["lines"] = len(tl)
         base = c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else ""
         tbase = c["template"].rsplit("/", 1)[0] + "/" if "/" in c["template"] else ""
         for comp in c["companions"]:
