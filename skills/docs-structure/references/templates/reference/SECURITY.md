@@ -16,7 +16,7 @@
 
 ## Secrets handling
 
-*What is secret-specific: rotation, who has access, what is never committed. Which names exist is CONFIGURATION's (link its secret rows) and how values reach a unit is DEPLOYMENT's (link Environment per unit); never a value or a location that holds one.*
+*What is secret-specific: rotation, who has access, what is never committed. Which names are secrets is CONFIGURATION's secret column (link its rows) and how values reach a unit is DEPLOYMENT's (link How values reach a unit); never a value or a location that holds one.*
 
 ## Data classes
 

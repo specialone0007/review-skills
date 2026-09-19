@@ -12,7 +12,7 @@
 
 ## Alerts
 
-*Alert rules or the absence of them. Each rule with its file.*
+*Alert rules or the absence of them, each rule with its file; the log sinks, metrics and dashboards, each with its URL or config file (facts outside the repo carry a verified-against line).*
 
 ## When something is wrong
 

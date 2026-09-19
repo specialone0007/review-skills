@@ -16,7 +16,7 @@
 
 ## Schedules
 
-*Every cron or scheduler entry in the code: schedule, what it runs, what happens if it is missed. A scheduled CI workflow is TESTING's (What CI runs), not a pipeline.*
+*Every cron or scheduler entry the repository itself runs - in source, a CronJob manifest, a platform cron file: schedule, what it runs, what happens if it is missed. A scheduled CI workflow is TESTING's (What CI runs).*
 
 ## Data flows
 

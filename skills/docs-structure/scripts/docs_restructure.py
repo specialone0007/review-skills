@@ -60,7 +60,7 @@ SYNONYMS: dict[str, set[str]] = {
     "lint and format": {"lint", "linting", "formatting", "style", "prettier", "eslint"},
     "common problems": {"troubleshooting", "faq", "known issues", "gotchas"},
     "units": {"services", "service", "apps", "components", "deployables"},
-    "environment per unit": {"environment", "environment variables", "env", "variables", "secrets", "configuration"},
+    "how values reach a unit": {"environment per unit", "environment", "environment variables", "env", "variables", "secrets", "configuration"},
     "deploy steps": {"deploy", "deploying", "deployment", "release", "steps", "how to deploy", "railway", "production"},
     "rollback": {"rolling back", "revert", "recovery"},
     "known traps": {"gotchas", "pitfalls", "troubleshooting", "notes"},

@@ -8,7 +8,7 @@
 
 ## Before you start
 
-*What the licence means for a contribution (README § Status names the file; a unit with a licence of its own is named here too), the code of conduct, where to ask, and where to report a vulnerability - from the governance files present. With no LICENSE anywhere: one sentence that the repository is private and takes no outside contributions, then the access and the protected branch.*
+*What the licence means for a contribution (README § Status names the file; a unit with a licence of its own is named here too), the code of conduct, where to ask, and where to report a vulnerability - from the governance files present. With no LICENSE anywhere: one sentence that no licence file was found and the repository takes no outside contributions until one exists; who has access is an open question, the protected branch a fact from the CI or platform config.*
 
 ## Making a change
 
