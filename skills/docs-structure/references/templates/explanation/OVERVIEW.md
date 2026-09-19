@@ -24,4 +24,4 @@
 
 ## Principles
 
-*A rules or conventions section of the README or CONTRIBUTING, quoted and attributed. What is planned next is ROADMAP's (docs/plans); one line and a link when it exists. No invented future work.*
+*A principles section of the README, or a decision record, quoted and attributed (contribution rules are CONTRIBUTING's, not principles). What is planned next is ROADMAP's (docs/plans); one line and a link when it exists. No invented future work.*

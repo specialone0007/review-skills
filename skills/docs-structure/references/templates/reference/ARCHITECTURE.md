@@ -24,7 +24,7 @@
 
 ## Deployment view
 
-*The topology only: which container runs on which platform, from the deploy configs, one line each. The units table, the environment per unit and the steps are DEPLOYMENT's; link it, never repeat it.*
+*The arrows between containers at run time - who calls whom, over what - from the deploy configs. Which platform and environment each unit runs on is DEPLOYMENT § Units'; link it, never repeat it.*
 
 ## Quality and risks
 

@@ -157,7 +157,7 @@ open question by default.
 
 | section | evidence | expect | guard against |
 | --- | --- | --- | --- |
-| What it is becoming | README title and first paragraph (quote at most one sentence); package descriptions; route roots | partial | treating README marketing as fact; say "the README describes" |
+| What it is today | README title and first paragraph (quote at most one sentence); package descriptions; route roots | partial | treating README marketing as fact; say "the README describes" |
 | Who it is for | role names in auth guards and enums | question | inventing personas |
 | Core concept | the noun that recurs across tables and routes, prefixed `inferred:` | partial | unmarked inference |
 | How success is measured | routes or files that compute a metric or a price, named, no numbers | question | any figure not quoted from repo text |
@@ -208,7 +208,7 @@ secrets handling as where each secret-shaped name is read and a link to its CONF
 never the list again, never a value or a place that holds one; data classes and known gaps are
 questions. Partial.
 
-**pipelines**: one H3 per worker file and queue name from the jobs inventory; schedules from cron
+**jobs**: one H3 per worker file and queue name from the jobs inventory; schedules from cron
 expressions and scheduled workflows, quoted; data flows from the tables and queues a worker names;
 failure and retry from retry options in the code where they are literal, else a question. Partial.
 

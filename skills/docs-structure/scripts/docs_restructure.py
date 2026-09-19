@@ -110,7 +110,7 @@ SYNONYMS: dict[str, set[str]] = {
     "patterns": {"layouts", "pages", "states"},
     "do and do not": {"rules", "guidelines", "dos and donts"},
     "pre-flight checklist": {"checklist", "before merging"},
-    "what it is becoming": {"vision", "what it is", "overview", "about", "mission"},
+    "what it is today": {"vision", "what it is", "what it is becoming", "overview", "about", "mission"},
     "who it is for": {"users", "audience", "personas", "customers"},
     "core concept": {"concept", "concepts", "model", "how it works"},
     "how success is measured": {"metrics", "kpis", "success", "goals"},
@@ -300,6 +300,7 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
     added_lines = [own] + ([t_comment] if t_comment else [])
     deferred: list[tuple[str, str]] = []
     filled = {h for h, _ in tsecs if placed.get(h) or (extra_in or {}).get(h)}
+    extra_in = {h: v for h, v in (extra_in or {}).items()}
     # the block goes after the section the template names; when that section is deferred, the
     # block goes first, right under the lead, so the hand-off is never below a wall of guidance
     if block and (slot_after == "" or (defer_empty and slot_after is not None and slot_after not in filled)):
@@ -357,6 +358,21 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
     if block and slot_after is None:
         out.extend(block)
         out.append("")
+    for h, bodies in (extra_in or {}).items():
+        if h in dict(tsecs):
+            continue
+        # sections another doc gave away: their own H2, after the template's, before what this doc kept
+        out.append(f"## {h}")
+        out.append("")
+        out.append("*Text moved here from the front door because this document owns it; fold it into the sections above and delete this heading.*")
+        added_lines.append("*Text moved here from the front door because this document owns it; fold it into the sections above and delete this heading.*")
+        out.append("")
+        for lines_ in bodies:
+            body = list(lines_)
+            while body and not body[-1].strip():
+                body.pop()
+            out.extend(body)
+            out.append("")
     for s_ in kept:
         out.append(f"## {s_['heading']}")
         body = list(s_["body"])
@@ -536,7 +552,7 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
             bmask2 = fence_mask(body_rebased)
             shifted = [("#" + l if (not bmask2[i] and ds.HEADING_RE.match(l) and len(ds.HEADING_RE.match(l).group(1)) < 6) else l)
                        for i, l in enumerate(body_rebased)]
-            extra_for.setdefault(home, {}).setdefault(tsec, []).append([f"### {s_['heading']} (from {front_rel})"] + shifted)
+            extra_for.setdefault(home, {}).setdefault(f"From {front_rel}", []).append([f"### {s_['heading']} (from {front_rel})"] + shifted)
             out["docs"].setdefault(front_rel, {}).setdefault("rehomed", []).append({"section": s_["heading"], "to": home, "to_section": tsec})
     rehomed_cites = {f"[{front_rel} § {s_h}]": f"[{home_} § {s_h} (from {front_rel})]" for s_h, (home_, _) in give_away.items()}
     inputs: Counter = Counter()
@@ -649,6 +665,30 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                     continue
                 if r not in future and not (repo / r).is_dir():
                     problems.append(f"{rel}: link {target} does not resolve after restructure")
+    # the index line of a skeleton that received a person's text says unreviewed, not skeleton;
+    # the index is the shape's own file, so it is outside the line proof
+    central = manifest.get("centralIndex") or "docs/INDEX.md"
+    pasted = {home_ for _h, (home_, _p) in give_away.items()}
+    if pasted and (repo / central).is_file() and central not in out["files"]:
+        itext = ds.read(repo / central)
+        ilines = itext.splitlines()
+        ibase = (repo / central).parent
+        changed = False
+        for i, l in enumerate(ilines):
+            m = ds.INDEX_LINE.match(l)
+            if not m:
+                continue
+            try:
+                target = ds.posix((ibase / m.group(2).split("#")[0]).resolve(), repo)
+            except ValueError:
+                continue
+            if target in pasted and (m.group(4) or "").strip() == "skeleton":
+                ilines[i] = l[:m.start(4)] + "unreviewed" + l[m.end(4):]
+                changed = True
+        if changed:
+            out["files"][central] = ilines
+            out["newline"][central] = "crlf" if itext.count("\r\n") * 2 > itext.count("\n") else "lf"
+            out["docs"].setdefault(central, {})["index_states_refreshed"] = sorted(pasted)
     out["proof"] = {"ok": not problems, "problems": problems[:60], "docs": len(out["files"]),
                     "lines_in": sum(inputs.values()), "lines_out": sum((outputs - added).values())}
     if not out["files"]:

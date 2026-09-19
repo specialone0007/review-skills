@@ -8,7 +8,7 @@
 
 ## Units
 
-*A table: unit, root directory, platform, public or private. One row per deployable unit; the data stores are DATA_MODEL's, the health route OPERATIONS's, the build and start commands AGENTS.md's - link, never repeat. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured.*
+*A table: unit, root directory, platform, environment (production, staging), its URL, public or private, which branch deploys there. One row per deployable unit and environment; the data stores are DATA_MODEL's, the health route OPERATIONS's, the build and start commands AGENTS.md's - link, never repeat. This is the one home of the environments and their URLs; API § Calling it links here. When the repository holds no deploy config, one sentence says so with the scan behind it, and an open question asks where deployment is configured.*
 
 ## Environment per unit
 

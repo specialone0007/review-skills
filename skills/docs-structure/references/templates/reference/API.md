@@ -8,7 +8,7 @@
 
 ## Calling it
 
-*The base URL per environment, the header or cookie a call carries, and which endpoints need it - one line and a link to SECURITY for how identity works. Never the auth model again here.*
+*The base URL (a link to DEPLOYMENT § Units for the URL per environment), the header or cookie a call carries, and which endpoints need it - one line and a link to SECURITY for how identity works. Never the auth model again here.*
 
 ## Endpoints
 

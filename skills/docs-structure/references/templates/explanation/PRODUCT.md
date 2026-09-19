@@ -6,7 +6,7 @@
 
 <!-- concern: purpose; fill: readme, packages, routes, decisions, tree -->
 
-## What it is becoming
+## What it is today
 
 *One paragraph a new teammate can repeat on a call, in the present tense, about what exists. What is planned is ROADMAP's; one line and a link.*
 

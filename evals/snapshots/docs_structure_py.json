@@ -468,7 +468,7 @@
     "files": {
       "AGENTS.md": {
         "concern": "agent",
-        "content": "# run.ps1 - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of run.ps1, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
+        "content": "# mini-py - for agents\n\n> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of mini-py, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*\n\n## Commands\n\n- install: `pip install -e .` [pyproject.toml]\n\n## Conventions\n\n- open question: branch, commit and PR rules an agent would get wrong without being told\n\n## Gotchas\n\n- open question: the thing that costs an afternoon here\n\n## Docs\n\n- [docs/INDEX.md](docs/INDEX.md) - the map; read it before the folder.\n",
         "lines": 19,
         "template": "references/templates/AGENTS.md",
         "why": "agent (always)"
@@ -596,7 +596,7 @@
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nThree files, in this order. Everything else is one hop from the second one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n3. **[AGENTS.md](AGENTS.md)** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most.\n\nWhat to read next is [docs/getting-started/ONBOARDING.md](docs/getting-started/ONBOARDING.md)'s once it is written (a skeleton today). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n\nThe docs have a shape and a checker: one index, folders by what a reader came to do, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `docs/structure.json` is its manifest.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nThree files, in this order. Everything else is one hop from the second one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n3. **[AGENTS.md](AGENTS.md)** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most.\n\nWhat to read next is [docs/getting-started/ONBOARDING.md](docs/getting-started/ONBOARDING.md)'s once it is written (a skeleton today); until then, the first stops: [the commands](AGENTS.md#commands). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"
@@ -651,7 +651,7 @@
         "heading": "What it is"
       },
       {
-        "content": "## Quickstart\n\n*Numbered: a link to SETUP \u00a7 Prerequisites, then install, run, the URL or command that proves it works. The install and run commands are a checked copy of AGENTS.md \u00a7 Commands - the one place a command is repeated, so a reader can start without a hop (R11 diffs the two). SETUP owns the full path; this is the sixty-second version.*\n",
+        "content": "## Quickstart\n\n*Numbered: a link to SETUP \u00a7 Prerequisites, then install, run, the URL or command that proves it works. For an application the install and run commands are a checked copy of AGENTS.md \u00a7 Commands; for a library or CLI they are the consumer's install and first call, a checked copy of PUBLIC_API \u00a7 Install and import or CLI \u00a7 Install and invoke - the one place a command is repeated, so a reader can start without a hop (R11 diffs the copy against its owner). SETUP owns the full path; this is the sixty-second version.*\n",
         "heading": "Quickstart"
       },
       {
@@ -667,7 +667,7 @@
         "heading": "Configuration"
       },
       {
-        "content": "## Status\n\n*Version from the manifest, the licence file by name, the CI workflow by name. One line each.*\n",
+        "content": "## Status\n\n*The file and field that hold the version (never the value, which changes every release), the licence file by name, the CI workflow by name. One line each.*\n",
         "heading": "Status"
       }
     ],

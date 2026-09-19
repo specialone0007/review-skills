@@ -74,7 +74,7 @@ The inventory says what the repo **is** (kinds: application, library, cli, infra
 | security | reference · `SECURITY.md` | always; the auth library, middleware, roles and secret-shaped names found are the evidence, a repo with no authentication says so | auth, env, routes, schema |
 | design | reference · `DESIGN_SYSTEM.md` | a frontend framework, or tokens and a components folder | frontend, packages, tree |
 | purpose | explanation · `PRODUCT.md`; `OVERVIEW.md` for a library, CLI or infrastructure repo | always | readme, packages, routes, decisions, tree |
-| pipelines | reference · `JOBS.md` | a queue, worker or scheduler library, or cron in the code (a scheduled CI workflow is TESTING's) | jobs, ops, services, env |
+| jobs | reference · `JOBS.md` | a queue, worker or scheduler library, or cron in the code (a scheduled CI workflow is TESTING's) | jobs, ops, services, env |
 | decisions | explanation · `decisions/README.md` + `ADR-NNNN-<slug>.md` | an adr, rfcs or decisions folder, or the manifest pin; decision-like commits are advice, never a trigger | decisions; the first record is a skeleton |
 | changelog | history · `CHANGELOG.md` (the root file, pinned, when a release tool writes it there) | a CHANGELOG at the root (moved here, a one-line pointer left) or any tag | never drafted |
 | research | history · `research/LOG.md` + `log/` | manifest opt-in only | never drafted |
@@ -186,7 +186,7 @@ R5 to R8 findings are never fixed by apply. A dead link or a copied number needs
 
 Fill drafts the sections of a skeleton from the evidence inventory. It touches a section only if the section is still the template's italic line (or empty), or, on `refill`, the doc's owner line carries the draft marker. A doc whose owner line carries neither `(skeleton, write me)` nor `(draft, review me)` is never touched; template headings it lacks are advice, never inserted.
 
-Fill in evidence order, not template order: the docs a reader is sent to for facts first - configuration, http, data, deploy, operate, integrations, security, pipelines, testing, commands, exports, release - then architecture, setup and develop, then design, contribute, onboarding and purpose. The agent file, a decision record, the changelog and the plan are never drafted past their skeleton: their content is a person's. A run that stops early leaves the reference docs drafted and the essay a skeleton, not the reverse.
+Fill in evidence order, not template order: the docs a reader is sent to for facts first - configuration, http, data, deploy, operate, integrations, security, jobs, testing, commands, exports, release - then architecture, setup and develop, then design, contribute, onboarding and purpose. The agent file, a decision record, the changelog and the plan are never drafted past their skeleton: their content is a person's. A run that stops early leaves the reference docs drafted and the essay a skeleton, not the reverse.
 
 Per skeleton doc:
 

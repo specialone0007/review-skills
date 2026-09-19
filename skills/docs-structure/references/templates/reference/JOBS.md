@@ -4,7 +4,7 @@
 
 *Read this if you need to know what runs when nobody clicks. Every cron, queue and worker has its home here; OPERATIONS links, never lists.*
 
-<!-- concern: pipelines; fill: jobs, ops, services, env -->
+<!-- concern: jobs; fill: jobs, ops, services, env -->
 
 ## Jobs
 

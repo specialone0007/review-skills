@@ -31,7 +31,7 @@ Fifteen mechanical rules, each with a fixed severity. None of them judges prose.
       from the evidence inventory (docs_evidence.py beside this script): setup, onboarding,
       develop, testing, purpose, architecture, the README and the agent file always; deploy, operate, contribute,
       release, configuration, data, http, commands, exports, integrations, security, design,
-      pipelines, decisions, changelog and plan when the repo contains the thing they describe;
+      jobs, decisions, changelog and plan when the repo contains the thing they describe;
       research on request. The path is fixed by
       references/shape.md: a bucket folder (getting-started, guides, reference, explanation,
       plans, history), always. An uncovered concern
@@ -167,6 +167,8 @@ RELEASE_TOOL_FILES = ("release-please-config.json", ".release-please-manifest.js
                       ".releaserc.js", ".releaserc.yaml", ".releaserc.yml", "release.config.js", "release.config.cjs",
                       "release.config.mjs", ".versionrc", ".versionrc.json", ".versionrc.js", ".changeset")
 AGENT_FILE = "AGENTS.md"
+RUNNER_TOKENS = {"python", "python3", "node", "uvicorn", "gunicorn", "npm", "pnpm", "yarn", "bun", "java", "go", "dotnet", "ruby",
+                 "bundle", "php", "flask", "streamlit", "deno", "cargo", "hypercorn", "daphne", "celery", "rails", "next", "vite", "tsx", "ts-node"}
 
 # Keys whose default is null but whose shape still matters.
 NULLABLE_TYPES = {"centralIndex": (str,), "templatesDir": (str,), "existingChecker": (str,),
@@ -464,7 +466,7 @@ CONCERNS = [
      {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission", "why", "motivation", "what is"}, []),
     # reference, not explanation: a table of every queue, worker and cron is looked up, not read for
     # its why; and "pipelines" is what most teams call CI, which is TESTING's
-    ("pipelines", "reference", _pipelines, lambda inv: "JOBS.md",
+    ("jobs", "reference", _pipelines, lambda inv: "JOBS.md",
      {"pipelines", "pipeline", "jobs", "background jobs", "workers", "queues", "queue", "scheduler", "cron"}, []),
     ("decisions", "explanation", _decisions, lambda inv: "decisions/README.md",
      {"decisions", "decision records", "adr", "adrs", "architecture decisions", "rfcs"}, ["ADR-0001-first-decision.md"]),
@@ -482,7 +484,7 @@ UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architectu
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",
-             "DESIGN_GUIDELINES.md": "design", "TASKLIST.md": "tasks", "AUTH.md": "security"}
+             "DESIGN_GUIDELINES.md": "design", "TASKLIST.md": "tasks", "AUTH.md": "security", "PIPELINES.md": "jobs"}
 
 
 def concern_template(cid: str, bucket: str | None, fname: str, variant: str | None = None) -> str:
@@ -1229,7 +1231,7 @@ INDEX_INTRO = """Pick the one file you need here; do not read the folder. Every 
 INDEX_ORDER = [title for _, title in BUCKETS] + ["Units", "Root files", "Notes beside code"]
 # a Markdown file inside a source tree is a note beside code, listed so it is reachable, grouped so
 # it does not read as documentation of the unit
-CODE_DIRS = {"src", "lib", "app", "apps", "pkg", "internal", "cmd", "prompts", "migrations", "tests", "test", "spec", "__tests__", "scripts"}
+CODE_DIRS = {"src", "lib", "app", "apps", "pkg", "internal", "cmd", "prompts", "roles", "migrations", "tests", "test", "spec", "__tests__", "scripts"}
 # One line per doc, llms.txt-shaped: a link, a colon, the owner text, a dash, the state.
 # The state sits after the LAST " - ": owner texts carry dashes of their own. Greedy `.*` before the
 # separator finds the last one; a line with no separator at all has no state.
@@ -1301,6 +1303,9 @@ def doc_state(doc: "Doc") -> str:
     person dates it - a commit is not a review."""
     head = "\n".join(doc.lines[:12])
     if "(skeleton, write me)" in head:
+        # a skeleton that holds a person's text moved in from another doc is not empty: unreviewed
+        if any(HEADING_RE.match(l) and re.search(r"\(from [^)]+\.(?:md|mdx)\)\s*$", l) for l in doc.lines):
+            return "unreviewed"
         return "skeleton"
     if "(draft, review me)" in head:
         return "draft"
@@ -1451,9 +1456,7 @@ def unit_has_ops(inv: dict, unit: str) -> str | None:
         ev = str(o.get("evidence") or "")
         if ev.startswith(unit + "/") and not o.get("hint"):
             return f"ops: {ev}"
-    for c in (inv.get("jobs") or {}).get("cron") or []:
-        if str(c).startswith(unit + "/"):
-            return f"cron: {c}"
+    # cron is JOBS's; a unit earns its own OPERATIONS by a health route or an alert file only
     return None
 
 
@@ -1580,7 +1583,20 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             elif readmes:
                 seed = readmes[0][1].rel
                 how = f"{seed} has a section to seed from"
-            if not misplaced:
+            if not misplaced and not r["unit"] and units:
+                # a unit's own doc that reads like this concern: a unit never owns a root concern, so it
+                # is not a cover and not a move, but the skeleton and the index name it as the text to fold in
+                unit_hits = []
+                for d in candidates:
+                    if not any(d.rel.startswith(u + "/") for u in units) or d.path.name.upper().startswith("README"):
+                        continue
+                    sc = concern_score(d, keywords, r["file"])
+                    if sc[0] >= 3:
+                        unit_hits.append((sc[0], d.rel))
+                if unit_hits:
+                    unit_hits.sort(key=lambda x: -x[0])
+                    near = unit_hits[0][1]
+            if not misplaced and not near:
                 stem = Path(r["file"]).stem.split("_")[0].lower()
                 aliases = {a for a in CONCERN_ALIASES.get(cid, ())}
                 for d in candidates:
@@ -1810,6 +1826,11 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
             st = doc_state(Doc(repo / row["covered_by"], repo))
             if st != "skeleton":
                 stops.append(f"[{label}]({row['covered_by']})" + ("" if st == "reviewed" else f" ({st})"))
+    if not onb_written and not stops:
+        for u in sorted({r["unit"] for r in coverage if r.get("unit")})[:3]:
+            if (repo / u / "README.md").is_file():
+                stops.append(f"[how to run {u}]({u}/README.md)")
+        stops.append(f"[the commands]({agent}#commands)")
     if onboarding and onb_written:
         order = f"What to read next, in which order and per role, is [{onboarding}]({onboarding})'s. "
     elif onboarding:
@@ -1817,8 +1838,7 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
                  + (("; until then, the first stops: " + ", ".join(stops)) if stops else "") + ". ")
     else:
         order = ""
-    lines += ["", order + "The index says which file is which; this README keeps no list of its own, so the two cannot drift.", "",
-              f"The docs have a shape and a checker: one index, folders by what a reader came to do, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `{docs_root}/structure.json` is its manifest.",
+    lines += ["", order + "The index says which file is which; this README keeps no list of its own, so the two cannot drift.",
               START_HERE_CLOSE]
     return "\n".join(lines) + "\n"
 
@@ -1929,28 +1949,40 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
                 add(t, f"make {t}" if tr["file"].endswith("Makefile") else f"just {t}", tr["file"])
     if not unit:
         # a script at the root whose name says it starts the stack is the run command for all units
-        for name in ("dev.sh", "run.sh", "start.sh", "dev.ps1", "run.ps1"):
-            if (repo / name).is_file() and tracked_file(repo, name):
-                add("run (all units)", f"./{name}", name)
+        for script in ("dev.sh", "run.sh", "start.sh", "dev.ps1", "run.ps1"):
+            if (repo / script).is_file() and tracked_file(repo, script):
+                add("run (dev stack)", f"./{script}", f"{script}; what it starts is its header's, an open question until read")
                 break
     if unit and "run" not in seen:
-        # no run script in the manifest: the platform's start command, first token only, is the lead
-        svc = next((s_ for s_ in inv.get("services") or [] if s_.get("start") and str(s_.get("evidence") or "").startswith(unit + "/")), None)
+        # no run script in the manifest: the platform's start command (first token) leads; a Dockerfile
+        # CMD counts only when its first token is a program, not a bare argument to an entrypoint
+        cands = [s_ for s_ in inv.get("services") or [] if s_.get("start") and str(s_.get("evidence") or "").startswith(unit + "/")]
+        cands.sort(key=lambda s_: 0 if s_.get("source") in ("railway", "render", "fly", "Procfile") else 1 if s_.get("source") == "compose" else 2)
+        svc = None
+        for s_ in cands:
+            tok = str(s_["start"]).rsplit("/", 1)[-1]
+            if s_.get("source") in ("railway", "render", "fly", "Procfile", "compose") or tok in RUNNER_TOKENS:
+                svc = s_
+                break
         if svc:
-            where = "deploy.startCommand" if svc.get("source") in ("railway", "render") else "CMD"
-            add("run", f"{svc['start']} ... (the full command is the {where} in the file)", f"{svc['evidence']}: {where}")
+            where = "deploy.startCommand" if svc.get("source") in ("railway", "render") else ("command" if svc.get("source") == "compose" else "the start line")
+            add("run", f"{svc['start']} ... (the full command is {where} in the file)", f"{svc['evidence']}: {where}")
+        else:
+            add("run", "open question - no run script in the manifest and no platform start command found; the unit README may say", f"{unit}/README.md" if (repo / unit / "README.md").is_file() else f"{unit}")
     units_here = [] if unit else [u for u in unit_dirs(inv, repo) if any(str(Path(p.get("path", ".")).as_posix()) == u for p in inv.get("packages") or [])]
     index_link = central_rel if not unit else os.path.relpath(central_rel, unit).replace("\\", "/")
     lines = [f"# {name} - for agents", "",
              f"> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of {name}, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. *(skeleton, write me)*",
              "", "## Commands", ""]
     lines += cmds or ["- open question: no install, run, test or lint script found in a manifest or task runner - write the commands as they are typed, each with its source in brackets"]
+    if units_here:
+        lines += ["- these are the root manifest's commands; each unit's own are in its agent file under Units below, and the root test or lint script covers a unit only when the manifest says so (open question until a person confirms)"]
     seed = (repo / (unit or ".") / "CLAUDE.md")
-    if seed.is_file() and "```" in read(seed):
-        lines += [f"- [{seed.name}]({seed.name}) holds commands a person wrote in a code block; move the ones an agent runs here with their source. Its rules and gotchas move to the doc that owns each (ARCHITECTURE, DEVELOPMENT, this file's Gotchas); when nothing is left, it becomes the one line `@AGENTS.md`"]
     if units_here:
         lines += ["", "## Units", ""]
-        lines += [f"- [{u}/{AGENT_FILE}]({u}/{AGENT_FILE}) - the commands of `{u}`, run from that folder; the nearest agent file wins" for u in units_here]
+        for u in units_here:
+            fallback = f"; until it is written, `{u}/README.md` holds the setup" if (repo / u / "README.md").is_file() else ""
+            lines += [f"- [{u}/{AGENT_FILE}]({u}/{AGENT_FILE}) - the commands of `{u}`, run from that folder; the nearest agent file wins (a skeleton today{fallback})"]
     lines += ["", "## Conventions", "", "- open question: branch, commit and PR rules an agent would get wrong without being told",
               "", "## Gotchas", "", "- open question: the thing that costs an afternoon here",
               "", "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
@@ -2043,7 +2075,8 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             files[base + comp_out] = {"template": f"references/templates/{posix(ct, TEMPLATES) if ct.is_relative_to(TEMPLATES) else ct.name}",
                                       "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
         title = doc_title(t, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
-        line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), (f"for {c['unit']}: " if c.get("unit") else "") + owner_text(t), "skeleton")
+        existing = f" Existing text to fold in: {c['near_name']}." if c.get("near_name") and not c.get("unit") else ""
+        line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), (f"for {c['unit']}: " if c.get("unit") else "") + owner_text(t) + existing, "skeleton")
         lines_out.append(line)
         groups.setdefault(group_for(c), []).append(line)
     # docs that exist - at their path or about to be moved there - keep their own title and owner line
@@ -2058,7 +2091,9 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             if "This document owns:" in l:
                 own = re.sub(r"\s*\*\((skeleton|draft|auto)[^)]*\)\*\s*$", "", l.split("owns:**", 1)[-1]).strip(" *")
                 break
-        own = own or (owner_text(t) if t else "")
+        # the index describes the slot, so two docs never claim one fact in the map; the doc's own owner
+        # line stays as the person wrote it
+        own = (owner_text(t) if t else "") or own
         title = doc_title(repo / src, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
         line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), own, doc_state(d))
         lines_out.append(line)
@@ -3079,7 +3114,8 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             if tracked_file(repo, "CLAUDE.md"):
                 ctext = read(repo / "CLAUDE.md").strip()
                 if ctext and "@AGENTS.md" not in ctext:
-                    add("R11", "CLAUDE.md", 1, "CLAUDE.md has content of its own beside AGENTS.md - make it the one line `@AGENTS.md` so the two cannot drift", "warn")
+                    ctext = read(repo / "CLAUDE.md")
+                    add("R11", "CLAUDE.md", 1, "CLAUDE.md has content of its own beside AGENTS.md - " + ("its code block of commands belongs in AGENTS.md § Commands with sources, its rules in the doc that owns each; then " if "```" in ctext else "move its rules into the doc that owns each; then ") + "make it the one line `@AGENTS.md` so the two cannot drift", "warn")
     states: dict[str, dict] = {}
     for c in coverage:
         if c["covered_by"] and c["covered_by"] in by_rel:
