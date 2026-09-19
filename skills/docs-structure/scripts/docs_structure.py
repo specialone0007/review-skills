@@ -1228,7 +1228,7 @@ INDEX_INTRO = """Pick the one file you need here; do not read the folder. Every 
 
 # The index is grouped by the bucket a doc lives in - what a reader came to do - then the
 # per-package docs and the stray root files. A group with no lines is left out.
-INDEX_ORDER = [title for _, title in BUCKETS] + ["Units", "Root files", "Notes beside code"]
+INDEX_ORDER = [title for _, title in BUCKETS] + ["Units", "Other folders", "Root files", "Notes beside code"]
 # a Markdown file inside a source tree is a note beside code, listed so it is reachable, grouped so
 # it does not read as documentation of the unit
 CODE_DIRS = {"src", "lib", "app", "apps", "pkg", "internal", "cmd", "prompts", "roles", "migrations", "tests", "test", "spec", "__tests__", "scripts"}
@@ -1244,9 +1244,10 @@ def index_content(groups: dict[str, list[str]], name: str, summary: str = "", ex
     buckets, before Units, so a rewrite keeps every row a team grouped by hand."""
     out = f"# {name} docs\n\n"
     out += f"> {summary.strip()}\n\n" if summary.strip() else "> *One sentence on what this project is; the README's first paragraph says it.*\n\n"
+    out += "> **This document owns:** the map of every doc in this repository - one line each with what it owns and its state.\n\n"
     out += INDEX_INTRO + "\n"
     buckets = [t for _, t in BUCKETS]
-    order = buckets + [g for g in (extra_order or []) if g not in INDEX_ORDER] + ["Units", "Root files", "Notes beside code"]
+    order = buckets + [g for g in (extra_order or []) if g not in INDEX_ORDER] + ["Units", "Other folders", "Root files", "Notes beside code"]
     for title in order:
         lines = groups.get(title) or []
         if lines:
@@ -1598,7 +1599,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 # production" for the deploy map): the skeleton names it as the text to fold in; a named
                 # section beats a README that merely has a section
                 kws_ = {tokens(k).strip() for k in keywords}
-                for d in candidates:
+                for d in sorted(candidates, key=lambda d_: doc_state(d_) in ("draft", "skeleton")):
                     if not scope(d) or d.rel == front_rel or d.path.name in ("CLAUDE.md", AGENT_FILE):
                         continue
                     hit = next((t for _, lvl, t in d.headings if lvl in (3, 4) and any(f" {k} " in tokens(t) for k in kws_ if len(k) > 3)), None)
@@ -1638,11 +1639,11 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 seed = "CLAUDE.md"
                 how = "CLAUDE.md has content to seed from"
         matched_heading = matched_seed_heading
-        if seed and ": " in how and not matched_heading:
+        if seed and not matched_heading:
             doc = next((d for d in candidates if d.rel == seed), None)
             if doc:
                 kws = {tokens(k).strip() for k in keywords}
-                matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3, 4) and any(f" {k} " in tokens(t) for k in kws if len(k) > 3)), None)
+                matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3, 4) and not is_start_here_heading(t) and any(f" {k} " in tokens(t) for k in kws if len(k) > 3)), None)
         if seed and not matched_heading and seed == front_rel:
             seed, how = None, ""  # a seed with no section is a dead end, not a pointer
         out.append({"concern": cid, "unit": r["unit"], "bucket": r["bucket"], "applies": r["applies"], "default_path": default_path,
@@ -1950,11 +1951,11 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     cmds: list[str] = []
     seen: set[str] = set()
 
-    def add(label: str, cmd: str, src: str) -> None:
+    def add(label: str, cmd: str, src: str, note: str = "") -> None:
         if label in seen or len(cmds) >= 14:
             return
         seen.add(label)
-        cmds.append(f"- {label}: `{cmd}` [{src}]")
+        cmds.append(f"- {label}: `{cmd}` [{src}]" + (f" - {note}" if note else ""))
 
     for p in inv.get("packages") or []:
         path = p.get("path") or "."
@@ -1970,7 +1971,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             install = {"pnpm": "pnpm install", "yarn": "yarn install", "bun": "bun install"}.get(pm, "npm ci")
             runner = {"pnpm": "pnpm run", "yarn": "yarn", "bun": "bun run"}.get(pm, "npm run")
             root_only = (not unit and path in (".", "") and not p.get("workspaces") and bool(unit_dirs(inv, repo)))
-            add("install", f"{pre}{install}" + (" (root only: the manifest declares no workspace; each unit installs from its own folder, see Units)" if root_only else ""), f"{p['evidence']}")
+            add("install", f"{pre}{install}", f"{p['evidence']}", "root only: the manifest declares no workspace; each unit installs from its own folder (see Units)" if root_only else "")
             for label, names in (("run", ("dev", "dev:start", "serve")), ("build", ("build",)), ("test", ("test",)), ("smoke test", ("smoke", "test:smoke")),
                                  ("lint", ("lint",)), ("format", ("format", "format:check", "fmt")), ("typecheck", ("typecheck", "type-check", "tsc")), ("check", ("check",)),
                                  ("migrate", ("db:migrate", "migrate", "prisma:migrate", "migration:run")), ("generate", ("db:generate", "generate", "codegen")),
@@ -1993,14 +1994,21 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
                 add("test", f"{pre}{runner}pytest", p["evidence"])
             tools = p.get("tools") or []
             if "ruff" in tools:
-                add("lint", f"{pre}{runner}ruff check .", f"{p['evidence']}: tool.ruff")
-                add("format", f"{pre}{runner}ruff format --check .", f"{p['evidence']}: tool.ruff")
+                add("lint", f"{pre}{runner}ruff check .", f"{p['evidence']}: tool.ruff declares the tool; the command is ruff's own")
+                add("format (check)", f"{pre}{runner}ruff format --check .", f"{p['evidence']}: tool.ruff declares the tool; the command is ruff's own")
             elif "flake8" in tools:
                 add("lint", f"{pre}{runner}flake8", f"{p['evidence']}: tool.flake8")
             if "black" in tools and "format" not in seen:
                 add("format", f"{pre}{runner}black --check .", f"{p['evidence']}: tool.black")
             if "mypy" in tools:
-                add("typecheck", f"{pre}{runner}mypy .", f"{p['evidence']}: tool.mypy")
+                add("typecheck", f"{pre}{runner}mypy .", f"{p['evidence']}: tool.mypy declares the tool; the command is mypy's own")
+            # scripts a person wrote for the same jobs, beside the manifest
+            sdir = repo / path / "scripts"
+            if sdir.is_dir():
+                for sname in sorted(os.listdir(sdir)):
+                    stem = sname.rsplit(".", 1)[0].lower()
+                    if stem in ("validate", "check", "lint", "format", "test", "ci") and sname.endswith((".sh", ".ps1", ".py")):
+                        add(f"{stem} (script)", f"{pre}./scripts/{sname}", f"{posix(sdir / sname, repo)}")
             elif "pyright" in tools:
                 add("typecheck", f"{pre}{runner}pyright", f"{p['evidence']}: tool.pyright")
         elif man in ("requirements.txt",):
@@ -2021,8 +2029,8 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             if (repo / script).is_file() and tracked_file(repo, script):
                 head = [l.strip().lstrip("#").strip() for l in read(repo / script).splitlines()[1:12] if l.strip().startswith("#")]
                 head = [h for h in head if h and not h.startswith("!")]
-                says = (" - " + head[0][:120]) if head else ""
-                add("run (dev stack)", f"./{script}{says}", f"{script}: header comment" if head else script)
+                quote = " ".join(head)[:240]
+                add("run (dev stack)", f"./{script}", f"{script}: header comment" if head else script, f'"{quote}"' if head else "")
                 break
     if unit and "run" not in seen:
         # no run script in the manifest: the platform's start command (first token) leads; a Dockerfile
@@ -2061,6 +2069,10 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             state = "a draft: its commands come from the manifest, its conventions are open" if has_cmds else "a skeleton today"
             lines += [f"- [{u}/{AGENT_FILE}]({u}/{AGENT_FILE}) - the commands of `{u}`, run from that folder; the nearest agent file wins ({state}{fallback})"]
     fold = f"- existing text to fold in: [{seed.name}]({seed.name}) - a person wrote it for agents; move what belongs here, the rest to the doc that owns it" if seed.is_file() and read(seed).strip() not in ("", "@AGENTS.md") else ""
+    for other in (".cursorrules", ".windsurfrules", "GEMINI.md", ".github/copilot-instructions.md", ".cursor/rules"):
+        op = repo / (unit or ".") / other
+        if op.exists() and (op.is_dir() or read(op).strip()):
+            fold = (fold + "\n" if fold else "") + f"- existing text to fold in: [{other}]({other}) - a person wrote it for agents; the same rule"
     if unit and (repo / "CLAUDE.md").is_file():
         # a parent CLAUDE.md with a heading named after this unit's folder or stack holds this unit's rules
         parent = read(repo / "CLAUDE.md")
@@ -2162,7 +2174,10 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             tl = read(t).splitlines()
             rel_seed = os.path.relpath(repo / seed_src, (repo / c["default_path"]).parent).replace("\\", "/")
             sec = f" § {c['matched_heading']}" if c.get("matched_heading") else ""
-            note = f"*Existing text to fold in: [{seed_src}{sec}]({rel_seed}{('#' + slug(c['matched_heading'])) if c.get('matched_heading') else ''}) - written by a person; fill seeds from it, and it stays where it is until a person moves it.*"
+            seed_head = "\n".join(read(repo / seed_here).splitlines()[:12])
+            who = "a draft the tool wrote, unreviewed" if ("(draft, review me)" in seed_head or "(skeleton" in seed_head or "(auto, review me)" in seed_head) else "written by a person"
+            note = f"*Existing text to fold in: [{seed_src}{sec}]({rel_seed}{('#' + slug(c['matched_heading'])) if c.get('matched_heading') else ''}) - {who}; fill seeds from it, and it stays where it is until a person moves it.*"
+            c["_seed_text"] = f"{seed_src}{sec}"
             at = next((i for i, l in enumerate(tl) if l.strip().startswith("<!-- concern:")), None)
             if at is not None:
                 tl = tl[:at + 1] + ["", note] + tl[at + 1:]
@@ -2180,7 +2195,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             files[base + comp_out] = {"template": f"references/templates/{posix(ct, TEMPLATES) if ct.is_relative_to(TEMPLATES) else ct.name}",
                                       "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
         title = doc_title(t, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
-        existing = f" Existing text to fold in: {c['near_name']}." if c.get("near_name") and not c.get("unit") else ""
+        existing = f" Existing text to fold in: {c['_seed_text']}." if c.get("_seed_text") else ""
         t_owner = strip_unearned(owner_text(t), coverage)
         line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), (f"for {c['unit']}: " if c.get("unit") else "") + t_owner + existing, "skeleton")
         lines_out.append(line)
@@ -2254,7 +2269,8 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
         line = index_line(p, link_to(p), owns, "unreviewed")
         lines_out.append(line)
         beside_code = any(part in CODE_DIRS for part in Path(p).parts[:-1])
-        groups.setdefault("Notes beside code" if beside_code else ("Units" if "/" in p else "Root files"), []).append(line)
+        in_unit = any(p.startswith(u + "/") for u in unit_dirs(inv, repo))
+        groups.setdefault("Notes beside code" if beside_code else ("Units" if in_unit else ("Other folders" if "/" in p else "Root files")), []).append(line)
     extra_order: list[str] = []
     if index_is_table and central_rel and (repo / central_rel).is_file():
         # every row the table index had, under its old heading, in the list grammar; a row whose

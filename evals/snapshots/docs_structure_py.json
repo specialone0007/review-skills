@@ -49,18 +49,19 @@
       "weak": false
     },
     {
+      "_seed_text": "README.md \u00a7 Getting started",
       "applies": "always",
       "bucket": "getting-started",
       "companions": [],
       "concern": "setup",
       "covered_by": null,
       "default_path": "docs/getting-started/SETUP.md",
-      "matched_by": "",
-      "matched_heading": null,
+      "matched_by": "README.md has a section to seed from",
+      "matched_heading": "Getting started",
       "misplaced": null,
       "near_name": null,
       "runner_up": null,
-      "seed": null,
+      "seed": "README.md",
       "template": "getting-started/SETUP.md",
       "unit": null,
       "universal": true,
@@ -342,7 +343,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'setup' (always) - apply creates docs/getting-started/SETUP.md from the template",
+      "message": "no doc covers 'setup' (always; README.md has a section to seed from) - apply creates docs/getting-started/SETUP.md from the template",
       "path": "README.md",
       "rule": "R12",
       "severity": "P2"
@@ -481,8 +482,8 @@
         "why": "GitHub surfaces a root CONTRIBUTING.md; one line pointing at docs/guides/CONTRIBUTING.md"
       },
       "docs/INDEX.md": {
-        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`. A doc whose own marker says `auto` was reshaped by the tool and is listed as `unreviewed`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton\n- [Data model](reference/DATA_MODEL.md): where data lives and what it means - the stores, the entities and their relationships, the conventions, and the migrations. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. - skeleton\n",
-        "lines": 32,
+        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\n> **This document owns:** the map of every doc in this repository - one line each with what it owns and its state.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`. A doc whose own marker says `auto` was reshaped by the tool and is listed as `unreviewed`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. Existing text to fold in: README.md \u00a7 Getting started. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton\n- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton\n- [Operations](guides/OPERATIONS.md): how this is run in production - health checks, alerts, what to do when each one fires, and who is on call. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n- [Contributing](guides/CONTRIBUTING.md): how a change gets into this repository - branch and commit rules, the pull request, review, and the licence contributions fall under. What CI runs is TESTING's. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. - skeleton\n- [Configuration](reference/CONFIGURATION.md): every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. - skeleton\n- [Data model](reference/DATA_MODEL.md): where data lives and what it means - the stores, the entities and their relationships, the conventions, and the migrations. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n- [Integrations](reference/INTEGRATIONS.md): every third party this repository talks to - what it is for, which unit calls it, and what breaks when it is down. The environment names are CONFIGURATION's. - skeleton\n- [Security](reference/SECURITY.md): how a caller proves who it is, what a role may do, how secrets are handled, which data is sensitive, and the gaps known today. - skeleton\n\n## Explanation\n\n- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. - skeleton\n",
+        "lines": 34,
         "template": "INDEX.md (built in)",
         "why": "the central index"
       },
@@ -500,7 +501,8 @@
       },
       "docs/getting-started/SETUP.md": {
         "concern": "setup",
-        "lines": 27,
+        "content": "# Setup\n\n> **This document owns:** the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. *(skeleton, write me)*\n\n*Read this if you have never run this repository.*\n\n<!-- concern: setup; fill: packages, tree, ci, env, services -->\n\n*Existing text to fold in: [README.md \u00a7 Getting started](../../README.md#getting-started) - written by a person; fill seeds from it, and it stays where it is until a person moves it.*\n\n## Prerequisites\n\n*Runtimes and tools with the versions the repo pins or its CI installs. Name the file that pins each one.*\n\n## Install\n\n*From clone to installed, as numbered commands: the install command is a checked copy of AGENTS.md \u00a7 Commands (the one place a command is repeated), plus copying example env files by name; never a value.*\n\n## Run it\n\n*The one command that starts it - a checked copy of AGENTS.md \u00a7 Commands - and the URL, port or prompt that appears. From the manifest, never paraphrased.*\n\n## First success\n\n*The smallest thing a new person can do to see it work: a request, a page, a command and its output.*\n\n## If it fails\n\n*Dated bullets. Symptom, cause, fix, the file that was wrong.*\n",
+        "lines": 29,
         "template": "references/templates/getting-started/SETUP.md",
         "why": "setup (always)"
       },
@@ -606,7 +608,7 @@
         "- [Product](explanation/PRODUCT.md): what the product is, who it is for, the idea it hangs on, how success is measured, its principles, and what it has said no to. - skeleton"
       ],
       "Getting started": [
-        "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton",
+        "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. Existing text to fold in: README.md \u00a7 Getting started. - skeleton",
         "- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton"
       ],
       "Guides": [
@@ -627,7 +629,7 @@
       ]
     },
     "index_lines": [
-      "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton",
+      "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. Existing text to fold in: README.md \u00a7 Getting started. - skeleton",
       "- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton",
       "- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - run, debug, lint, test. How a change gets in (branch, commit, PR, review) is CONTRIBUTING's. - skeleton",
       "- [Deployment](guides/DEPLOYMENT.md): how this is deployed - every deployable unit, its environment, the steps, and how to roll back. - skeleton",

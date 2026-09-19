@@ -489,6 +489,7 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
     # the README gives sections away to the docs that own them
     readme_row = next((c for c in coverage if c["concern"] == "readme" and c.get("covered_by")), None)
     give_away: dict[str, tuple[str, str]] = {}
+    given_sub: dict[str, str] = {}
     extra_for: dict[str, dict[str, list[list[str]]]] = {}
     readme_template = ds.template_for("README.md")
     if readme_row and readme_template:
@@ -541,6 +542,10 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
             rel_link = os.path.relpath(repo / home, (repo / front_rel).parent).replace("\\", "/")
             pointer = f"See [{Path(home).stem.replace('_', ' ')}]({rel_link}#{ds.slug(s_['heading'] + ' (from ' + front_rel + ')')})."
             give_away[s_["heading"]] = (home, pointer)
+            for l_ in s_["body"]:
+                mh = ds.HEADING_RE.match(l_)
+                if mh:
+                    given_sub[mh.group(2).strip()] = home  # a sub-heading travels with its section
             # a bare #anchor in the section pointed at a heading of the README; unless that heading
             # travels with the section it now points back at the README from the doc's folder
             own_slugs = {ds.slug(s_["heading"])} | {ds.slug(m.group(2).strip()) for l in s_["body"] for m in [ds.HEADING_RE.match(l)] if m}
@@ -628,6 +633,30 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                 out["files"][rel] = new
                 out["newline"][rel] = "crlf" if text.count("\r\n") * 2 > text.count("\n") else "lf"
                 out["docs"].setdefault(rel, {})["inbound_links_rewritten"] = True
+    # a seed line written before the restructure names a README section that has now moved: it names
+    # the section's new home, or goes away when the home is this very file
+    if give_away:
+        seed_re = re.compile(r"^\*Existing text to fold in: \[" + re.escape(front_rel) + r"(?: § ([^\]]+))?\]\([^)]*\)")
+        for rel, lines in list(out["files"].items()):
+            new_lines = []
+            changed = False
+            for l in lines:
+                m = seed_re.match(l.strip())
+                if not m:
+                    new_lines.append(l)
+                    continue
+                sec = (m.group(1) or "").strip()
+                home = (give_away.get(sec, (None, None))[0] or given_sub.get(sec)) if sec else None
+                if home is None:
+                    new_lines.append(l)
+                    continue
+                changed = True
+                if home == rel:
+                    continue  # the text is in this file now, under its own heading
+                relp = os.path.relpath(repo / home, (repo / rel).parent).replace("\\", "/")
+                new_lines.append(f"*Existing text to fold in: [{home} § From {front_rel}]({relp}#from-{ds.slug(front_rel)}) - moved there from the front door; fill seeds from it.*")
+            if changed:
+                out["files"][rel] = new_lines
     # every relative link in an output resolves against the output tree, and every anchor - bare
     # or qualified - against the headings of the file it names as that file will be written
     future = set(out["files"]) | {p for p in _tracked(repo) if p not in out["delete"]}
@@ -668,30 +697,6 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                     continue
                 if r not in future and not (repo / r).is_dir():
                     problems.append(f"{rel}: link {target} does not resolve after restructure")
-    # a seed line written before the restructure names a README section that has now moved: it names
-    # the section's new home, or goes away when the home is this very file
-    if give_away:
-        seed_re = re.compile(r"^\*Existing text to fold in: \[" + re.escape(front_rel) + r"(?: § ([^\]]+))?\]\([^)]*\)")
-        for rel, lines in list(out["files"].items()):
-            new_lines = []
-            changed = False
-            for l in lines:
-                m = seed_re.match(l.strip())
-                if not m:
-                    new_lines.append(l)
-                    continue
-                sec = (m.group(1) or "").strip()
-                home = give_away.get(sec, (None, None))[0] if sec else None
-                if home is None:
-                    new_lines.append(l)
-                    continue
-                changed = True
-                if home == rel:
-                    continue  # the text is in this file now, under its own heading
-                relp = os.path.relpath(repo / home, (repo / rel).parent).replace("\\", "/")
-                new_lines.append(f"*Existing text to fold in: [{home} § From {front_rel}]({relp}#from-{ds.slug(front_rel)}) - moved there from the front door; fill seeds from it.*")
-            if changed:
-                out["files"][rel] = new_lines
     # the index line of a skeleton that received a person's text says unreviewed, not skeleton;
     # the index is the shape's own file, so it is outside the line proof
     central = manifest.get("centralIndex") or "docs/INDEX.md"
