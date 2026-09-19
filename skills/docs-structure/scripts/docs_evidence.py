@@ -456,6 +456,15 @@ def first_token(cmd: str) -> str:
     return cmd.split()[0] if cmd.split() else ""
 
 
+def safe_command(cmd: str) -> str:
+    """The whole start command when no argument can be a value: no `=`, no token that looks like a
+    secret or a URL with credentials. Otherwise empty, and the first token stands alone."""
+    cmd = cmd.strip()
+    if not cmd or "=" in cmd or re.search(r"(?i)(secret|token|password|passwd|key)\S*\s", cmd + " ") or "@" in cmd:
+        return ""
+    return redact(cmd)[:160]
+
+
 def as_dict(x) -> dict:
     return x if isinstance(x, dict) else {}
 
@@ -779,7 +788,7 @@ def det_platforms(ctx: Ctx, inv: dict) -> None:
             dep = as_dict(s.get("deploy"))
             sname = str(s.get("name") or p.parent.name)
             inv["services"].append(item(ctx, "railway", p, name=sname, root=str(s.get("root") or s.get("rootDirectory") or ctx.rel(p.parent)), builder=str(build.get("builder") or ""),
-                                        start=first_token(str(dep.get("startCommand") or "")), healthcheck=bool(dep.get("healthcheckPath")), cron=str(dep.get("cronSchedule") or ""), source="railway"))
+                                        start=first_token(str(dep.get("startCommand") or "")), start_full=safe_command(str(dep.get("startCommand") or "")), healthcheck=bool(dep.get("healthcheckPath")), cron=str(dep.get("cronSchedule") or ""), source="railway"))
             if dep.get("cronSchedule"):
                 inv["ops"].append(item(ctx, "railway", p, kind="cron", schedule=str(dep.get("cronSchedule")), service=sname))
             if dep.get("healthcheckPath"):

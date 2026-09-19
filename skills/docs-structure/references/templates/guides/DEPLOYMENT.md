@@ -20,7 +20,7 @@
 
 ## Rollback
 
-*How to get back to the previous deployed version, and what state (database, queues) does not roll back with the code. This is the one home of rolling back; RELEASING says only whether a published version can be pulled.*
+*How to get back to the previous deployed version, and what state (database, queues) does not roll back with the code. In a unit's own guide: this unit's rollback; rolling the whole back is the root map's. RELEASING says only whether a published version can be pulled.*
 
 ## Known traps
 

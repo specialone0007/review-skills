@@ -290,6 +290,8 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
         out.extend(body_lead)
         out.append("")
         body_lead = []
+    if extra_in and "(skeleton, write me)" in own:
+        own = own.replace("*(skeleton, write me)*", "*(auto, review me)* - holds text moved in from another doc; fold it in")
     out.append(own)
     out.append("")
     if t_comment:
@@ -365,8 +367,8 @@ def restructure_doc(doc_lines: list[str], template: Path, concern: str, extra_in
         # sections another doc gave away: their own H2, after the template's, before what this doc kept
         out.append(f"## {h}")
         out.append("")
-        out.append("*Text moved here from the front door because this document owns it; fold it into the sections above and delete this heading.*")
-        added_lines.append("*Text moved here from the front door because this document owns it; fold it into the sections above and delete this heading.*")
+        out.append("*Text moved here from the front door because this document owns it; fold it into the sections above, then delete this heading and point the front door's link at the section it landed in.*")
+        added_lines.append("*Text moved here from the front door because this document owns it; fold it into the sections above, then delete this heading and point the front door's link at the section it landed in.*")
         out.append("")
         for lines_ in bodies:
             body = list(lines_)
@@ -475,7 +477,7 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                 except ValueError:
                     return m.group(0)
                 dest = repo / moved.get(r, r)
-                new = os.path.relpath(dest, new_dir.resolve()).replace("\\", "/") + (("#" + anchor) if anchor else "")
+                new = os.path.relpath(dest, new_dir.resolve()).replace("\\", "/") + ("/" if fp.endswith("/") else "") + (("#" + anchor) if anchor else "")
                 if new == target:
                     return m.group(0)
                 g = 2 if m.group(2) else 3

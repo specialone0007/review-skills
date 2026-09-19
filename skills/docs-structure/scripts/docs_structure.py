@@ -1902,6 +1902,27 @@ def index_tables(doc: "Doc") -> list[dict]:
     return out
 
 
+# doc names a template's owner text may cite, and the concern each one is
+OWNER_CITES = {"JOBS": "jobs", "PIPELINES": "jobs", "ROADMAP": "plan", "CONFIGURATION": "configuration", "DEPLOYMENT": "deploy",
+               "TESTING": "testing", "CONTRIBUTING": "contribute", "SECURITY": "security", "OPERATIONS": "operate", "DATA_MODEL": "data",
+               "ONBOARDING": "onboarding", "PRODUCT": "purpose", "SETUP": "setup", "ARCHITECTURE": "architecture", "INTEGRATIONS": "integrations",
+               "RELEASING": "release", "API": "http", "CLI": "commands", "PUBLIC_API": "exports", "AGENTS.md": "agent", "decisions": "decisions", "records": "decisions"}
+
+
+def strip_unearned(text: str, coverage: list[dict]) -> str:
+    """An owner text that says 'what is next is ROADMAP's' names a doc the repository may not have;
+    the index drops the sentence when that concern does not apply here."""
+    have = {c["concern"] for c in coverage}
+    parts = re.split(r"(?<=[.;])\s+", text.strip())
+    keep = []
+    for part in parts:
+        cited = [cid for name, cid in OWNER_CITES.items() if re.search(r"(?<![A-Za-z_])" + re.escape(name) + r"(?![A-Za-z_])", part)]
+        if cited and any(cid not in have for cid in cited) and part is not parts[0]:
+            continue
+        keep.append(part)
+    return " ".join(keep).strip()
+
+
 def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = None) -> str:
     """The agent file from evidence: the commands as the manifests name them, each with its source.
     The agent file owns the commands - it is the first file an agent reads - and the README's
@@ -1912,7 +1933,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     seen: set[str] = set()
 
     def add(label: str, cmd: str, src: str) -> None:
-        if label in seen or len(cmds) >= 10:
+        if label in seen or len(cmds) >= 14:
             return
         seen.add(label)
         cmds.append(f"- {label}: `{cmd}` [{src}]")
@@ -1931,12 +1952,19 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             install = {"pnpm": "pnpm install", "yarn": "yarn install", "bun": "bun install"}.get(pm, "npm ci")
             runner = {"pnpm": "pnpm run", "yarn": "yarn", "bun": "bun run"}.get(pm, "npm run")
             add("install", f"{pre}{install}", f"{p['evidence']}")
-            for label, names in (("run", ("dev", "start", "dev:start", "serve")), ("build", ("build",)), ("test", ("test",)),
+            for label, names in (("run", ("dev", "dev:start", "serve")), ("build", ("build",)), ("test", ("test",)), ("smoke test", ("smoke", "test:smoke")),
                                  ("lint", ("lint",)), ("typecheck", ("typecheck", "type-check", "tsc")), ("check", ("check",)),
-                                 ("migrate", ("db:migrate", "migrate", "prisma:migrate", "migration:run"))):
+                                 ("migrate", ("db:migrate", "migrate", "prisma:migrate", "migration:run")), ("generate", ("db:generate", "generate", "codegen")),
+                                 ("seed", ("db:seed", "seed"))):
                 hit = next((n for n in names if n in scripts), None)
                 if hit:
                     add(label, f"{pre}{runner} {hit}", f"{p['evidence']}: scripts.{hit}")
+            # every start script is a production entry: a worker's start line is what the deploy doc links
+            for n in scripts:
+                if n == "start" or n.startswith(("start:", "start-")):
+                    add("start (production)" if n == "start" else f"start ({n.split(':', 1)[-1] if ':' in n else n})", f"{pre}{runner} {n}", f"{p['evidence']}: scripts.{n}")
+            if "run" not in seen and "start" in scripts:
+                add("run", f"{pre}{runner} start", f"{p['evidence']}: scripts.start")
         elif man == "pyproject.toml":
             install = {"uv": "uv sync", "poetry": "poetry install"}.get(pm, "pip install -e .")
             runner = {"uv": "uv run ", "poetry": "poetry run "}.get(pm, "")
@@ -1974,7 +2002,11 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
                 break
         if svc:
             where = "deploy.startCommand" if svc.get("source") in ("railway", "render") else ("command" if svc.get("source") == "compose" else "the start line")
-            add("run", f"{svc['start']} ... (the full command is {where} in the file)", f"{svc['evidence']}: {where}")
+            full = svc.get("start_full") or ""
+            add("run (as deployed)", full if full else f"{svc['start']} ... (the rest of {where} carries a value, so it is not copied)", f"{svc['evidence']}: {where}")
+        if unit and (repo / unit / "compose.yaml").is_file() or unit and (repo / unit / "docker-compose.yml").is_file() or unit and (repo / unit / "compose.yml").is_file():
+            cf = next(n for n in ("compose.yaml", "docker-compose.yml", "compose.yml") if (repo / unit / n).is_file())
+            add("run (local stack)", "docker compose up -d --build", f"{unit}/{cf}")
         else:
             add("run", "open question - no run script in the manifest and no platform start command found; the unit README may say", f"{unit}/README.md" if (repo / unit / "README.md").is_file() else f"{unit}")
     units_here = [] if unit else [u for u in unit_dirs(inv, repo) if any(str(Path(p.get("path", ".")).as_posix()) == u for p in inv.get("packages") or [])]
@@ -1991,9 +2023,11 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
         for u in units_here:
             fallback = f"; until it is written, `{u}/README.md` holds the setup" if (repo / u / "README.md").is_file() else ""
             lines += [f"- [{u}/{AGENT_FILE}]({u}/{AGENT_FILE}) - the commands of `{u}`, run from that folder; the nearest agent file wins (a skeleton today{fallback})"]
-    lines += ["", "## Conventions", "", "- open question: branch, commit and PR rules an agent would get wrong without being told",
-              "", "## Gotchas", "", "- open question: the thing that costs an afternoon here",
-              "", "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
+    fold = f"- existing text to fold in: [{seed.name}]({seed.name}) - a person wrote it for agents; move what belongs here, the rest to the doc that owns it" if seed.is_file() and read(seed).strip() not in ("", "@AGENTS.md") else ""
+    lines += ["", "## Conventions", "", "- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)"] + ([fold] if fold else [])
+    lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([fold] if fold else [])
+    lines += [
+              "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
     return "\n".join(lines) + "\n"
 
 
@@ -2084,7 +2118,8 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                                       "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
         title = doc_title(t, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
         existing = f" Existing text to fold in: {c['near_name']}." if c.get("near_name") and not c.get("unit") else ""
-        line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), (f"for {c['unit']}: " if c.get("unit") else "") + owner_text(t) + existing, "skeleton")
+        t_owner = strip_unearned(owner_text(t), coverage)
+        line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), (f"for {c['unit']}: " if c.get("unit") else "") + t_owner + existing, "skeleton")
         lines_out.append(line)
         groups.setdefault(group_for(c), []).append(line)
     # docs that exist - at their path or about to be moved there - keep their own title and owner line
@@ -2101,7 +2136,7 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
                 break
         # the index describes the slot, so two docs never claim one fact in the map; the doc's own owner
         # line stays as the person wrote it
-        own = (owner_text(t) if t else "") or own
+        own = (strip_unearned(owner_text(t), coverage) if t else "") or own
         title = doc_title(repo / src, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
         line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), own, doc_state(d))
         lines_out.append(line)
