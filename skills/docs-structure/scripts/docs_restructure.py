@@ -496,6 +496,10 @@ def propose(repo: Path, manifest: dict, mpath: Path | None, source: str) -> dict
                 continue
             tsec, _ = best_template_section(s_["heading"], ds.template_sections(t))
             if tsec is None:
+                # the body chose the doc; the heading names no section of it, so the first section
+                # takes it and the "(from README.md)" heading says where it came from
+                tsec = ds.template_sections(t)[0][0] if ds.template_sections(t) else None
+            if tsec is None:
                 continue
             rel_link = os.path.relpath(repo / home, (repo / front_rel).parent).replace("\\", "/")
             pointer = f"See [{Path(home).stem.replace('_', ' ')}]({rel_link}#{ds.slug(s_['heading'] + ' (from ' + front_rel + ')')})."
