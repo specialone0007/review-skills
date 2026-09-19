@@ -29,7 +29,7 @@ Fifteen mechanical rules, each with a fixed severity. None of them judges prose.
       does not keep a parallel list of docs that would drift from it
   R12 every concern the repo has is covered by the doc at its canonical path. Concerns come
       from the evidence inventory (docs_evidence.py beside this script): setup, onboarding,
-      develop, purpose, architecture, the README and the agent file always; deploy, operate, testing, contribute,
+      develop, testing, purpose, architecture, the README and the agent file always; deploy, operate, contribute,
       release, configuration, data, http, commands, exports, integrations, security, design,
       pipelines, decisions, changelog and plan when the repo contains the thing they describe;
       research on request. The path is fixed by
@@ -391,7 +391,8 @@ CONCERNS = [
      {"deploy", "deployment", "deploying", "production", "hosting", "railway", "kubernetes", "helm", "docker", "release to"}, []),
     ("operate", "guides", _operate, lambda inv: "OPERATIONS.md",
      {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, []),
-    ("testing", "guides", lambda inv: _first(inv.get("tests") or [], "tests"), lambda inv: "TESTING.md",
+    # Always: a repository with no tests needs the doc that says so, under Coverage and gaps.
+    ("testing", "guides", lambda inv: _first(inv.get("tests") or [], "tests") or "always", lambda inv: "TESTING.md",
      {"testing", "tests", "test", "qa", "coverage", "e2e"}, []),
     ("contribute", "guides", _contribute, lambda inv: "CONTRIBUTING.md",
      {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, []),
@@ -435,7 +436,7 @@ CONCERNS = [
     ("plan", "history", lambda inv: _plan_evidence(inv), lambda inv: "plans/TASKLIST.md",
      {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist", "roadmap"}, ["tasklist/phase-00-foundations.md", "ROADMAP.md"]),
 ]
-UNIVERSAL = {"purpose", "develop", "setup", "onboarding"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing"}
 # Template file names that changed with the shape; a doc still carrying the old name is that
 # concern's doc, at the wrong path.
 OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",

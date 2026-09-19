@@ -152,7 +152,7 @@
       "seed": null,
       "template": "guides/TESTING.md",
       "unit": null,
-      "universal": false,
+      "universal": true,
       "weak": false
     },
     {

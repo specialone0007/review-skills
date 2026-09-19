@@ -20,4 +20,4 @@
 
 ## Coverage and gaps
 
-*Coverage configuration if any. What is deliberately untested, and why, as open questions until a human answers.*
+*Coverage configuration if any. What is deliberately untested, and why, as open questions until a human answers. When the inventory found no runner and no tests folder, this section says so in one sentence with the scan behind it; that sentence is the doc's reason to exist.*

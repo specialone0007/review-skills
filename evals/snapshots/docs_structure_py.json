@@ -90,7 +90,7 @@
       "companions": [],
       "concern": "develop",
       "covered_by": null,
-      "default_path": "docs/DEVELOPMENT.md",
+      "default_path": "docs/guides/DEVELOPMENT.md",
       "matched_by": "",
       "matched_heading": null,
       "misplaced": null,
@@ -98,6 +98,24 @@
       "runner_up": null,
       "seed": null,
       "template": "guides/DEVELOPMENT.md",
+      "unit": null,
+      "universal": true,
+      "weak": false
+    },
+    {
+      "applies": "always",
+      "bucket": "guides",
+      "companions": [],
+      "concern": "testing",
+      "covered_by": null,
+      "default_path": "docs/guides/TESTING.md",
+      "matched_by": "",
+      "matched_heading": null,
+      "misplaced": null,
+      "near_name": null,
+      "runner_up": null,
+      "seed": null,
+      "template": "guides/TESTING.md",
       "unit": null,
       "universal": true,
       "weak": false
@@ -232,7 +250,15 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'develop' (always) - apply creates docs/DEVELOPMENT.md from the template",
+      "message": "no doc covers 'develop' (always) - apply creates docs/guides/DEVELOPMENT.md from the template",
+      "path": "README.md",
+      "rule": "R12",
+      "severity": "P2"
+    },
+    {
+      "level": "warn",
+      "line": 1,
+      "message": "no doc covers 'testing' (always) - apply creates docs/guides/TESTING.md from the template",
       "path": "README.md",
       "rule": "R12",
       "severity": "P2"
@@ -291,15 +317,9 @@
         "template": "references/templates/AGENTS.md",
         "why": "agent (always)"
       },
-      "docs/DEVELOPMENT.md": {
-        "concern": "develop",
-        "lines": 27,
-        "template": "references/templates/guides/DEVELOPMENT.md",
-        "why": "develop (always)"
-      },
       "docs/INDEX.md": {
-        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n\n## Explanation\n\n- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n",
-        "lines": 25,
+        "content": "# mini-py docs\n\n> A small Python service fixture. Deliberately has no docs folder.\n\nPick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `stale YYYY-MM-DD`.\n\n## Getting started\n\n- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton\n- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton\n\n## Guides\n\n- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton\n- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton\n\n## Reference\n\n- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton\n- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton\n- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton\n- [CLI reference](reference/CLI.md): the commands this repository exposes \u2014 each command, its arguments and flags, and what it does. - skeleton\n\n## Explanation\n\n- [Product](PRODUCT.md): what the product is, who it is for, where it is going, and what it has said no to. - skeleton\n",
+        "lines": 26,
         "template": "INDEX.md (built in)",
         "why": "the central index"
       },
@@ -320,6 +340,18 @@
         "lines": 27,
         "template": "references/templates/getting-started/SETUP.md",
         "why": "setup (always)"
+      },
+      "docs/guides/DEVELOPMENT.md": {
+        "concern": "develop",
+        "lines": 27,
+        "template": "references/templates/guides/DEVELOPMENT.md",
+        "why": "develop (always)"
+      },
+      "docs/guides/TESTING.md": {
+        "concern": "testing",
+        "lines": 23,
+        "template": "references/templates/guides/TESTING.md",
+        "why": "testing (always)"
       },
       "docs/reference/API.md": {
         "concern": "http",
@@ -379,7 +411,8 @@
         "- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton"
       ],
       "Guides": [
-        "- [Development](DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton"
+        "- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton",
+        "- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton"
       ],
       "Reference": [
         "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
@@ -391,7 +424,8 @@
     "index_lines": [
       "- [Setup](getting-started/SETUP.md): the path from a clean machine to a first visible success - prerequisites, install, run, what success looks like, and what to do when it fails. - skeleton",
       "- [Onboarding](getting-started/ONBOARDING.md): the reading order for a new person, the path per role, and the vocabulary this repository uses. - skeleton",
-      "- [Development](DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton",
+      "- [Development](guides/DEVELOPMENT.md): the daily loop of changing code here - branch, run, debug, lint, test, open a pull request. - skeleton",
+      "- [Testing](guides/TESTING.md): how this repository is tested \u2014 the runners, where tests live, how to run them, and what CI checks. - skeleton",
       "- [Architecture](reference/ARCHITECTURE.md): the map of the system - its context, the containers it runs as, the building blocks inside them, how a request moves at runtime, how it is deployed, and the qualities and risks that shaped it. Decisions live in their own records. - skeleton",
       "- [Data model](reference/DATA_MODEL.md): the tables and their meaning \u2014 what each one stores, what is append-only, and the conventions every migration follows. - skeleton",
       "- [API reference](reference/API.md): the endpoints \u2014 path, method, auth, request and response shape, errors. The API is the contract; nobody reimplements it. - skeleton",
@@ -473,7 +507,7 @@
       ],
       "severity": "P2",
       "title": "concern covered",
-      "warnings": 9
+      "warnings": 10
     },
     "R13": {
       "failures": 0,
@@ -573,7 +607,7 @@
   "split_candidates": [],
   "totals": {
     "concerns_covered": 1,
-    "concerns_missing": 9,
+    "concerns_missing": 10,
     "docs_checked": 1,
     "failures": 0,
     "moves": 0,
@@ -586,7 +620,7 @@
       "reviewed": 1,
       "skeleton": 0
     },
-    "warnings": 9
+    "warnings": 10
   },
   "unreachable": [],
   "warnings": []
