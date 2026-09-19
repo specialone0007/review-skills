@@ -113,14 +113,6 @@
       ],
       "severity": "low",
       "source": "src/config.js:4"
-    },
-    {
-      "detail": "gives localhost:9999; no compose mapping, EXPOSE, listen call or PORT default in the repository uses 9999 (known: 3000).",
-      "doc": "README.md",
-      "kind": "port-mismatch",
-      "line": 15,
-      "severity": "low",
-      "source": "Dockerfile"
     }
   ],
   "repo": "<fixture>",
@@ -131,7 +123,7 @@
     "env_names_in_code": 3,
     "env_names_skipped_as_platform": 0,
     "env_names_skipped_as_sample_code": 0,
-    "findings": 13,
+    "findings": 12,
     "make_targets_found": 0,
     "npm_scripts_found": 4
   },

@@ -97,7 +97,7 @@ PM_VERBS = ("run|install|i|add|remove|rm|uninstall|exec|dlx|create|why|outdated|
             "cache|config|info|list|ls|audit|login|logout|version|help|setup|import|patch|env|store|fetch|prune|dedupe|"
             "rebuild|root|bin|licenses|workspace|workspaces|w|x|c|npx|node|test|start|stop|restart|deploy|self-update|"
             "ci|cat-file|cat-index|find-hash|doctor|approve-builds|set|get|prefer|search|owner|team|access|adduser")
-CMD_PM_SHORT = re.compile(r"\b(?:pnpm|yarn|bun)\s+(?!(?:" + PM_VERBS + r")\b|--|-)([a-z][A-Za-z0-9:_.\-]*)\b")
+CMD_PM_SHORT = re.compile(r"\b(?:pnpm|yarn|bun)\s+(?!(?:" + PM_VERBS + r")(?=\s|$)|--|-)([a-z][A-Za-z0-9:_.\-]*)\b")
 # `make VAR=value target` and `make -j4 target`: the target is the first word that is neither
 # an assignment nor a flag.
 # An assignment starts with a name character and a flag with a dash, so the two alternatives never
@@ -793,18 +793,28 @@ def licence_family(text: str) -> str:
     return ""
 
 
+def _facts_shell() -> dict:
+    return {"name": "", "names": set(), "version": "", "version_source": "", "runtimes": {},
+            "licence": set(), "licence_source": "", "ports": set(), "ports_source": ""}
+
+
 def manifest_facts(repo: Path, files: list[str]) -> dict:
     """What the manifests, the LICENSE file, compose, Dockerfiles and the code say about the
-    package's name and version, the runtime it requires, its licence and the ports it uses."""
-    out: dict = {"name": "", "names": set(), "version": "", "version_source": "", "runtimes": {},
-                 "licence": set(), "licence_source": "", "ports": set(), "ports_source": ""}
+    package's name and version, the runtime it requires, its licence and the ports it uses.
+    One entry per directory that holds a manifest, keyed by that directory ("." for the root),
+    because a monorepo unit's README is judged against the unit's own pyproject.toml; ports are
+    global under the key "*"."""
+    by_dir: dict[str, dict] = {"*": _facts_shell()}
     port_sources: list[str] = []
     for rel in files:
         if any(p in SKIP_DIRS for p in Path(rel).parts):
             continue
         base = Path(rel).name
-        depth = rel.count("/")
+        depth = 0  # every manifest counts; the doc picks the nearest one up its own path
         low = base.lower()
+        here = str(Path(rel).parent).replace("\\", "/") or "."
+        out = by_dir.setdefault(here, _facts_shell())
+        ports = by_dir["*"]
         if base == "package.json" and depth == 0:
             try:
                 data = json.loads(read(repo / rel))
@@ -879,25 +889,48 @@ def manifest_facts(repo: Path, files: list[str]) -> dict:
         if base.startswith("Dockerfile") or base.endswith(".dockerfile"):
             for m in re.finditer(r"^\s*EXPOSE\s+([\d\s/tcpud]+)", read(repo / rel), re.M):
                 for port in re.findall(r"\d{2,5}", m.group(1)):
-                    out["ports"].add(port); port_sources.append(rel)
+                    ports["ports"].add(port); port_sources.append(rel)
         elif base.startswith(("docker-compose", "compose.")) or base in ("compose.yml", "compose.yaml"):
             for m in re.finditer(r"[\"']?(\d{2,5}):(\d{2,5})[\"']?", read(repo / rel)):
-                out["ports"].add(m.group(1)); out["ports"].add(m.group(2)); port_sources.append(rel)
+                ports["ports"].add(m.group(1)); ports["ports"].add(m.group(2)); port_sources.append(rel)
         elif Path(rel).suffix in CODE_EXTS or base in ("Procfile",) or Path(rel).suffix in (".json", ".toml", ".yml", ".yaml"):
             text = read(repo / rel)
             if not text or not re.search(r"PORT|listen|port", text):
                 continue
             for m in re.finditer(r"PORT\b[^\n]{0,60}?\b(\d{4,5})\b|\.listen\(\s*(\d{4,5})|--port[=\s]+(\d{4,5})|\bport\s*[:=]\s*(\d{4,5})\b", text):
                 port = next(g for g in m.groups() if g)
-                out["ports"].add(port); port_sources.append(rel)
-    out["ports_source"] = ", ".join(sorted(set(port_sources))[:4])
-    return out
+                ports["ports"].add(port); port_sources.append(rel)
+    by_dir["*"]["ports_source"] = ", ".join(sorted(set(port_sources))[:4])
+    # Drop the directories that hold no manifest fact (a Dockerfile-only folder).
+    for k in [k for k, v in by_dir.items() if k != "*" and not (v["name"] or v["version"] or v["runtimes"] or v["licence"])]:
+        del by_dir[k]
+    return by_dir
+
+
+def nearest_facts(by_dir: dict, doc: str) -> dict:
+    """The manifest facts of the directory nearest above the doc, root as the fallback, with
+    the global ports merged in."""
+    parts = Path(doc).parent.parts
+    chosen = by_dir.get(".", _facts_shell())
+    for i in range(len(parts), 0, -1):
+        key = "/".join(parts[:i])
+        if key in by_dir:
+            chosen = by_dir[key]
+            break
+    merged = dict(chosen)
+    merged["ports"] = by_dir["*"]["ports"]
+    merged["ports_source"] = by_dir["*"]["ports_source"]
+    return merged
 
 
 CLAIM_BEHAVIOUR = re.compile(r"\b(default|required|must|retries|roles?|only when)\b", re.I)
-CLAIM_PATH = re.compile(r"(?<![\w/])(?:\./)?[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z0-9]{1,5}\b")
-CLAIM_VERSION = re.compile(r"\bv?\d+\.\d+(?:\.\d+)?\b")
-CLAIM_CMD = re.compile(r"^\s*(?:\$\s*)?(?:\./|npm|pnpm|yarn|bun|npx|make|python3?|pip3?|uv|poetry|node|deno|bash|sh|go|cargo|dotnet|docker|kubectl|helm|terraform|git|curl|gem|bundle|mix|ruby|php|java|mvn|gradle)\b")
+# A path has a letter in it and is not the tail of a URL (`https://host/x` is a link, not a path).
+CLAIM_PATH = re.compile(r"(?<![\w/:.])(?:\./)?(?=[^\s]*[A-Za-z])[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+\.[A-Za-z]{1,5}\b")
+# `3.11`, `v2.0`, and a bare major with a runtime name or the words version/release next to it
+# (`Node >= 20`, `pnpm 9`); `-3.0` inside a licence id is not a version.
+CLAIM_VERSION = re.compile(r"(?<![-\w.])v?\d+\.\d+(?:\.\d+)?\b|\b(?:Node(?:\.js)?|Python|Go|Rust|pnpm|npm|yarn|Next(?:\.js)?|React|Django|Rails|version|release)\s*(?:>=|≥|v)?\s*(\d+)\b")
+CLAIM_CMD = re.compile(r"^\s*(?:\$\s*)?(?:\./|npm|pnpm|yarn|bun|npx|make|python3?|pip3?|uv|poetry|node|deno|bash|sh|go|cargo|dotnet|docker|kubectl|helm|terraform|git|curl|gem|bundle|mix|ruby|php|java|mvn|gradle|cp|mv|mkdir|chmod|export|source|psql|redis-cli|railway|vercel|flyctl|gh)\b")
+CLAIM_PORT = re.compile(r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{2,5})\b|(?<![\d.:])\(?:(\d{4,5})\)?(?![\d.])")
 
 
 def claims_for(text: str) -> list[dict]:
@@ -911,6 +944,7 @@ def claims_for(text: str) -> list[dict]:
             # `export API_KEY=...` in a fence, or a backticked `KEY=value`: the value never reaches the transcript.
             claim = re.sub(r"([A-Z][A-Z0-9_]{2,})=\S+", lambda m: m.group(1) + "=<value redacted>", claim)
             claim = re.sub(r"(://[^\s/@]*:)[^\s@]+@", lambda m: m.group(1) + "<value redacted>@", claim)
+            claim = re.sub(r"((?:Bearer|Basic|Token|token|--password|--token|--api-key|--secret|-p)\s+)\S+", lambda m: m.group(1) + "<value redacted>", claim)
         key = (line, kind, claim)
         if claim and key not in seen:
             seen.add(key); out.append({"line": line, "kind": kind, "claim": claim})
@@ -927,21 +961,28 @@ def claims_for(text: str) -> list[dict]:
             c = chunk.strip()
             if CLAIM_CMD.match(c):
                 put(i, "command", c[:160])
-            elif re.fullmatch(r"[A-Z][A-Z0-9_]{2,}", c) and "_" in c:
-                put(i, "env", c)
-            elif "/" in c or re.search(r"\.[A-Za-z0-9]{1,5}$", c):
+            elif re.fullmatch(r"\$?\{?[A-Z][A-Z0-9_]{1,}\}?", c):
+                put(i, "env", c.strip("${}"))
+            elif re.match(r"https?://|www\.", c):
+                put(i, "url", c)
+            elif "/" in c or re.search(r"\.(md|mdx|rst|txt|json|ya?ml|toml|py|js|ts|tsx|jsx|mjs|cjs|sh|env|lock|cfg|ini|xml|html|css|sql|go|rs|rb|php|java|cs|ex|exs)$", c):
                 put(i, "path", c)
             else:
                 put(i, "name", c)
         stripped = re.sub(r"`[^`]*`", " ", line)
         for m in ENV_NAME.finditer(stripped):
-            if "_" in m.group(1) and not m.group(1).endswith("_"):
+            # DEVELOPMENT_PLAN in `docs/DEVELOPMENT_PLAN.md` is a file name, not a variable.
+            before = stripped[max(0, m.start() - 1):m.start()]
+            after = stripped[m.end():m.end() + 1]
+            if "_" in m.group(1) and not m.group(1).endswith("_") and before != "/" and after != ".":
                 put(i, "env", m.group(1))
+        for m in re.finditer(r"\$\{?([A-Z][A-Z0-9_]{1,})\}?", stripped):
+            put(i, "env", m.group(1))
         for m in CLAIM_PATH.finditer(stripped):
             if not m.group(0).startswith(("http", "www.")):
                 put(i, "path", m.group(0))
-        for m in DOC_PORT.finditer(stripped):
-            put(i, "port", m.group(0))
+        for m in CLAIM_PORT.finditer(stripped):
+            put(i, "port", ":" + (m.group(1) or m.group(2)))
         for m in CLAIM_VERSION.finditer(stripped):
             put(i, "version", m.group(0))
         if CLAIM_BEHAVIOUR.search(stripped):
@@ -997,7 +1038,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
             and not any(p.startswith(".") and p != ".github" for p in Path(f).parts[:-1])
             and not MANIFEST_TXT.match(Path(f).name)]
     has_makefile = any(Path(f).name in ("Makefile", "GNUmakefile", "makefile") or f.endswith(".mk") for f in files)
-    facts = manifest_facts(repo, files)
+    facts_by_dir = manifest_facts(repo, files)
 
     PM_ELSEWHERE = re.compile(r"\s(?:--filter|-F|--workspace|-w|-C|--dir|--prefix|--cwd)[\s=]|cd\s+\S+\s*(?:&&|;)")
 
@@ -1023,6 +1064,25 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         fenced_nos = {ln for ln, _ in fenced_blocks(text)}
         doc_lines = text.splitlines()
         cmd_lines: list[tuple[int, str, bool]] = [(ln, line, False) for ln, line in fenced_lines]
+        # `### Backend (server/)` or `| Root Directory | apps/web |` puts every command below it in
+        # that package until the next heading of the same or a higher level.
+        scope_by_line: dict[int, str] = {}
+        scope, scope_level = "", 99
+        pkg_dirs = [k for k in npm_scripts if k != "."]
+        for ln_, line_ in enumerate(doc_lines, start=1):
+            h = re.match(r"^(#{1,6})\s", line_)
+            if h:
+                level = len(h.group(1))
+                if level <= scope_level:
+                    scope, scope_level = "", 99
+                hit = next((k for k in pkg_dirs if k in line_ or ("/" not in k and False)), "")
+                if hit:
+                    scope, scope_level = hit, level
+            elif line_.lstrip().startswith("|") and re.search(r"root directory|working directory|package|directory|folder", line_, re.I):
+                hit = next((k for k in pkg_dirs if k in line_), "")
+                if hit:
+                    scope, scope_level = hit, min(scope_level, 99)
+            scope_by_line[ln_] = scope
         # A relative `cd apps/web` earlier in the same fence moves every later command there.
         fence_cwd: dict[int, str] = {}
         cur = ""
@@ -1060,7 +1120,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                         f"documents `{script}`, which is not a script in any package.json.{hint}{tag}",
                         source="package.json")
                 else:
-                    where, own = nearest_scripts(doc, fence_cwd.get(lineno, "") if not inline else "")
+                    where, own = nearest_scripts(doc, (fence_cwd.get(lineno, "") if not inline else "") or scope_by_line.get(lineno, ""))
                     holders = sorted(k for k, v in npm_scripts.items() if script in v)[:3]
                     # A table row or sentence that names the unit the command runs in - `apps/web` ...
                     # `pnpm build` - is not a claim that it runs here.
@@ -1199,6 +1259,14 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
         # 3b. facts with a definite answer: the package's own version pinned in a doc, the runtime
         # version a doc requires, the licence a doc names, a localhost port a doc gives.
         fenced_set = {ln for ln, _ in fenced_blocks(text)}
+        facts = nearest_facts(facts_by_dir, doc)
+        # B4.1 port rows: a doc is talking about this repository's services only when it also
+        # names a known port; a fenced block or paragraph listing three or more unknown ports is a
+        # range or an example list; and a blog post or content folder is narrative, not setup.
+        doc_ports = [m.group(1) for line_ in text.splitlines() for m in DOC_PORT.finditer(line_)]
+        unknown_ports = {p_ for p_ in doc_ports if p_ not in facts["ports"]}
+        port_rows_ok = (facts["ports"] and any(p_ in facts["ports"] for p_ in doc_ports) and len(unknown_ports) <= 2
+                        and not re.search(r"(^|/)(content|blog|posts|articles|newsletter)/", doc, re.I))
         for i, line in enumerate(text.splitlines(), start=1):
             if facts["version"] and facts["name"]:
                 for m in PIN.finditer(line):
@@ -1225,7 +1293,7 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                     add("license-mismatch", "medium", doc, i,
                         f"names the {fam.upper()} licence; the manifest and LICENSE file say {', '.join(sorted(facts['licence'])).upper()}.",
                         source=facts["licence_source"])
-            if facts["ports"]:
+            if port_rows_ok:
                 for m in DOC_PORT.finditer(line):
                     port = m.group(1)
                     if port not in facts["ports"]:
@@ -1234,10 +1302,11 @@ def build(repo: Path, files: list[str], check_paths: bool = False) -> dict:
                             f"(known: {', '.join(sorted(facts['ports'], key=int)[:8])}).",
                             source=facts["ports_source"])
 
-    if facts.get("licence_conflict"):
-        a, a_src, b, b_src = facts["licence_conflict"]
-        add("license-mismatch", "medium", a_src, None,
-            f"the manifest says {a.upper()} while {b_src} is the {b.upper()} licence text.", source=b_src)
+    for entry in facts_by_dir.values():
+        if entry.get("licence_conflict"):
+            a, a_src, b, b_src = entry["licence_conflict"]
+            add("license-mismatch", "medium", a_src, None,
+                f"the manifest says {a.upper()} while {b_src} is the {b.upper()} licence text.", source=b_src)
 
     # 4. env vars, both directions
     in_code = env_names_from_code(repo, files)
