@@ -909,8 +909,8 @@ def claims_for(text: str) -> list[dict]:
     def put(line: int, kind: str, claim: str) -> None:
         if kind != "env":
             # `export API_KEY=...` in a fence, or a backticked `KEY=value`: the value never reaches the transcript.
-            claim = re.sub(r"([A-Z][A-Z0-9_]{2,})=\S+", r"=<value redacted>", claim)
-            claim = re.sub(r"(://[^\s/@]*:)[^\s@]+@", r"<value redacted>@", claim)
+            claim = re.sub(r"([A-Z][A-Z0-9_]{2,})=\S+", lambda m: m.group(1) + "=<value redacted>", claim)
+            claim = re.sub(r"(://[^\s/@]*:)[^\s@]+@", lambda m: m.group(1) + "<value redacted>@", claim)
         key = (line, kind, claim)
         if claim and key not in seen:
             seen.add(key); out.append({"line": line, "kind": kind, "claim": claim})
