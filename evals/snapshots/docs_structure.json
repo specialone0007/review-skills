@@ -203,7 +203,7 @@
     },
     {
       "_seed_text": "docs/getting-started/SETUP.md \u00a7 Config",
-      "applies": "3 environment names",
+      "applies": "4 environment names",
       "bucket": "reference",
       "companions": [],
       "concern": "configuration",
@@ -402,7 +402,7 @@
     },
     {
       "level": "fail",
-      "line": 12,
+      "line": 17,
       "message": "line-number citation \"src/config.js:12\" - cite a symbol or a log tag",
       "path": "docs/setup.md",
       "rule": "R7",
@@ -467,7 +467,7 @@
     {
       "level": "warn",
       "line": 1,
-      "message": "no doc covers 'configuration' (the repo has 3 environment names; docs/setup.md has a section to seed from) - apply creates docs/reference/CONFIGURATION.md from the template",
+      "message": "no doc covers 'configuration' (the repo has 4 environment names; docs/setup.md has a section to seed from) - apply creates docs/reference/CONFIGURATION.md from the template",
       "path": "docs/structure.json",
       "rule": "R12",
       "severity": "P2"
@@ -663,7 +663,7 @@
         "content": "# Configuration\n\n> **This document owns:** every environment variable and flag this repository reads - its name, which unit reads it, whether it is required, and where its example lives. Names only, never a value. *(skeleton, write me)*\n\n*Read this if you need to know what a variable does or where it is read.*\n\n<!-- concern: configuration; fill: env, services, packages -->\n\n*Existing text to fold in: [docs/getting-started/SETUP.md \u00a7 Config](../getting-started/SETUP.md#config) - written by a person; fill seeds from it, and it stays where it is until a person moves it.*\n\n## Variables by unit\n\n*One H3 per unit, each a table: name, required or optional, read by (file), secret (yes or no, from the name pattern - _SECRET, _TOKEN, _PASSWORD, _KEY, _DSN, except a name containing PUBLIC or PUBLISHABLE - or an example-file comment). The example file's path is Files', once. Names only: no value and no default in a cell, secret or not - the gate reads any value beside a name as a leak, and the example env file is the home of defaults (link it). The port a unit listens on is one sentence under the table citing its source (a Dockerfile EXPOSE, a compose ports entry), so it is never a value in a row. When the inventory found no environment name, this section is one sentence saying so with the scan behind it.*\n\n## Files\n\n*Every config file the code reads that is not an env file, and every example env file: its path, what it configures, which unit reads it. This is the one home of where an example env file lives; SETUP copies it by name and DEPLOYMENT links here.*\n\n## Flags\n\n*Feature flags and toggles: name, where it is read, what turns on. Never a default in a cell; when the default matters it is one sentence citing its source, like the port.*\n",
         "lines": 21,
         "template": "references/templates/reference/CONFIGURATION.md",
-        "why": "configuration (3 environment names)"
+        "why": "configuration (4 environment names)"
       },
       "docs/reference/INTEGRATIONS.md": {
         "concern": "integrations",
@@ -907,7 +907,7 @@
       "failures": 2,
       "first": [
         "docs/drafted.md:32",
-        "docs/setup.md:12"
+        "docs/setup.md:17"
       ],
       "severity": "P2",
       "title": "line-number citations",

@@ -1,10 +1,34 @@
 {
+  "docs": [
+    "CHANGELOG.md",
+    "DEPLOY.md",
+    "LICENSE.md",
+    "README.md",
+    "docs/crlf-sample.md",
+    "docs/drafted.md",
+    "docs/gated.md",
+    "docs/guide.md",
+    "docs/guide/advanced.md",
+    "docs/h3-style.md",
+    "docs/history.md",
+    "docs/limits.md",
+    "docs/quoted.md",
+    "docs/setup.md"
+  ],
   "findings": [
     {
       "detail": "documents `dev`, which is not a script in any package.json. Closest existing: dev:start.",
       "doc": "README.md",
       "kind": "missing-script",
       "line": 12,
+      "severity": "high",
+      "source": "package.json"
+    },
+    {
+      "detail": "documents `dev`, which is not a script in any package.json. Closest existing: dev:start. (inline command in prose)",
+      "doc": "README.md",
+      "kind": "missing-script",
+      "line": 15,
       "severity": "high",
       "source": "package.json"
     },
@@ -17,10 +41,21 @@
       "source": null
     },
     {
+      "detail": "documents `make lint`, and the repository has no Makefile.",
+      "doc": "docs/setup.md",
+      "kind": "missing-make-target",
+      "line": 10,
+      "severity": "high",
+      "source": "(no Makefile)"
+    },
+    {
       "detail": "`REDIS_HOST` is read by the code but is not documented anywhere, and is not in an env sample file.",
       "doc": "(docs)",
       "kind": "undocumented-env",
       "line": null,
+      "readers": [
+        "src/jobs/export-worker.js:5"
+      ],
       "severity": "medium",
       "source": "src/jobs/export-worker.js:5"
     },
@@ -49,22 +84,66 @@
       "source": "no reader found"
     },
     {
+      "detail": "says Node 18; the manifest requires 20.",
+      "doc": "README.md",
+      "kind": "runtime-version",
+      "line": 9,
+      "severity": "medium",
+      "source": "package.json"
+    },
+    {
+      "detail": "pins `@mini/exporter` at 1.2.0; the manifest version is 0.0.0.",
+      "doc": "README.md",
+      "kind": "version-pin",
+      "line": 15,
+      "severity": "medium",
+      "source": "package.json"
+    },
+    {
       "detail": "`MAX_EXPORT_ROWS` is read only in a module nothing imports, so the documented setting cannot take effect. The docs describe a working knob that does nothing.",
       "doc": "README.md",
       "kind": "documented-env-in-unreferenced-module",
-      "line": 20,
+      "line": 22,
       "severity": "medium",
       "source": "src/config.js:3"
+    },
+    {
+      "detail": "the manifest says APACHE while LICENSE.md is the MIT licence text.",
+      "doc": "package.json",
+      "kind": "license-mismatch",
+      "line": null,
+      "severity": "medium",
+      "source": "LICENSE.md"
+    },
+    {
+      "detail": "`ARCHIVE_EXPORT_DIR` is read by the code and documented only in a record - docs/history.md:7 - which is history, not a live promise; no live doc or env sample names it.",
+      "doc": "(docs)",
+      "kind": "undocumented-env",
+      "line": null,
+      "readers": [
+        "src/config.js:4"
+      ],
+      "severity": "low",
+      "source": "src/config.js:4"
+    },
+    {
+      "detail": "gives localhost:9999; no compose mapping, EXPOSE, listen call or PORT default in the repository uses 9999 (known: 3000).",
+      "doc": "README.md",
+      "kind": "port-mismatch",
+      "line": 15,
+      "severity": "low",
+      "source": "Dockerfile"
     }
   ],
   "repo": "<fixture>",
   "stale_docs": [],
   "totals": {
-    "docs_checked": 15,
+    "docs_checked": 14,
     "env_names_documented": 4,
-    "env_names_in_code": 3,
+    "env_names_in_code": 4,
     "env_names_skipped_as_platform": 0,
-    "findings": 7,
+    "env_names_skipped_as_sample_code": 0,
+    "findings": 14,
     "make_targets_found": 0,
     "npm_scripts_found": 4
   },

@@ -11,7 +11,12 @@
       "",
       "## Install",
       "",
-      "Clone the repository and install dependencies. The export cap defaults to 42.5% of the",
+      "Clone the repository and install dependencies:",
+      "",
+      "```bash",
+      "make lint",
+      "```",
+      " The export cap defaults to 42.5% of the",
       "row budget; see [limits](../limits.md#the-cap) for why.",
       "",
       "## Config",
@@ -48,7 +53,7 @@
     "ok": true,
     "problems": [],
     "rewrites": [
-      "docs/getting-started/SETUP.md:8 limits.md#the-cap -> ../limits.md#the-cap",
+      "docs/getting-started/SETUP.md:13 limits.md#the-cap -> ../limits.md#the-cap",
       "docs/limits.md:10 setup.md#install -> getting-started/SETUP.md#install"
     ]
   },

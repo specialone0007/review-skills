@@ -8,6 +8,8 @@ Full-repository read-only docs drift audit, running the bundled docs_drift.py ac
 
 Re-run it yourself and compare. Line numbers refer to the tree described above, so a later commit will shift them.
 
+> Dated example. The script has since gained the `version-pin`, `runtime-version`, `license-mismatch` and `port-mismatch` kinds, shell-style env reads, `pnpm x` shorthand and a `--claims <doc>` checklist, and the report format now carries a `Status:` line per finding, per-doc Checks Run lines and a floor marker; a run on the current version reports more rows and in that shape.
+
 ---
 
 **Docs Sync Audit: whole repository (review-skills)**

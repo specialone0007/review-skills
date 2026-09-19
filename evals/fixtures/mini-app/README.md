@@ -6,11 +6,13 @@ An intentionally defective fixture. See ../README.md for why.
 
 ## Running
 
-Start the dev server:
+Requires Node 18 or later. Start the dev server:
 
 ```bash
 npm run dev
 ```
+
+or `pnpm dev`. The health check answers on http://localhost:3000/health and the admin UI on http://localhost:9999. Install the published build with `npm install @mini/exporter@1.2.0`. Licensed under MIT.
 
 ## Configuration
 

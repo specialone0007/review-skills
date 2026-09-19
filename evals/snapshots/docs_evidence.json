@@ -48,19 +48,21 @@
     {
       "first_seen": {
         "API_TOKEN": "src/config.js",
+        "ARCHIVE_EXPORT_DIR": "src/config.js",
         "MAX_EXPORT_ROWS": "src/config.js",
         "REDIS_HOST": "src/jobs/export-worker.js"
       },
       "kind": "code-reads",
       "names": [
         "API_TOKEN",
+        "ARCHIVE_EXPORT_DIR",
         "MAX_EXPORT_ROWS",
         "REDIS_HOST"
       ],
       "source": "code"
     }
   ],
-  "env_count": 3,
+  "env_count": 4,
   "exports": [],
   "files_scanned": 23,
   "frontend": [],
@@ -158,7 +160,7 @@
       "Running",
       "Configuration"
     ],
-    "lines": 20,
+    "lines": 22,
     "title": "mini-app"
   },
   "release": [],

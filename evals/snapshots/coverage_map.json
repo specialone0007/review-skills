@@ -79,7 +79,7 @@
     },
     {
       "dir": "src",
-      "lines": 7,
+      "lines": 8,
       "path": "src/config.js",
       "risk_keywords": []
     },
@@ -116,7 +116,7 @@
     },
     {
       "dir": "src",
-      "lines": 17,
+      "lines": 18,
       "untested": 2
     },
     {
