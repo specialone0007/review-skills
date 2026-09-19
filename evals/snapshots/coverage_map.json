@@ -34,11 +34,11 @@
   ],
   "repo": "<fixture>",
   "totals": {
-    "coverage_ratio": 0.308,
+    "coverage_ratio": 0.286,
     "matched": 4,
-    "source_files": 13,
+    "source_files": 14,
     "test_files": 3,
-    "untested": 9
+    "untested": 10
   },
   "untested": [
     {
@@ -55,6 +55,14 @@
       "path": "src/routes/admin.js",
       "risk_keywords": [
         "admin"
+      ]
+    },
+    {
+      "dir": "src/jobs",
+      "lines": 7,
+      "path": "src/jobs/export-worker.js",
+      "risk_keywords": [
+        "export"
       ]
     },
     {
@@ -115,6 +123,11 @@
       "dir": "src/utils",
       "lines": 7,
       "untested": 2
+    },
+    {
+      "dir": "src/jobs",
+      "lines": 7,
+      "untested": 1
     },
     {
       "dir": "src/api",

@@ -10,7 +10,7 @@ Read-only. Standard library only. Writes nothing.
     python docs_structure.py --check-paths          # also check backticked repo paths (noisy)
     python docs_structure.py --fail-on-findings     # exit 1 when any rule fails (CI gate)
 
-Thirteen mechanical rules, each with a fixed severity. None of them judges prose.
+Fifteen mechanical rules, each with a fixed severity. None of them judges prose.
 
   R1  every doc is reachable in one hop: linked from the central index, or from the
       index that sits beside its folder. No central index at all is ONE finding.
@@ -27,13 +27,19 @@ Thirteen mechanical rules, each with a fixed severity. None of them judges prose
   R10 every doc under a folder appears in a registry table (opt-in)
   R11 the front door points at the index: the root README links the central index, and
       does not keep a parallel list of docs that would drift from it
-  R12 every concern the repo has is covered by a doc. Concerns come from the evidence
-      inventory (docs_evidence.py beside this script): purpose, architecture, develop and
-      plan always; deploy, release, data, http, commands, exports, design, testing, operate
-      and contribute when the repo contains the thing they describe; research on request.
-      A concern is covered by any doc whose headings match it, whatever its file name. An
-      uncovered concern is one P2 and a skeleton the apply workflow can create from
-      references/templates/ - never content
+  R12 every concern the repo has is covered by the doc at its canonical path. Concerns come
+      from the evidence inventory (docs_evidence.py beside this script): setup, onboarding,
+      develop, testing, purpose, architecture, the README and the agent file always; deploy, operate, contribute,
+      release, configuration, data, http, commands, exports, integrations, security, design,
+      jobs, decisions, changelog and plan when the repo contains the thing they describe;
+      research on request. The path is fixed by
+      references/shape.md: a bucket folder (getting-started, guides, reference, explanation,
+      plans, history), always. An uncovered concern
+      is one P2 and a skeleton the apply workflow creates from references/templates/ - never
+      content. A doc elsewhere whose headings match the concern is a move (R15), not a cover
+  R15 the layout: a doc that covers a concern sits at that concern's canonical path; the
+      central index is the list grammar (one line per doc, its state at the end), not a
+      table; a companion folder sits beside its doc. Each finding carries the move
   R13 a fact that lives outside the repo carries a dated check. A doc that says
       "verified against <source> on YYYY-MM-DD" (or "Verified against <source> (YYYY-MM-DD)")
       warns when that date is older than `verifiedStaleDays` (default 90). No script can tell
@@ -41,9 +47,9 @@ Thirteen mechanical rules, each with a fixed severity. None of them judges prose
 
 Configuration is a small JSON manifest, by default `docs/structure.json` under the repo.
 Without one the script discovers a docs root and proposes a manifest; it never writes it.
-When there is no docs folder at all, the JSON carries an `init` block: the skeleton files
-(index, manifest, one README line) and a starter routing section, as text for the agent to
-write in the apply workflow. The script itself still writes nothing.
+When docs are missing the JSON carries an `init` block: the skeleton files at their canonical
+paths (index, manifest, the agent file, the README block) and the moves for docs that sit at the
+wrong path, as text for the agent to write in the apply workflow. The script itself writes nothing.
 
 Exit codes: 0 when the run completed (findings are data, not failure), 1 only with
 --fail-on-findings and at least one failure, 2 for a bad flag or manifest.
@@ -95,8 +101,12 @@ ECO_EXTENSIONS = {"csharp": ["cs"], "dotnet": ["cs"], "kotlin": ["kt", "kts"], "
                   "node": ["ts", "tsx", "js", "jsx", "mjs", "cjs"], "move": ["move"], "shell": ["sh"]}
 R1_COLLAPSE_AT = 10
 # The line a split writes into each part, and the only reliable sign that a doc is one.
-SPLIT_PART = re.compile(r"^\s*>\s*\*\*Part of\*\*", re.M)
-RECORD_NAMES = {"plans", "specs", "archive", "log", "logs", "builds", "adr", "adrs", "decisions", "rfcs", "changelogs"}
+# Both the marker the split writes (**Part of**) and the older plain "> Part of [..]" line.
+SPLIT_PART = re.compile(r"^\s*>\s*(?:\*\*)?Part of(?:\*\*)?\s*\[", re.M)
+# `history` is the record bucket of the shape. `decisions` and `plans` are not here: a decision
+# record is edited (its status changes) and a plan is the living checklist, so R6 and R7 apply in
+# full there and a dated plan file is caught by the prefix heuristic instead.
+RECORD_NAMES = {"specs", "archive", "log", "logs", "builds", "adr", "adrs", "rfcs", "changelogs", "history"}
 # Files GitHub surfaces by name. Telling a maintainer their AGPL text needs an owner line, a
 # row in an index and a human restructure is how a docs checker gets uninstalled.
 COMMUNITY_STEMS = {"license", "licence", "copying", "changelog", "change_log", "code_of_conduct",
@@ -132,7 +142,8 @@ AMBIGUOUS_MARKERS = {"conf.py": ("extensions", "master_doc", "html_theme", "sphi
 FIXTURE_DIRS = {"fixtures", "fixture", "__fixtures__", "testdata", "test-data", "mocks", "__mocks__", "golden", "snapshots"}
 
 SEVERITY = {"R1": "P1", "R2": "P2", "R3": "P2", "R4": "P1", "R5": "P1",
-            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2", "R13": "P3"}
+            "R6": "P3", "R7": "P2", "R8": "P3", "R9": "P2", "R10": "P2", "R11": "P1", "R12": "P2", "R13": "P3",
+            "R14": "P3", "R15": "P1"}
 FRONT_DOOR_PARALLEL = 8  # a README linking this many docs under the roots is a second index
 # The front door's hand-off section: a reader's first three files, then the index. Apply inserts it
 # between these markers after the README's intro; refill regenerates only what is between them.
@@ -145,7 +156,19 @@ RULE_TITLE = {
     "R6": "backticked paths exist", "R7": "line-number citations",
     "R8": "duplicated measurement", "R9": "checklist counts", "R10": "registry",
     "R11": "front door links the index", "R12": "concern covered", "R13": "verified-on date fresh",
+    "R14": "index state vocabulary", "R15": "layout - canonical paths",
 }
+# The six buckets of references/shape.md, in index order, with the heading each gets.
+BUCKETS = (("getting-started", "Getting started"), ("guides", "Guides"), ("reference", "Reference"),
+           ("explanation", "Explanation"), ("plans", "Plans"), ("history", "History"))
+BUCKET_TITLE = dict(BUCKETS)
+# Files a release tool writes at the root: the changelog stays there, pinned, never moved.
+RELEASE_TOOL_FILES = ("release-please-config.json", ".release-please-manifest.json", ".releaserc", ".releaserc.json",
+                      ".releaserc.js", ".releaserc.yaml", ".releaserc.yml", "release.config.js", "release.config.cjs",
+                      "release.config.mjs", ".versionrc", ".versionrc.json", ".versionrc.js", ".changeset")
+AGENT_FILE = "AGENTS.md"
+RUNNER_TOKENS = {"python", "python3", "node", "uvicorn", "gunicorn", "npm", "pnpm", "yarn", "bun", "java", "go", "dotnet", "ruby",
+                 "bundle", "php", "flask", "streamlit", "deno", "cargo", "hypercorn", "daphne", "celery", "rails", "next", "vite", "tsx", "ts-node"}
 
 # Keys whose default is null but whose shape still matters.
 NULLABLE_TYPES = {"centralIndex": (str,), "templatesDir": (str,), "existingChecker": (str,),
@@ -161,8 +184,12 @@ DEFAULT_MANIFEST = {
     # froze the wrong convention into the repository.
     "indexConvention": None,
     "ownerLine": {"markers": ["This document owns:", "Part of"], "enforce": False},
-    "splitAt": 500,
-    "maxParts": 30,
+    # 500 cut 43's 359-line PODCASTS.md into eighteen parts of six to forty lines. A doc is long
+    # at a thousand lines; a part is a chapter of at least minPart lines, and a doc becomes at
+    # most maxParts of them.
+    "splitAt": 1000,
+    "maxParts": 12,
+    "minPart": 80,
     # An uncovered concern warns by default; a team that wants a missing doc to fail the build
     # sets this. Absent from the defaults it was rejected as an unknown key, so the escape
     # hatch SKILL.md documents stopped the tool from running at all.
@@ -179,8 +206,13 @@ DEFAULT_MANIFEST = {
     "requiredDocs": None,
     # A README section stops counting as coverage once the evidence behind a concern is this large:
     # routes for http, tables for data, deployable units for deploy and architecture. 0 turns it off.
-    "heavyEvidence": {"http": 20, "data": 10, "deploy": 3, "architecture": 3},
+    "heavyEvidence": {"http": 20, "data": 10},
     "templatesDir": None,
+    # Accepted so an older manifest still loads; the index is grouped by bucket now and this is ignored.
+    "indexGroups": None,
+    # The agent file at the root and the line count past which it stops being one (R11).
+    "agentFile": "AGENTS.md",
+    "agentFileMaxLines": 40,
     "verifiedStaleDays": 90,
     "ignore": [],
 }
@@ -213,12 +245,25 @@ def _plan_evidence(inv: dict) -> str | None:
     for. A repository that plans in files says so by having one.
     """
     tree = inv.get("tree") or {}
-    planish = list(tree.get("plan_like_docs") or [])
-    folders = [f for f in (tree.get("top_level") or [])
-               if str(f).lower() in ("adr", "adrs", "rfcs", "rfc", "decisions", "plans",
-                                     "roadmap", "tasklist", "tasks")]
+    planish = [p for p in (tree.get("plan_like_docs") or []) if re.search(r"\b(plan|plans|roadmap|milestones?)\b", Path(str(p)).name, re.I)]
+    # adr, rfcs and decisions are dated records, which the record-folder rules already handle;
+    # a phase checklist is the wrong apparatus for them.
+    folders = [f for f in (tree.get("top_level_dirs") or []) if str(f).lower() in ("plans", "roadmap")]
     if planish:
         return "plan-like docs: " + ", ".join(str(p) for p in planish[:3])
+    if folders:
+        return "folder: " + ", ".join(folders[:3])
+    return None
+
+
+def _tasks_evidence(inv: dict) -> str | None:
+    """The living checklist: a todo, backlog or tasklist file, or a tasklist/tasks folder. Split
+    from the roadmap so one concern has one canonical doc."""
+    tree = inv.get("tree") or {}
+    taskish = [p for p in (tree.get("plan_like_docs") or []) if re.search(r"\b(todo|backlog|tasklist|tasks)\b", Path(str(p)).name, re.I)]
+    folders = [f for f in (tree.get("top_level_dirs") or []) if str(f).lower() in ("tasklist", "tasks")]
+    if taskish:
+        return "task-like docs: " + ", ".join(str(p) for p in taskish[:3])
     if folders:
         return "folder: " + ", ".join(folders[:3])
     return None
@@ -227,6 +272,13 @@ def _plan_evidence(inv: dict) -> str | None:
 def _lib_or_cli(inv):
     k = set(inv.get("kinds") or [])
     return bool(k & {"library", "cli"}) and "application" not in k
+
+
+def _overview_kind(inv):
+    """OVERVIEW instead of PRODUCT: a library, a CLI or an infrastructure repo has users, not a
+    product it is becoming."""
+    k = set(inv.get("kinds") or [])
+    return _lib_or_cli(inv) or ("infrastructure" in k and not (k & {"application", "monorepo"}))
 
 
 # What a document covering a concern is called in the languages most often met in public
@@ -264,53 +316,203 @@ CONCERN_ALIASES = {
 }
 
 
+def _n(inv, *path, default=0):
+    cur = inv
+    for k in path:
+        if not isinstance(cur, dict):
+            return default
+        cur = cur.get(k)
+    return cur if cur is not None else default
+
+
+def _integrations(inv):
+    # Always: a repo that talks to nothing says so; one that does lists them. The count is the reason shown.
+    it = inv.get("integrations") or {}
+    n = int(it.get("count") or 0)
+    outward = it.get("outward_env_names") or []
+    if n:
+        return f"{n} third-party SDKs: " + ", ".join(x["service"] for x in (it.get("sdks") or [])[:4])
+    if outward:
+        return f"{len(outward)} outward env names: " + ", ".join(outward[:3])
+    return "always"
+
+
+def _security(inv):
+    # Always: secrets handling and data classes apply to any repo; "no authentication, public by
+    # design" is a sentence worth having in writing. The evidence found is the reason shown.
+    a = inv.get("auth") or {}
+    if a.get("libraries"):
+        return "auth library: " + ", ".join(x["name"] for x in a["libraries"][:3])
+    if a.get("middleware_files"):
+        return f"auth middleware: {a['middleware_files'][0]}"
+    if a.get("roles_in_schema"):
+        return f"roles in schema: {a['roles_in_schema'][0]}"
+    if a.get("secret_env_names"):
+        return f"secret-shaped env names: {', '.join(a['secret_env_names'][:3])}"
+    return "always"
+
+
+def _pipelines(inv):
+    j = inv.get("jobs") or {}
+    if j.get("libraries"):
+        return "job library: " + ", ".join(x["name"] for x in j["libraries"][:3])
+    if j.get("cron"):
+        return f"cron: {j['cron'][0]}"
+    # a scheduled CI workflow is TESTING's (What CI runs), not a pipeline
+    return None
+
+
+def _operate(inv):
+    # Always: anything deployed is operated. The health route or alert file found is the reason shown;
+    # a library says it is not operated.
+    ops = [o for o in inv.get("ops") or [] if not o.get("hint")]
+    return f"ops: {ops[0].get('evidence')}" if ops else "always"
+
+
+def _decisions(inv):
+    # A folder earns it. Decision-like commits are advice only: `migrat` matches "add migration
+    # for users" and `remov` matches "remove unused import", so three of them on every database
+    # repository would lay down a folder and a placeholder record nobody asked for.
+    tree = inv.get("tree") or {}
+    if tree.get("adr_folders"):
+        return f"folder: {tree['adr_folders'][0]}"
+    return None
+
+
+def _changelog(inv):
+    # A changelog file or any tag: a version somebody named. Deploy config alone is not a version,
+    # and a changelog nobody cuts releases for is a file nobody fills.
+    ch = inv.get("changelog") or {}
+    if ch.get("file"):
+        return f"file: {ch['file']}"
+    if int(ch.get("tag_count") or 0) >= 1:
+        return f"{ch['tag_count']} tag(s)"
+    return None
+
+
+def _configuration(inv):
+    # Always: "nothing is read" is an answer an agent needs as much as a table of names.
+    n = int(inv.get("env_count") or 0)
+    return f"{n} environment names" if n else "always"
+
+
+def _contribute(inv):
+    # Always: how a change gets in - branch, commit, PR, checks, review - exists in every team repo,
+    # public or private. The governance files found are the reason shown.
+    tree = inv.get("tree") or {}
+    gov = [g for g in tree.get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))]
+    if gov:
+        return "governance: " + ", ".join(gov)
+    if tree.get("pr_template"):
+        return "a pull request template under .github"
+    return "always"
+
+
+# The concern model of references/shape.md. One row per document the shape can propose:
+#   id, bucket (None for a root file), applies(inv) -> reason | None, file(inv) -> name,
+#   keywords (for finding a misplaced doc by its headings), companions (relative to the doc's folder)
+# The template is <bucket>/<file> under references/templates.
 CONCERNS = [
-    # id, applies(inv) -> reason | None, default_file(inv) -> str, keywords, template, companions
-    ("purpose", lambda inv: "always", lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md",
-     {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission", "why", "motivation", "what is"}, lambda inv: "OVERVIEW.md" if _lib_or_cli(inv) else "PRODUCT.md", []),
-    ("architecture", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
-     {"architecture", "components", "services", "system", "data flow", "how it works", "design decisions", "modules", "structure"}, "ARCHITECTURE.md", []),
-    ("develop", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
-     {"development", "developing", "getting started", "quickstart", "quick start", "local", "locally", "setup", "install", "installation", "prerequisites", "running", "run it", "run locally", "building", "environment setup", "hacking"}, "DEVELOPMENT.md", []),
-    # Evidence, not habit. Every other concern is earned; plan was "always", so ripgrep,
-    # prometheus and plausible - which track work in issues - were each told to create a
-    # TASKLIST.md and a phase-00 companion. A repo that plans in files says so by having one.
-    ("plan", lambda inv: _plan_evidence(inv), lambda inv: "TASKLIST.md",
-     # "roadmap" belongs to purpose alone. In both sets, plausible's single "## Feedback &
-     # Roadmap" heading marked purpose AND plan covered, and PFP2E's real ROADMAP.md was
-     # assigned to purpose while a stack-cleanup doc was reported as the plan.
-     {"tasklist", "task list", "tasks", "todo", "backlog", "plan", "milestones", "phases", "checklist"}, "TASKLIST.md", ["tasklist/phase-00-foundations.md"]),
-    ("deploy", _svc, lambda inv: "DEPLOYMENT.md",
-     {"deploy", "deployment", "deploying", "production", "hosting", "infrastructure", "railway", "kubernetes", "helm", "docker", "release to"}, "DEPLOYMENT.md", []),
-    ("release", lambda inv: (_first(inv.get("release") or [], "release") if _lib_or_cli(inv) else None), lambda inv: "RELEASING.md",
-     {"releasing", "release", "releases", "publish", "publishing", "versioning"}, "RELEASING.md", []),
-    ("data", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables") else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"] else None)), lambda inv: "DATA_MODEL.md",
-     {"data model", "schema", "database", "tables", "migrations", "entities", "storage"}, "DATA_MODEL.md", []),
-    ("http", lambda inv: (f"{inv['routes']['count']} routes ({', '.join(f'{k} {v}' for k, v in sorted(inv['routes'].get('by_framework', {}).items()))})" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API_REFERENCE.md",
-     {"api", "endpoints", "endpoint", "routes", "openapi", "rest", "http", "reference"}, "API_REFERENCE.md", []),
-    ("commands", lambda inv: _first([c for c in inv.get("cli") or [] if not c.get("hint")], "cli"), lambda inv: "CLI_REFERENCE.md",
-     {"cli", "command", "commands", "command line", "usage", "flags", "options"}, "CLI_REFERENCE.md", []),
-    ("exports", lambda inv: (_first(inv.get("exports") or [], "exports") if "library" in (inv.get("kinds") or []) else None), lambda inv: "PUBLIC_API.md",
-     {"public api", "exports", "api reference", "usage", "import", "sdk"}, "PUBLIC_API.md", []),
+    ("readme", None, lambda inv: "always", lambda inv: "README.md",
+     set(), []),
+    ("agent", None, lambda inv: "always", lambda inv: AGENT_FILE,
+     set(), ["CLAUDE.md"]),
+    ("setup", "getting-started", lambda inv: "always", lambda inv: "SETUP.md",
+     {"setup", "install", "installation", "getting started", "quickstart", "quick start", "prerequisites", "first run", "local development", "run locally", "running locally"}, []),
+    ("onboarding", "getting-started", lambda inv: "always", lambda inv: "ONBOARDING.md",
+     {"onboarding", "glossary", "reading order", "new here", "start here"}, []),
+    ("develop", "guides", lambda inv: "always", lambda inv: "DEVELOPMENT.md",
+     {"development", "developing", "local", "locally", "run locally", "daily commands", "hacking", "contributing code", "workflow"}, []),
+    # Always: code runs somewhere; a repo with no deploy config in it says where the config lives instead.
+    ("deploy", "guides", lambda inv: _svc(inv) or "always", lambda inv: "DEPLOYMENT.md",
+     {"deploy", "deployment", "deploying", "production", "hosting", "railway", "kubernetes", "helm", "docker", "release to"}, []),
+    ("operate", "guides", _operate, lambda inv: "OPERATIONS.md",
+     {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, []),
+    # Always: a repository with no tests needs the doc that says so, under Coverage and gaps.
+    ("testing", "guides", lambda inv: _first(inv.get("tests") or [], "tests") or "always", lambda inv: "TESTING.md",
+     {"testing", "tests", "test", "qa", "coverage", "e2e"}, []),
+    ("contribute", "guides", _contribute, lambda inv: "CONTRIBUTING.md",
+     {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, []),
+    # Any kind: an application with release-please or a publish workflow cuts versions too, and
+    # the changelog says what shipped, not how a version is cut.
+    ("release", "guides", lambda inv: (_first(inv.get("release") or [], "release")
+                                        or (f"release tool: {(inv.get('changelog') or {}).get('release_tool')}" if isinstance(inv.get("changelog"), dict) and (inv.get("changelog") or {}).get("release_tool") else None)), lambda inv: "RELEASING.md",
+     {"releasing", "release", "releases", "publish", "publishing", "versioning"}, []),
+    ("architecture", "reference", lambda inv: "always", lambda inv: "ARCHITECTURE.md",
+     {"architecture", "components", "services", "system", "data flow", "how it works", "modules", "structure", "containers"}, []),
+    ("configuration", "reference", _configuration, lambda inv: "CONFIGURATION.md",
+     {"configuration", "config", "environment variables", "env", "settings", "variables", "flags"}, []),
+    ("data", "reference", lambda inv: (f"schema: {inv['schema']['tables'][0]['evidence']}" if inv.get("schema") and inv["schema"].get("tables")
+                                       else (f"migrations: {inv['schema']['migrations']['first']}" if inv.get("schema") and inv["schema"]["migrations"]["count"]
+                                             else ("stores: " + ", ".join((inv.get("integrations") or {}).get("stores") or [])) if (inv.get("integrations") or {}).get("stores") else None)), lambda inv: "DATA_MODEL.md",
+     {"data model", "schema", "database", "tables", "migrations", "entities", "storage"}, []),
+    ("http", "reference", lambda inv: (f"{inv['routes']['count']} routes ({', '.join(f'{k} {v}' for k, v in sorted(inv['routes'].get('by_framework', {}).items()))})" if inv.get("routes") and inv["routes"].get("count", 0) > 0 and inv["routes"].get("items") else None), lambda inv: "API.md",
+     {"api", "endpoints", "endpoint", "routes", "openapi", "rest", "http", "api reference"}, []),
+    ("commands", "reference", lambda inv: _first([c for c in inv.get("cli") or [] if not c.get("hint")], "cli"), lambda inv: "CLI.md",
+     {"cli", "command", "commands", "command line", "usage", "flags", "options"}, []),
+    ("exports", "reference", lambda inv: (_first(inv.get("exports") or [], "exports") if "library" in (inv.get("kinds") or []) else None), lambda inv: "PUBLIC_API.md",
+     {"public api", "exports", "api reference", "import", "sdk"}, []),
+    ("integrations", "reference", _integrations, lambda inv: "INTEGRATIONS.md",
+     {"integrations", "integration", "third party", "third-party", "external services", "providers", "vendors"}, []),
+    ("security", "reference", _security, lambda inv: "SECURITY.md",
+     {"security", "authentication", "authorization", "authorisation", "auth", "roles", "permissions", "secrets"}, []),
     # One vendored stylesheet is not a design system: spring-petclinic was asked for a tokens-and-
     # components document on the strength of bootstrap's custom properties in one CSS file.
-    ("design", lambda inv: (_first(inv.get("frontend") or [], "frontend")
-                            if any(f.get("detector") != "css-custom-properties" for f in inv.get("frontend") or [])
-                            or len(inv.get("frontend") or []) >= 3 else None), lambda inv: "DESIGN_GUIDELINES.md",
-     {"design", "design system", "design guidelines", "styling", "style guide", "theme", "tokens", "components", "ui", "brand"}, "DESIGN_GUIDELINES.md", []),
-    ("testing", lambda inv: _first(inv.get("tests") or [], "tests"), lambda inv: "TESTING.md",
-     {"testing", "tests", "test", "qa", "coverage", "e2e"}, "TESTING.md", []),
-    ("operate", lambda inv: _first([o for o in inv.get("ops") or [] if not o.get("hint")], "ops"), lambda inv: "RUNBOOK.md",
-     {"runbook", "operations", "operating", "on-call", "oncall", "incidents", "alerts", "monitoring", "health", "observability"}, "RUNBOOK.md", []),
-    # Only a governance file opens a repository to contributions. A github.com remote does not:
-    # most such repositories are private, and a CONTRIBUTING.md drafted into an unlicensed one
-    # invites what the owner never offered.
-    ("contribute", lambda inv: ("governance: " + ", ".join(g for g in (inv.get("tree") or {}).get("governance_files", []) if g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT"))) if any(g.upper().startswith(("LICEN", "CONTRIBUTING", "CODE_OF_CONDUCT")) for g in (inv.get("tree") or {}).get("governance_files", [])) else None), lambda inv: "CONTRIBUTING.md",
-     {"contributing", "contribution", "contribute", "code of conduct", "pull request", "pull requests", "review process"}, "CONTRIBUTING.md", []),
-    ("research", lambda inv: None, lambda inv: "research/LOG.md",
-     {"research", "experiments", "experiment", "findings", "lab notebook"}, "research/LOG.md", ["research/log/YYYY-MM.md"]),
+    ("design", "reference", lambda inv: (_first(inv.get("frontend") or [], "frontend")
+                                         if any(f.get("detector") != "css-custom-properties" for f in inv.get("frontend") or [])
+                                         or len(inv.get("frontend") or []) >= 3 else None), lambda inv: "DESIGN_SYSTEM.md",
+     {"design", "design system", "design guidelines", "styling", "style guide", "theme", "tokens", "components", "ui", "brand"}, []),
+    ("purpose", "explanation", lambda inv: "always", lambda inv: "OVERVIEW.md" if _overview_kind(inv) else "PRODUCT.md",
+     {"product", "overview", "vision", "purpose", "goal", "goals", "roadmap", "principles", "about", "introduction", "mission", "why", "motivation", "what is"}, []),
+    # reference, not explanation: a table of every queue, worker and cron is looked up, not read for
+    # its why; and "pipelines" is what most teams call CI, which is TESTING's
+    ("jobs", "reference", _pipelines, lambda inv: "JOBS.md",
+     {"pipelines", "pipeline", "jobs", "background jobs", "workers", "queues", "queue", "scheduler", "cron"}, []),
+    ("decisions", "explanation", _decisions, lambda inv: "decisions/README.md",
+     {"decisions", "decision records", "adr", "adrs", "architecture decisions", "rfcs"}, ["ADR-0001-first-decision.md"]),
+    ("changelog", "history", _changelog, lambda inv: "CHANGELOG.md",
+     {"changelog", "change log", "release notes", "what's new", "releases"}, []),
+    ("research", "history", lambda inv: None, lambda inv: "research/LOG.md",
+     {"research", "experiments", "experiment", "findings", "lab notebook"}, ["log/YYYY-MM.md"]),
+    # Evidence, not habit: a repo that plans in files says so by having one.
+    ("plan", "plans", lambda inv: _plan_evidence(inv), lambda inv: "ROADMAP.md",
+     {"roadmap", "plan", "plans", "milestones", "phases", "now", "next", "later"}, []),
+    ("tasks", "plans", lambda inv: _tasks_evidence(inv), lambda inv: "TASKLIST.md",
+     {"tasklist", "task list", "tasks", "todo", "backlog", "checklist"}, ["tasklist/phase-00-foundations.md"]),
 ]
-UNIVERSAL = {"purpose", "architecture", "develop"}
+UNIVERSAL = {"purpose", "develop", "setup", "onboarding", "testing", "architecture", "configuration", "deploy", "integrations", "security", "operate", "contribute"}
+# Template file names that changed with the shape; a doc still carrying the old name is that
+# concern's doc, at the wrong path.
+OLD_NAMES = {"RUNBOOK.md": "operate", "API_REFERENCE.md": "http", "CLI_REFERENCE.md": "commands",
+             "DESIGN_GUIDELINES.md": "design", "TASKLIST.md": "tasks", "AUTH.md": "security", "PIPELINES.md": "jobs"}
+
+
+def concern_template(cid: str, bucket: str | None, fname: str, variant: str | None = None) -> str:
+    """The template path under references/templates for a concern's file."""
+    if bucket is None:
+        return fname
+    if variant:
+        fname = fname.replace(".md", f".{variant}.md")
+    return f"{bucket}/{fname}"
+
+
+def canonical_paths(rows: list[dict], docs_root: str, root_docs: bool, release_tool: str = "") -> dict[str, str]:
+    """The path each applying concern's doc must have, from references/shape.md: always its bucket
+    folder. A fixed path is one an agent can hop to without counting docs, and the sixteen always-on
+    docs fill every bucket anyway; a doc count that changed the path of PRODUCT was the old rule's
+    bug. A repository whose docs live at the root keeps them flat there. The changelog stays at the
+    root when a release tool writes it there."""
+    out = {}
+    for r in rows:
+        if r["bucket"] is None:
+            out[r["concern"]] = r["file"]
+            continue
+        rel = r["file"] if root_docs else f"{r['bucket']}/{r['file']}"
+        out[r["concern"]] = rel if root_docs else f"{docs_root}/{rel}"
+    if release_tool and "changelog" in out:
+        out["changelog"] = "CHANGELOG.md"
+    return out
+
 
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 HEADING_RE = re.compile(r"^ {0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$")
@@ -1022,81 +1224,54 @@ def top_level_dirs(repo: Path) -> list[str]:
 
 # ---------------------------------------------------------------- init skeleton
 
-INDEX_TEMPLATE = """# Docs index
+INDEX_INTRO = """Pick the one file you need here; do not read the folder. Every doc says what it owns under its title; a fact has one home and the other docs link to it. State is one of `skeleton`, `draft`, `unreviewed`, `reviewed YYYY-MM-DD`, `none YYYY-MM-DD` (a person confirmed the doc says nothing applies here, so there is nothing to read), `stale YYYY-MM-DD`. A doc whose own marker says `auto` was reshaped by the tool and is listed as `unreviewed`."""
 
-> **This document owns:** the list of every doc in this repository, what each one owns, and its state.
-
-Pick the one file you need here; do not read the folder. One doc owns each fact; the others link to it.
-
-| doc | owns | state |
-| --- | --- | --- |
-"""
-
-# What kind of change sends a reader to each concern's doc. Used for the routing table an agent
-# file carries: the rows are the repo's own covered concerns, never a fixed list.
-ROUTING_TRIGGER = {
-    "purpose": "what the product is for, who it serves, or something it decided not to do",
-    "architecture": "a service boundary, a link between services, or a decision worth a date",
-    "develop": "a setup step, a prerequisite version, or a daily command",
-    "plan": "a task starting, finishing or being dropped",
-    "deploy": "a service, an environment variable, a build or start command, a deploy step",
-    "release": "a version, a publish step, or what goes in the changelog",
-    "data": "a table, a column, a migration, or what a row means",
-    "http": "a route, its method or path, its auth guard, its request or response shape",
-    "commands": "a command, a subcommand or a flag",
-    "exports": "the public entry point or what it exports",
-    "design": "a token, a shared component, or a rule for adding UI",
-    "testing": "a test runner, where tests live, how to run them, or what gates a merge",
-    "operate": "a health check, a scheduled job, an alert, or what to do when one fires",
-    "contribute": "how a change gets proposed, reviewed or merged",
-    "research": "an experiment designed, run or closed",
-}
+# The index is grouped by the bucket a doc lives in - what a reader came to do - then the
+# per-package docs and the stray root files. A group with no lines is left out.
+INDEX_ORDER = [title for _, title in BUCKETS] + ["Units", "Other folders", "Root files", "Notes beside code"]
+# a Markdown file inside a source tree is a note beside code, listed so it is reachable, grouped so
+# it does not read as documentation of the unit
+CODE_DIRS = {"src", "lib", "app", "apps", "pkg", "internal", "cmd", "prompts", "roles", "migrations", "tests", "test", "spec", "__tests__", "scripts"}
+# One line per doc, llms.txt-shaped: a link, a colon, the owner text, a dash, the state.
+# The state sits after the LAST " - ": owner texts carry dashes of their own. Greedy `.*` before the
+# separator finds the last one; a line with no separator at all has no state.
+INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.*?)|(.*?))\s*$")
 
 
-def routing_section(coverage: list[dict], docs_root: str, central_rel: str) -> str:
-    """One row per covered concern, marked with what the target actually is.
+def index_content(groups: dict[str, list[str]], name: str, summary: str = "", extra_order: list[str] | None = None) -> str:
+    """The central index from its lines: an H1, one sentence on the project, the intro, then one
+    H2 per group that has lines. Groups a hand-made index had that are not buckets come after the
+    buckets, before Units, so a rewrite keeps every row a team grouped by hand."""
+    out = f"# {name} docs\n\n"
+    out += f"> {summary.strip()}\n\n" if summary.strip() else "> *One sentence on what this project is; the README's first paragraph says it.*\n\n"
+    out += "> **This document owns:** the map of every doc in this repository - one line each with what it owns and its state.\n\n"
+    out += INDEX_INTRO + "\n"
+    buckets = [t for _, t in BUCKETS]
+    order = buckets + [g for g in (extra_order or []) if g not in INDEX_ORDER] + ["Units", "Other folders", "Root files", "Notes beside code"]
+    for title in order:
+        lines = groups.get(title) or []
+        if lines:
+            out += f"\n## {title}\n\n" + "\n".join(lines) + "\n"
+    return out
 
-    This is pasted into an agent file, and an agent file that is wrong misleads every run
-    after it. Rows used to point at files apply had not created yet, with no marker, and a
-    concern covered by one generic README heading looked exactly like a real document.
-    """
-    rows = []
-    for c_ in coverage:
-        trigger = ROUTING_TRIGGER.get(c_["concern"])
-        if not trigger:
+
+def index_line(title: str, link: str, owns: str, state: str) -> str:
+    return f"- [{title}]({link}): {owns} - {state}"
+
+
+def index_lines(doc: "Doc") -> list[dict]:
+    """Every doc line of an index in the list grammar, with its group heading."""
+    out: list[dict] = []
+    heading = None
+    for i, line in enumerate(doc.clean, start=1):
+        s_ = line.strip()
+        if s_.startswith("## "):
+            heading = s_[3:].strip()
             continue
-        path = c_["covered_by"] or c_["default_path"]
-        if not c_["covered_by"]:
-            # Code, not a link: apply has not created this file, and a markdown link to it is a
-            # dead link inside the one file every agent reads first.
-            rows.append(f"| {trigger} | `{path}` *(apply creates this)* |")
-            continue
-        note = " *(one heading only - confirm this is the right home)*" if c_.get("weak") else ""
-        rows.append(f"| {trigger} | [{path}]({path}){note} |")
-    body = "\n".join(rows) or "| <a kind of change> | `<the doc that owns it>` |"
-    out = ROUTING_STARTER.replace("| <a kind of change> | `docs/<OWNER>.md` |", body)
-    out = out.replace("docs/INDEX.md", central_rel)
-    # <skill-dir> is a placeholder for the reader of SKILL.md, not something to paste into
-    # somebody's AGENTS.md, where it is a command that cannot run.
-    return out.replace("python <skill-dir>/scripts/docs_structure.py",
-                       "python <path to the docs-structure skill>/scripts/docs_structure.py")
-
-
-ROUTING_STARTER = """## Docs routing - where a change gets written down
-
-One doc owns each fact; the others link. Every doc's header says what it owns. When you change
-one of these, update the owner in the same change.
-
-| you changed... | update |
-|---|---|
-| <a kind of change> | `docs/<OWNER>.md` |
-
-Rules that keep this true:
-
-- Cite symbols and log tags, never line numbers - `file.ts:123` rots within one change.
-- Every doc has a row in `docs/INDEX.md` and a `> **This document owns:**` line under its H1.
-- `python <skill-dir>/scripts/docs_structure.py --repo . --fail-on-findings` is the check.
-"""
+        m = INDEX_LINE.match(line)
+        if m:
+            out.append({"heading": heading, "title": m.group(1), "target": m.group(2), "owns": m.group(3) if m.group(4) else (m.group(5) or ""), "state": m.group(4) or "", "line": i})
+    return out
 
 
 _TEMPLATES_DIR: Path | None = None  # set from the manifest; the bundled folder is the fallback
@@ -1112,8 +1287,30 @@ def template_for(name: str) -> Path | None:
 def owner_text(template: Path) -> str:
     for line in read(template).splitlines():
         if "This document owns:" in line:
-            return line.split("This document owns:**", 1)[-1].replace("*(skeleton, write me)*", "").strip(" *")
+            return re.sub(r"\s*\*\((skeleton|draft|auto)[^)]*\)\*\s*$", "", line.split("This document owns:**", 1)[-1]).strip(" *")
     return ""
+
+
+def doc_title(path: Path, fallback: str) -> str:
+    """The H1 of a template or a doc, else the file stem as words."""
+    for line in read(path).splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return fallback
+
+
+def doc_state(doc: "Doc") -> str:
+    """What the index says about a doc that exists: skeleton, draft, else unreviewed until a
+    person dates it - a commit is not a review."""
+    head = "\n".join(doc.lines[:12])
+    if "(skeleton, write me)" in head:
+        # a skeleton that holds a person's text moved in from another doc is not empty: unreviewed
+        if any(HEADING_RE.match(l) and re.search(r"\(from [^)]+\.(?:md|mdx)\)\s*$", l) for l in doc.lines):
+            return "unreviewed"
+        return "skeleton"
+    if "(draft, review me)" in head:
+        return "draft"
+    return "unreviewed"
 
 
 def template_sections(template: Path) -> list[tuple[str, str]]:
@@ -1238,9 +1435,65 @@ def pick_docs_root(repo: Path, roots: list[Path]) -> str:
     return posix(tops[0], repo) if tops else "docs"
 
 
+# headings that say the opposite of the concern: a local run never seeds a deploy doc
+SEED_ANTI = {"deploy": {"local", "locally", "development", "dev"}, "develop": {"deploy", "deployment", "production", "railway"},
+             "operate": {"local", "locally"}, "jobs": {"local", "locally"}, "setup": {"deploy", "deployment", "production"}}
+
+
+def concern_units(cid: str, inv: dict) -> list[str]:
+    """The unit folders that hold a concern's evidence: the package that carries the auth library
+    seeds SECURITY, the package that carries the job library seeds JOBS."""
+    out: set[str] = set()
+    if cid == "security":
+        for lib in ((inv.get("auth") or {}).get("libraries") or []):
+            out.update(str(Path(p).as_posix()) for p in lib.get("packages") or [] if p not in (".", ""))
+    if cid == "jobs":
+        for lib in ((inv.get("jobs") or {}).get("libraries") or []):
+            out.update(str(Path(p).as_posix()) for p in lib.get("packages") or [] if p not in (".", ""))
+    if cid == "data":
+        for t in ((inv.get("schema") or {}).get("tables") or [])[:1]:
+            ev = str(t.get("evidence") or "")
+            if "/" in ev:
+                out.add(ev.split("/")[0])
+    if cid == "http":
+        for it in ((inv.get("routes") or {}).get("items") or [])[:20]:
+            ev = str(it.get("evidence") or it.get("file") or "")
+            if "/" in ev:
+                out.add(ev.split("/")[0])
+    return sorted(out)
+
+
+def unit_dirs(inv: dict, repo: Path) -> list[str]:
+    """The packages of a monorepo that deploy on their own: a package folder holding its own
+    Dockerfile or platform config. Each earns its own deployment guide; the root doc becomes a map."""
+    if "monorepo" not in (inv.get("kinds") or []):
+        return []
+    pkgs = {str(Path(p.get("path", ".")).as_posix()) for p in inv.get("packages") or [] if p.get("path") not in (None, ".", "")}
+    units: set[str] = set()
+    for s_ in inv.get("services") or []:
+        if s_.get("source") not in ("Dockerfile", "railway", "fly", "render", "Procfile", "app.yaml"):
+            continue
+        ev = str(s_.get("evidence") or "")
+        folder = ev.rsplit("/", 1)[0] if "/" in ev else ""
+        if folder and folder in pkgs:
+            units.add(folder)
+    return sorted(units)
+
+
+def unit_has_ops(inv: dict, unit: str) -> str | None:
+    for o in inv.get("ops") or []:
+        ev = str(o.get("evidence") or "")
+        if ev.startswith(unit + "/") and not o.get("hint"):
+            return f"ops: {ev}"
+    # cron is JOBS's; a unit earns its own OPERATIONS by a health route or an alert file only
+    return None
+
+
 def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, roots: list[Path], root_docs: bool,
                      central_rel: str | None, front_rel: str, convention: str = "sibling", record_folders: list[str] | None = None) -> list[dict]:
-    """One row per concern: whether it applies, why, and which doc covers it."""
+    """One row per concern: whether it applies, why, its canonical path, and whether the doc at
+    that path exists. A doc elsewhere whose headings match is `misplaced` - a move, not a cover;
+    a README section that matches is a `seed`."""
     pins = manifest.get("requiredDocs")
     pin_map: dict[str, object] = {}
     if isinstance(pins, list):
@@ -1251,118 +1504,236 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
     records = record_folders or []
     candidates = []
     for d in docs:
-        # A dedicated index (docs/INDEX.md) is a list, so it covers nothing. A README that is both
-        # the front door and the index is a document with sections, so it covers through them.
         if d.rel == central_rel and not root_docs and d.rel != front_rel:
             continue
         if any(part in FIXTURE_DIRS for part in Path(d.rel).parts[:-1]):
             continue  # a README describing test material is not the project's own documentation
-        if matches_any(d.rel, records) or PREFIX_RE.match(d.path.name) or DATE_RE.search(d.path.name):
-            continue  # a dated plan or audit is a record, not the living doc for a concern,
-            # whether it sits in a record folder or alone at the docs root
-        # A part of a split carries the marker the split injects. Treating "lives in a folder
-        # that has an index" as the test made every doc in docs/x/ invisible to R12 - which is
-        # the layout R4 asks for - so apply proposed a second architecture doc beside the real
-        # one the index already pointed at.
+        if PREFIX_RE.match(d.path.name) or DATE_RE.search(d.path.name):
+            continue  # a dated plan or audit is a record, not the living doc for a concern
         if d.path.parent != repo and SPLIT_PART.search(d.raw[:800]):
             continue  # a part of a split doc; its index is the doc
         candidates.append(d)
     docs_only = "docs-only" in (inv.get("kinds") or [])
+    monorepo = "monorepo" in (inv.get("kinds") or [])
+    if monorepo:
+        have = {d.rel for d in candidates}
+        for p in inv.get("packages") or []:
+            pp = str(Path(p.get("path", ".")).as_posix())
+            if pp in (".", "") or f"{pp}/README.md" in have or not exists_exact(repo / pp / "README.md"):
+                continue
+            candidates.append(Doc(repo / pp / "README.md", repo))
+        # a unit's own docs are candidates too: never a cover for a root concern (a unit owns no root
+        # concern) but the doc a skeleton names as the text to fold in
+        for rel in all_markdown(repo):
+            if rel in have or not any(rel.startswith(str(Path(p.get("path", ".")).as_posix()) + "/") for p in inv.get("packages") or [] if p.get("path") not in (None, ".", "")):
+                continue
+            if any(part in CODE_DIRS for part in Path(rel).parts[:-1]):
+                continue
+            candidates.append(Doc(repo / rel, repo))
+            have.add(rel)
     heavy_cfg = manifest.get("heavyEvidence") if isinstance(manifest.get("heavyEvidence"), dict) else {}
-    rows = []
-    for cid, applies, default_file, keywords, template, companions in CONCERNS:
+    # 1. which concerns apply
+    rows: list[dict] = []
+    for cid, bucket, applies, default_file, keywords, companions in CONCERNS:
         pin = pin_map.get(cid)
-        reason = None
-        if pin is False:
-            reason = None
-        elif isinstance(pin, str):
-            reason = "manifest"
-        elif pin is True:
+        if pin is False and cid not in ("readme", "agent"):
+            continue  # the front door and the agent file are the two every reader lands on
+        if isinstance(pin, str) or pin is True:
             reason = "manifest"
         elif docs_only:
-            reason = None  # a repo of notes is asked for nothing it did not ask for
+            continue  # a repo of notes is asked for nothing it did not ask for
         else:
             reason = applies(inv)
-        if reason is None:
-            continue
-        dfile = default_file(inv)
-        default_path = dfile if root_docs else f"{docs_root}/{dfile}"
-        # A manifest that maps a concern to a file names that file, whether or not it exists
-        # yet. Using it only as a cover meant the escape hatch for "our team calls it something
-        # else" failed in the one case a team would reach for it: a doc not yet written.
-        if isinstance(pin, str):
-            default_path = pin
-        covered_by, how, runner_up, seed = None, "", None, None
-        if isinstance(pin, str):
-            covered_by = pin if exists_exact(repo / pin) else None
+            if reason is None:
+                continue
+        rows.append({"concern": cid, "bucket": bucket, "applies": reason, "file": default_file(inv), "keywords": keywords,
+                     "companions": list(companions), "pin": pin, "unit": None})
+    # per-unit rows in a monorepo: a package that deploys on its own owns its deployment and operations
+    units = unit_dirs(inv, repo)
+    unit_rows: list[dict] = []
+    for u in units:
+        ev = next((s_.get("evidence") for s_ in inv.get("services") or [] if str(s_.get("evidence") or "").startswith(u + "/")), u)
+        unit_rows.append({"concern": "deploy", "bucket": "guides", "applies": f"unit with its own deploy config: {ev}", "file": "DEPLOYMENT.md",
+                          "keywords": next(k for c, b, a, f, k, cs in CONCERNS if c == "deploy"), "companions": [], "pin": None, "unit": u})
+        ops = unit_has_ops(inv, u)
+        if ops:
+            unit_rows.append({"concern": "operate", "bucket": "guides", "applies": f"unit {ops}", "file": "OPERATIONS.md",
+                              "keywords": next(k for c, b, a, f, k, cs in CONCERNS if c == "operate"), "companions": [], "pin": None, "unit": u})
+    # every unit that deploys on its own gets its own agent file: the nearest one wins, and an
+    # agent working inside the unit needs that unit's commands, not the root's
+    if monorepo and pin_map.get("agent") is not False:
+        for p in inv.get("packages") or []:
+            pp = str(Path(p.get("path", ".")).as_posix())
+            if pp not in units:
+                continue  # a unit is a package that deploys on its own; a nested demo package is not one
+            unit_rows.append({"concern": "agent", "bucket": None, "applies": f"unit that deploys on its own: {p.get('evidence') or pp}", "file": AGENT_FILE,
+                              "keywords": set(), "companions": [], "pin": None, "unit": pp})
+    # 2. canonical paths
+    release_tool = str((inv.get("changelog") or {}).get("release_tool") or "") if isinstance(inv.get("changelog"), dict) else ""
+    paths = canonical_paths(rows, docs_root, root_docs, release_tool)
+    for r in rows:
+        r["default_path"] = r["pin"] if isinstance(r["pin"], str) else paths[r["concern"]]
+        variant = "map" if (r["concern"] == "deploy" and units) else None
+        r["template"] = concern_template(r["concern"], r["bucket"], r["file"], variant)
+    for r in unit_rows:
+        # a unit's own docs are few, so they sit flat under <unit>/docs; its agent file at its root
+        r["default_path"] = f"{r['unit']}/{r['file']}" if r["concern"] == "agent" else f"{r['unit']}/docs/{r['file']}"
+        r["template"] = concern_template(r["concern"], r["bucket"], r["file"])
+    rows += unit_rows
+    # 3. what exists at the path, else what sits elsewhere
+    out = []
+    for r in rows:
+        cid, keywords = r["concern"], r["keywords"]
+        default_path = r["default_path"]
+        covered_by = default_path if exists_exact(repo / default_path) else None
+        how = "canonical path" if covered_by else ""
+        if covered_by and r["pin"] and isinstance(r["pin"], str):
             how = "manifest"
-        else:
-            # Front-door weighting is for the front door. Giving it to every file named
-            # README.md let a sub-package's readme own a repo-wide concern - prometheus routed
-            # "how to run it" to the React UI's README, and marked it reviewed.
-            scored = sorted(((concern_score(d, keywords, dfile, front_door=(d.rel == front_rel)), d)
-                             for d in candidates
-                             # A CHANGELOG or a SECURITY policy is not a home for a concern; a
-                             # CONTRIBUTING or a code of conduct is the home of exactly one.
-                             if not is_community_file(d.rel)
-                             or (cid == "contribute" and d.path.name.upper().startswith(("CONTRIBUTING", "CODE_OF_CONDUCT")))),
-                            key=lambda x: -x[0][0])
-            # Heavy evidence: a README section is a seed, not a home. The dedicated doc is still missing.
-            weight, label = evidence_weight(cid, inv)
-            threshold = int(heavy_cfg.get(cid) or 0)
-            if threshold and weight >= threshold:
-                scored = [(s, d) for s, d in scored if not s[1].startswith("README sections")] + [(s, d) for s, d in scored if s[1].startswith("README sections")]
-                dedicated = [(s, d) for s, d in scored if s[0] >= 3 and not s[1].startswith("README sections")]
-                readme_hits = [(s, d) for s, d in scored if s[0] >= 3 and s[1].startswith("README sections")]
-                if dedicated:
-                    (sc, how), d = dedicated[0]
-                    covered_by = d.rel
-                elif readme_hits:
-                    seed = readme_hits[0][1].rel
-                    how = f"heavy evidence ({label}); {seed} has a section to seed from"
-                else:
-                    how = f"heavy evidence ({label})"
-            elif scored and scored[0][0][0] >= 3:
-                (sc, how), d = scored[0]
-                covered_by = d.rel
-                if len(scored) > 1 and scored[1][0][0] >= 3 and scored[1][0][0] >= sc - 1:
-                    runner_up = scored[1][1].rel
-        # A doc whose filename already carries this concern's stem - DESIGN.md for
-        # DESIGN_GUIDELINES.md, ARQUITECTURA.md scored zero because the keywords are English -
-        # is a near-certain home, and proposing a skeleton beside it is the worst outcome
-        # apply can produce. Report it as the likely cover and create nothing.
-        near = None
-        if not covered_by:
-            stem = Path(dfile).stem.split("_")[0].lower()
-            # The comment above cites ARQUITECTURA.md, and "architecture" is not inside
-            # "arquitectura" - the example the rule was written for did not work. The
-            # keywords are English and a lot of repositories are not, so the concern's name
-            # in the languages most often met carries the same weight as the English stem.
-            aliases = {a for a in CONCERN_ALIASES.get(cid, ())}
+        misplaced, seed, runner_up, near = None, None, None, None
+        matched_seed_heading = None
+        extra_seeds: list[tuple[str, str]] = []
+        if not covered_by and cid == "changelog" and tracked_file(repo, "CHANGELOG.md"):
+            misplaced, how = "CHANGELOG.md", "the root changelog"
+        elif not covered_by and r["bucket"] is not None:
+            scope = (lambda d: d.rel.startswith(r["unit"] + "/")) if r["unit"] else (lambda d: not any(d.rel.startswith(u + "/") for u in units))
+            scored = []
             for d in candidates:
-                dn = d.path.stem.lower()
-                if len(dn) > 3 and any(a in dn or dn in a for a in aliases if len(a) > 3):
-                    near = d.rel
-                    break
-                # Both sides need length: "a" is inside "architecture" and inside "tasklist",
-                # so docs/A.md was reported as named for both.
-                if len(stem) > 3 and len(dn) > 3 and (stem in dn or dn in stem):
-                    near = d.rel
-                    break
-        weak = bool(covered_by) and how.startswith("README sections") and how.count(",") == 0
-        # The heading text behind a front-door match, so the Start here block can link it.
-        matched_heading = None
-        if covered_by and ": " in how:
-            kws = [k.strip() for k in how.split(": ", 1)[1].split(",") if k.strip()]
-            doc = next((d for d in candidates if d.rel == covered_by), None)
+                if not scope(d):
+                    continue
+                if matches_any(d.rel, records) and cid not in ("changelog", "research", "plan", "tasks"):
+                    continue  # a record never covers a living concern
+                if is_community_file(d.rel) and not (cid == "contribute" and d.path.name.upper().startswith(("CONTRIBUTING", "CODE_OF_CONDUCT"))
+                                                     or cid == "changelog" and d.path.name.upper().startswith("CHANGELOG")
+                                                     or cid == "security" and d.path.name.upper().startswith("SECURITY")):
+                    continue
+                is_readme = d.rel == front_rel or (d.path.name.upper().startswith("README") and ("/" in d.rel or monorepo))
+                sc = concern_score(d, keywords, r["file"], front_door=is_readme)
+                if OLD_NAMES.get(d.path.name) == cid and not is_readme:
+                    sc = (max(sc[0], 6), "old file name")
+                if sc[0] >= 3:
+                    scored.append((sc, d, is_readme))
+            scored.sort(key=lambda x: -x[0][0])
+            dedicated = [x for x in scored if not x[2]]
+            readmes = [x for x in scored if x[2]]
+            if dedicated:
+                (sc, how), d, _ = dedicated[0]
+                misplaced = d.rel
+                if len(dedicated) > 1 and dedicated[1][0][0] >= sc - 1:
+                    runner_up = dedicated[1][1].rel
+            elif readmes:
+                seed = readmes[0][1].rel
+                how = f"{seed} has a section to seed from"
+            if not misplaced and not r["unit"]:
+                # a section a person wrote inside another doc at the root scope (ARCHITECTURE's "Railway,
+                # production" for the deploy map): the skeleton names it as the text to fold in; a named
+                # section beats a README that merely has a section
+                kws_ = {tokens(k).strip() for k in keywords}
+                if cid == "integrations":
+                    # the third parties the inventory named (S3, Redis, OpenAI, Resend) are the words a person's doc uses
+                    for sdk in ((inv.get("integrations") or {}).get("sdks") or []):
+                        kws_.update(w for w in tokens(str(sdk.get("service") or "")).split() if len(w) > 2)
+                if cid == "security":
+                    kws_.update({"auth", "token", "tokens", "jwt", "secret", "secrets", "login", "session", "sessions", "error handling"})
+
+                anti = SEED_ANTI.get(cid, set())
+                ev_units = concern_units(cid, inv)
+
+                def section_seed(drafts: bool):
+                    """The best-matching section per doc, ranked: keyword hits count double, a person's
+                    text counts one more than a tool draft, a doc under the unit that holds the concern's
+                    evidence counts two more, and a heading that says the opposite thing (a local run for
+                    a deploy doc) is skipped. Returns up to three, at most one per doc."""
+                    ranked: list[tuple[int, str, str]] = []
+                    for d in candidates:
+                        if d.path.name in ("CLAUDE.md", AGENT_FILE) or d.rel == front_rel:
+                            continue
+                        is_draft = doc_state(d) in ("draft", "skeleton")
+                        if drafts is False and is_draft:
+                            continue
+                        # a person's section at the root scope, or a unit README's section (a unit doc
+                        # never covers a root concern, but its section is the text to seed from)
+                        in_unit = any(d.rel.startswith(u + "/") for u in units)
+                        if not scope(d) and not in_unit:
+                            continue
+                        best_here = (0, None)
+                        for _, lvl, t in d.headings:
+                            if lvl not in ((1, 2, 3, 4) if cid == "integrations" else (2, 3, 4)) or is_start_here_heading(t):
+                                continue
+                            if re.search(r"(^|\s)(GET|POST|PUT|PATCH|DELETE)\s+/", t) or ("/" in t and ":" in t) or t.strip().startswith(("\"", "'", "`")):
+                                continue  # a route or a quoted message is not a section to seed from
+                            tt = tokens(t)
+                            if any(f" {a_} " in tt for a_ in anti):
+                                continue
+                            hits = sum(1 for k in kws_ if len(k) > 3 and f" {k} " in tt)
+                            if not hits:
+                                continue
+                            sc_ = hits * 2 + (0 if is_draft else 1) + (2 if any(d.rel.startswith(u + "/") for u in ev_units) else 0)
+                            if sc_ > best_here[0]:
+                                best_here = (sc_, t)
+                        if best_here[1]:
+                            ranked.append((best_here[0], d.rel, best_here[1]))
+                    ranked.sort(key=lambda x: (-x[0], x[1]))
+                    # a second or third seed needs two hits, or one hit from the unit that holds the evidence
+                    return ranked[:1] + [r_ for r_ in ranked[1:] if r_[0] >= 4][:2]
+
+                ranked_seeds = section_seed(True)
+                if ranked_seeds:
+                    found, hit = ranked_seeds[0][1], ranked_seeds[0][2]
+                    seed, how, near, matched_seed_heading = found, f"{found} has a section to seed from", None, hit
+                    extra_seeds = [(rel_, h_) for _, rel_, h_ in ranked_seeds[1:]]
+            if not misplaced and not seed and not r["unit"] and units:
+                # a unit's own doc that reads like this concern: a unit never owns a root concern, so it
+                # is not a cover and not a move, but the skeleton and the index name it as the text to fold in
+                unit_hits = []
+                for d in candidates:
+                    if not any(d.rel.startswith(u + "/") for u in units) or d.path.name in ("CLAUDE.md", AGENT_FILE):
+                        continue  # a unit's agent file is not a doc that covers a concern
+                    sc = concern_score(d, keywords, r["file"])
+                    if sc[0] >= 3:
+                        unit_hits.append((sc[0], d.rel))
+                if unit_hits:
+                    unit_hits.sort(key=lambda x: -x[0])
+                    near = unit_hits[0][1]
+            if not misplaced and not near:
+                stem = Path(r["file"]).stem.split("_")[0].lower()
+                aliases = {a for a in CONCERN_ALIASES.get(cid, ())}
+                for d in candidates:
+                    if not scope(d) or d.rel == front_rel:
+                        continue
+                    dn = d.path.stem.lower()
+                    if len(dn) > 3 and any(a in dn or dn in a for a in aliases if len(a) > 3):
+                        near = d.rel
+                        break
+                    if len(stem) > 3 and len(dn) > 3 and (stem in dn or dn in stem) and not re.search(r"plan|roadmap|todo|backlog", dn.replace(stem, "")):
+                        near = d.rel
+                        break
+        elif not covered_by and cid == "agent" and not r["unit"]:
+            # a CLAUDE.md with content is the agent file under another name: keep it, import it
+            if tracked_file(repo, "CLAUDE.md") and read(repo / "CLAUDE.md").strip() not in ("", "@AGENTS.md"):
+                seed = "CLAUDE.md"
+                how = "CLAUDE.md has content to seed from"
+        matched_heading = matched_seed_heading
+        if seed and not matched_heading:
+            doc = next((d for d in candidates if d.rel == seed), None)
             if doc:
-                matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3)
-                                        and any(f" {tokens(k).strip()} " in tokens(t) for k in kws)), None)
-        rows.append({"concern": cid, "applies": reason, "default_path": default_path, "weak": weak,
-                     "matched_heading": matched_heading, "near_name": near, "template": template(inv) if callable(template) else template,
-                     "companions": companions, "covered_by": covered_by, "matched_by": how, "runner_up": runner_up, "seed": seed,
-                     "universal": cid in UNIVERSAL})
-    return rows
+                kws = {tokens(k).strip() for k in keywords}
+                anti_ = SEED_ANTI.get(cid, set())
+                scored_h = []
+                for _, lvl, t in doc.headings:
+                    if lvl not in (2, 3, 4) or is_start_here_heading(t) or any(f" {a_} " in tokens(t) for a_ in anti_):
+                        continue
+                    hits = sum(1 for k in kws if len(k) > 3 and f" {k} " in tokens(t))
+                    if hits:
+                        scored_h.append((hits, t))
+                scored_h.sort(key=lambda x: -x[0])
+                matched_heading = scored_h[0][1] if scored_h else None
+        if seed and not matched_heading and seed == front_rel:
+            seed, how = None, ""  # a seed with no section is a dead end, not a pointer
+        out.append({"concern": cid, "unit": r["unit"], "bucket": r["bucket"], "applies": r["applies"], "default_path": default_path,
+                    "weak": False, "matched_heading": matched_heading, "near_name": near, "template": r["template"],
+                    "companions": r["companions"], "covered_by": covered_by, "matched_by": how, "runner_up": runner_up,
+                    "seed": seed, "misplaced": misplaced, "universal": cid in UNIVERSAL, "extra_seeds": extra_seeds})
+    return out
 
 
 def section_states(doc: "Doc", template: Path) -> dict:
@@ -1372,13 +1743,16 @@ def section_states(doc: "Doc", template: Path) -> dict:
     states: dict[str, str] = {}
     # bodies of the doc's H2s
     h2s = [(i, t) for i, lvl, t in doc.headings if lvl == 2]
+    # One marker per document, on the owner line: a section under a drafted owner line is a
+    # draft whether or not it repeats the marker. Seven markers per doc was ceremony.
+    owner_draft = any(DRAFT_MARK in l for l in doc.lines[:12])
     for n, (line_no, text) in enumerate(h2s):
         end = h2s[n + 1][0] - 1 if n + 1 < len(h2s) else len(doc.lines)
         body = [l.strip() for l in doc.lines[line_no:end] if l.strip()]
         key = slug(text)
         if not body or (key in guides and guides[key] and body == [guides[key]]) or (len(body) == 1 and body[0].startswith("*") and body[0].endswith("*")):
             states[text] = "skeleton"
-        elif body[-1] == DRAFT_MARK:
+        elif body[-1] == DRAFT_MARK or owner_draft:
             states[text] = "draft"
         else:
             states[text] = "reviewed"
@@ -1405,6 +1779,43 @@ def in_git_repo(repo: Path) -> bool:
     return p.returncode == 0
 
 
+def all_markdown(repo: Path) -> list[str]:
+    """Every Markdown file the repository tracks (git first, a walk when there is no git), outside
+    the folders the checker never reads: dependencies, virtualenvs, dot-folders, build output,
+    skill trees, fixtures."""
+    rels: list[str] = []
+    git = shutil.which("git")
+    if git is not None and in_git_repo(repo):
+        try:
+            r = subprocess.run([git, "ls-files", "-z", "--", "*.md", "*.mdx", "*.MD"], cwd=str(repo), timeout=GIT_TIMEOUT,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if r.returncode == 0:
+                rels = [x.decode("utf-8", "replace") for x in r.stdout.split(b"\0") if x]
+        except (OSError, subprocess.SubprocessError):
+            rels = []
+    if not rels:
+        for root, dirs, fs in os.walk(repo):
+            dirs[:] = [d for d in dirs if d not in ALWAYS_SKIP and not d.startswith(".")]
+            for f in fs:
+                if f.lower().endswith((".md", ".mdx")):
+                    rels.append(posix(Path(root) / f, repo))
+    skills = skill_dirs(repo)
+    out = []
+    for rel in sorted(set(rels)):
+        p = repo / rel
+        if not p.is_file():
+            continue
+        parts = Path(rel).parts
+        if any(part in ALWAYS_SKIP or part in FIXTURE_DIRS or part.startswith(".") for part in parts[:-1]):
+            continue
+        if parts and parts[0] in TOP_LEVEL_SKIP:
+            continue
+        if any(s == p.parent or s in p.parents for s in skills):
+            continue
+        out.append(rel)
+    return out
+
+
 def tracked_file(repo: Path, name: str) -> bool:
     """Present and, when git can answer, tracked: a gitignored CLAUDE.md is one person's file, not the repo's."""
     p = repo / name
@@ -1424,6 +1835,10 @@ def tracked_file(repo: Path, name: str) -> bool:
 RUN_WORDS = ("install", "installation", "getting started", "quickstart", "quick start", "setup", "usage", "running", "development")
 LICENCE_FILES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "LICENCE", "LICENCE.md", "LICENCE.txt",
                  "COPYING", "COPYING.txt", "LICENSE-MIT", "LICENSE-APACHE")
+
+
+def is_start_here_heading(text: str) -> bool:
+    return any(w in text.lower() for w in START_HERE_WORDS)
 
 
 def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> list[str]:
@@ -1451,7 +1866,7 @@ def front_door_gaps(doc: "Doc", repo: Path, coverage: list[dict], inv: dict) -> 
 
 def agent_file(repo: Path) -> str | None:
     """The agent instruction file this repo actually ships. A gitignored one is a person's own."""
-    return next((f for f in ("AGENTS.md", "CLAUDE.md") if tracked_file(repo, f)), None)
+    return next((f for f in (AGENT_FILE, "CLAUDE.md") if tracked_file(repo, f)), None)
 
 
 def has_start_here(doc: "Doc") -> bool:
@@ -1495,102 +1910,563 @@ def project_name(repo: Path) -> str:
 def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: str, coverage: list[dict]) -> str:
     """The README's hand-off section. Names files that exist or that apply creates; authors nothing else."""
     name = project_name(repo)
-    agent = agent_file(repo)
+    agent_row = next((r for r in coverage if r["concern"] == "agent" and not r.get("unit")), None)
+    agent = (agent_row["covered_by"] or agent_row["default_path"]) if agent_row else (agent_file(repo) or AGENT_FILE)
+    onb_row = next((r for r in coverage if r["concern"] == "onboarding" and not r.get("unit")), None)
+    onboarding = (onb_row["covered_by"] or onb_row["default_path"]) if onb_row else None
+    # three files, always: the README, the index and the agent file exist after apply whatever
+    # existed before, so the block never depends on the state of the run that writes it. The
+    # reading order is ONBOARDING's - one home - so no "first stops" list lives here.
+    onb_written = bool(onb_row and onb_row.get("covered_by") and (repo / onb_row["covered_by"]).is_file()
+                       and doc_state(Doc(repo / onb_row["covered_by"], repo)) != "skeleton")
     steps = [f"1. **This file** - what {name} is and how the repository is laid out.",
-             f"2. **[{central_rel}]({central_rel})** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder."]
-    if agent:
-        steps.append(f"3. **[{agent}]({agent})** - how to behave while building: conventions and where a change gets written down.")
-    stops = []
-    for cid, label in (("develop", "how to run it"), ("architecture", "the architecture"), ("plan", "the plan")):
-        row = next((r for r in coverage if r["concern"] == cid), None)
-        if row is None:
-            continue
-        path = row["covered_by"] or row["default_path"]
-        state = row.get("state") or ("reviewed" if row["covered_by"] else "skeleton")
-        if path == front_rel:
-            # The block sits in this file. Link the heading that actually covered the concern -
-            # guessing an anchor from the label wrote a dead link into the one file every
-            # reader lands on, because no repo has a heading called "how to run it".
-            head = (row or {}).get("matched_heading")
-            if not head:
-                continue  # no known heading to point at; say nothing rather than invent one
-            stops.append(f"[{label}](#{slug(head)})")
-            continue
-        stops.append(f"[{label}]({path})" + ("" if state == "reviewed" else f" ({state})"))
+             f"2. **[{central_rel}]({central_rel})** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.",
+             f"3. **[{agent}]({agent})** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most."]
+    if onboarding:
+        steps.append(f"4. **[{onboarding}]({onboarding})** - what to read next, in which order and per role" + ("." if onb_written else " (a skeleton today)."))
     lines = [START_HERE_OPEN, "## Start here", "",
-             f"{'Three' if agent else 'Two'} files, in this order. Everything else is one hop from the {'second' if agent else 'last'} one.", ""]
+             f"{'Four' if onboarding else 'Three'} files, in this order. Everything else is one hop from the second one.", ""]
     lines += steps
-    lines += ["", "From the index, the usual first stops: " + ", ".join(stops) + ". The index says which file is which; this README keeps no list of its own, so the two cannot drift.", "",
-              f"The docs have a shape and a checker: one central index, an owner line on every doc, no line-number citations. `docs_structure.py --repo .` from the docs-structure skill checks it; `{docs_root}/structure.json` is its manifest.",
+    stops = []
+    if not onb_written:
+        # until a person writes ONBOARDING, the block names the docs that already have content
+        for cid, label in (("setup", "how to run it"), ("architecture", "the architecture"), ("develop", "the daily loop")):
+            row = next((r for r in coverage if r["concern"] == cid and not r.get("unit")), None)
+            src = (row.get("covered_by") or row.get("misplaced")) if row else None
+            if not src or not (repo / src).is_file():
+                continue
+            st = doc_state(Doc(repo / src, repo))
+            if st != "skeleton":
+                # the link names the path the doc will have after apply's moves
+                stops.append(f"[{label}]({row['default_path'] if row.get('misplaced') else src})" + ("" if st == "reviewed" else f" ({st})"))
+    if not onb_written and len(stops) < 3:
+        for u in sorted({r["unit"] for r in coverage if r.get("unit")})[:3]:
+            if (repo / u / "README.md").is_file():
+                ud = Doc(repo / u / "README.md", repo)
+                setup_kws = {"setup", "install", "installation", "getting started", "quickstart", "quick start", "local development", "run locally"}
+                sec_ = next((t for _, lvl, t in ud.headings if lvl in (2, 3) and any(f" {k} " in tokens(t) for k in setup_kws)), None)
+                stops.append(f"[how to run {u}]({u}/README.md{('#' + slug(sec_)) if sec_ else ''})")
+        stops.append(f"[the commands]({agent}#commands)")
+    if onboarding and not onb_written and stops:
+        order = "Until the fourth is written, the first stops: " + ", ".join(stops) + ". "
+    else:
+        order = ""
+    lines += ["", order + "The index says which file is which; this README keeps no list of its own, so the two cannot drift.",
               START_HERE_CLOSE]
+    return "\n".join(lines) + "\n"
+
+
+def package_description(repo: Path, folder: Path) -> str:
+    """What a package says it is, from its own manifest: package.json description, pyproject
+    description, Cargo.toml description. A README's first sentence was prose written for another
+    context and came out as half a sentence with a link inside a table cell."""
+    pj = folder / "package.json"
+    if pj.is_file():
+        try:
+            d = json.loads(read(pj)).get("description")
+            if isinstance(d, str) and d.strip():
+                return d.strip()
+        except ValueError:
+            pass
+    for name in ("pyproject.toml", "Cargo.toml"):
+        f = folder / name
+        if f.is_file():
+            m = re.search(r"^description\s*=\s*\"([^\"\n]+)\"", read(f), re.M)
+            if m:
+                return m.group(1).strip()
+    return ""
+
+
+def head_month(repo: Path) -> str:
+    """YYYY-MM of the head commit, else of today."""
+    git = shutil.which("git")
+    if git is not None:
+        try:
+            p = subprocess.run([git, "log", "-1", "--format=%cs"], cwd=str(repo), text=True, timeout=GIT_TIMEOUT,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, encoding="utf-8", errors="replace")
+            if p.returncode == 0 and re.match(r"\d{4}-\d{2}", p.stdout.strip()):
+                return p.stdout.strip()[:7]
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return datetime.date.today().strftime("%Y-%m")
+
+
+def index_tables(doc: "Doc") -> list[dict]:
+    """Every table in an index with its group heading and header cells, so apply appends to
+    the right one: a hand-grouped index ends with a `file | does` table, and 'the last table'
+    put a doc row there."""
+    out: list[dict] = []
+    heading = None
+    for i, line in enumerate(doc.clean, start=1):
+        s_ = line.strip()
+        if s_.startswith("## "):
+            heading = s_[3:].strip()
+        elif s_.startswith("|") and i < len(doc.clean) and set(doc.clean[i].replace("|", "").strip()) <= set("-: ") and doc.clean[i].strip().startswith("|"):
+            cells = [c.strip().lower() for c in s_.strip("|").split("|")]
+            out.append({"heading": heading, "header": cells, "line": i, "docs_table": cells[:3] == ["doc", "owns", "state"]})
+    return out
+
+
+# doc names a template's owner text may cite, and the concern each one is
+OWNER_CITES = {"JOBS": "jobs", "PIPELINES": "jobs", "ROADMAP": "plan", "CONFIGURATION": "configuration", "DEPLOYMENT": "deploy",
+               "TESTING": "testing", "CONTRIBUTING": "contribute", "SECURITY": "security", "OPERATIONS": "operate", "DATA_MODEL": "data",
+               "ONBOARDING": "onboarding", "PRODUCT": "purpose", "SETUP": "setup", "ARCHITECTURE": "architecture", "INTEGRATIONS": "integrations",
+               "RELEASING": "release", "API": "http", "CLI": "commands", "PUBLIC_API": "exports", "AGENTS.md": "agent", "decisions": "decisions", "records": "decisions"}
+
+
+def strip_unearned(text: str, coverage: list[dict]) -> str:
+    """An owner text that says 'what is next is ROADMAP's' names a doc the repository may not have;
+    the index drops the sentence when that concern does not apply here."""
+    have = {c["concern"] for c in coverage}
+    parts = re.split(r"(?<=[.;])\s+", text.strip())
+    keep = []
+    for part in parts:
+        cited = [cid for name, cid in OWNER_CITES.items() if re.search(r"(?<![A-Za-z_])" + re.escape(name) + r"(?![A-Za-z_])", part)]
+        if cited and any(cid not in have for cid in cited) and part is not parts[0]:
+            continue
+        keep.append(part)
+    return " ".join(keep).strip()
+
+
+def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = None) -> str:
+    """The agent file from evidence: the commands as the manifests name them, each with its source.
+    The agent file owns the commands - it is the first file an agent reads - and the README's
+    Commands section is one line and a link here. Forty lines is the cap; this writes well under
+    it and leaves the rest to a person. For a unit, only that unit's manifest, run from the unit."""
+    name = project_name(repo) if not unit else f"{project_name(repo)} / {unit}"
+    cmds: list[str] = []
+    seen: set[str] = set()
+    compose_gotcha = ""
+    script_gotchas: list[str] = []
+
+    def add(label: str, cmd: str, src: str, note: str = "") -> None:
+        if label in seen or len(cmds) >= 14:
+            return
+        seen.add(label)
+        cmds.append(f"- {label}: `{cmd}` [{src}]" + (f" - {note}" if note else ""))
+
+    for p in inv.get("packages") or []:
+        path = p.get("path") or "."
+        if unit and str(Path(path).as_posix()) != unit:
+            continue
+        if not unit and path not in (".", "") and str(Path(path).as_posix()) in unit_dirs(inv, repo):
+            continue  # a unit with its own agent file holds its own commands
+        pre = "" if path in (".", "") or unit else f"cd {path} && "
+        man = p.get("manifest") or ""
+        scripts = p.get("scripts") or []
+        pm = p.get("package_manager") or ("npm" if man == "package.json" else "pip")
+        if man == "package.json":
+            install = {"pnpm": "pnpm install", "yarn": "yarn install", "bun": "bun install"}.get(pm, "npm ci")
+            runner = {"pnpm": "pnpm run", "yarn": "yarn", "bun": "bun run"}.get(pm, "npm run")
+            root_only = (not unit and path in (".", "") and not p.get("workspaces") and bool(unit_dirs(inv, repo)))
+            add("install", f"{pre}{install}", f"{p['evidence']}", "root only: the manifest declares no workspace; each unit installs from its own folder (see Units)" if root_only else "")
+            for label, names in (("run", ("dev", "dev:start", "serve")), ("build", ("build",)), ("test", ("test",)), ("smoke test", ("smoke", "test:smoke")),
+                                 ("lint", ("lint",)), ("format", ("format", "format:check", "fmt")), ("typecheck", ("typecheck", "type-check", "tsc")), ("check", ("check",)),
+                                 ("migrate", ("db:migrate", "migrate", "prisma:migrate", "migration:run")), ("generate", ("db:generate", "generate", "codegen")),
+                                 ("seed", ("db:seed", "seed"))):
+                hit = next((n for n in names if n in scripts), None)
+                if hit:
+                    add(label, f"{pre}{runner} {hit}", f"{p['evidence']}: scripts.{hit}")
+            # every start script is a production entry: a worker's start line is what the deploy doc links
+            for n in scripts:
+                if n == "start" or n.startswith(("start:", "start-")):
+                    add("start (production)" if n == "start" else f"start ({n.split(':', 1)[-1] if ':' in n else n})", f"{pre}{runner} {n}", f"{p['evidence']}: scripts.{n}")
+            if "run" not in seen and "start" in scripts:
+                add("run", f"{pre}{runner} start", f"{p['evidence']}: scripts.start")
+        elif man == "pyproject.toml":
+            extra = p.get("dev_extra") or ""
+            install = {"uv": "uv sync" + (f" --extra {extra}" if extra else ""), "poetry": "poetry install"}.get(pm, "pip install -e ." + (f"[{extra}]" if extra else ""))
+            runner = {"uv": "uv run ", "poetry": "poetry run "}.get(pm, "")
+            add("install", f"{pre}{install}", p["evidence"] + (f": optional-dependencies.{extra}" if extra else ""))
+            if any(t.get("runners") and "pytest" in t["runners"] for t in inv.get("tests") or [] if t.get("package") == path):
+                add("test", f"{pre}{runner}pytest", p["evidence"])
+            tools = p.get("tools") or []
+            if "ruff" in tools:
+                add("lint", f"{pre}{runner}ruff check .", f"{p['evidence']}: tool.ruff declares the tool; the command is ruff's own")
+                add("format (check)", f"{pre}{runner}ruff format --check .", f"{p['evidence']}: tool.ruff declares the tool; the command is ruff's own")
+            elif "flake8" in tools:
+                add("lint", f"{pre}{runner}flake8", f"{p['evidence']}: tool.flake8")
+            if "black" in tools and "format" not in seen:
+                add("format", f"{pre}{runner}black --check .", f"{p['evidence']}: tool.black")
+            if "mypy" in tools:
+                add("typecheck", f"{pre}{runner}mypy .", f"{p['evidence']}: tool.mypy declares the tool; the command is mypy's own")
+            # scripts a person wrote for the same jobs, beside the manifest
+            sdir = repo / path / "scripts"
+            if sdir.is_dir():
+                for sname in sorted(os.listdir(sdir)):
+                    stem = sname.rsplit(".", 1)[0].lower()
+                    if stem in ("validate", "check", "lint", "format", "test", "ci") and sname.endswith((".sh", ".ps1", ".py")):
+                        add(f"{stem} (script)", f"{pre}./scripts/{sname}", f"{posix(sdir / sname, repo)}")
+                    if stem in ("venv_setup", "setup", "install", "bootstrap", "dev_setup") and sname.endswith((".sh", ".ps1", ".py")):
+                        # the person's install path is listed first; the package-manager line stays as the second, marked
+                        cmds.insert(0, f"- install (script): `{pre}./scripts/{sname}` [{posix(sdir / sname, repo)}] - the install a person wrote; the line below is the lockfile's guess")
+                        seen.add("install (script)")
+            elif "pyright" in tools:
+                add("typecheck", f"{pre}{runner}pyright", f"{p['evidence']}: tool.pyright")
+        elif man in ("requirements.txt",):
+            add("install", f"{pre}pip install -r requirements.txt", p["evidence"])
+        elif man == "go.mod":
+            add("build", f"{pre}go build ./...", p["evidence"])
+            add("test", f"{pre}go test ./...", p["evidence"])
+        elif man == "Cargo.toml":
+            add("build", f"{pre}cargo build", p["evidence"])
+            add("test", f"{pre}cargo test", p["evidence"])
+    for tr in (inv.get("tree") or {}).get("task_runners") or []:
+        for t in tr.get("targets") or []:
+            if t in ("test", "lint", "build", "run", "dev", "check", "fmt"):
+                add(t, f"make {t}" if tr["file"].endswith("Makefile") else f"just {t}", tr["file"])
+    if not unit:
+        # a script at the root whose name says it starts the stack is the run command for all units
+        for script in ("dev.sh", "run.sh", "start.sh", "dev.ps1", "run.ps1"):
+            if (repo / script).is_file() and tracked_file(repo, script):
+                head = [l.strip().lstrip("#").strip() for l in read(repo / script).splitlines()[1:12] if l.strip().startswith("#")]
+                head = [h for h in head if h and not h.startswith("!")]
+                # the rest of the header is where a person writes the preconditions: quote the sentences
+                # that carry one, up to three, as gotchas
+                for h_ in head[1:]:
+                    if len(script_gotchas) >= 3:
+                        break
+                    if re.search(r"\b(must|without|not started|don't|do not|fails|before|first|only|never)\b", h_, re.I) and len(h_) > 20 and not h_.rstrip().endswith((":", ",")):
+                        script_gotchas.append(f"- {h_[:200]} [{script}: header comment]")
+                quote = " ".join(head)
+                cut = quote.find(". ")
+                quote = (quote[:cut + 1] if 0 < cut < 240 else quote[:240].rsplit(" ", 1)[0])
+                add("run (dev stack)", f"./{script}", f"{script}: header comment" if head else script, f'"{quote}"' if head else "")
+                break
+    if unit and "run" not in seen:
+        # no run script in the manifest: the platform's start command (first token) leads; a Dockerfile
+        # CMD counts only when its first token is a program, not a bare argument to an entrypoint
+        cands = [s_ for s_ in inv.get("services") or [] if s_.get("start") and str(s_.get("evidence") or "").startswith(unit + "/")]
+        cands.sort(key=lambda s_: 0 if s_.get("source") in ("railway", "render", "fly", "Procfile") else 1 if s_.get("source") == "compose" else 2)
+        svc = None
+        for s_ in cands:
+            tok = str(s_["start"]).rsplit("/", 1)[-1]
+            if s_.get("source") in ("railway", "render", "fly", "Procfile", "compose") or tok in RUNNER_TOKENS:
+                svc = s_
+                break
+        if svc:
+            where = "deploy.startCommand" if svc.get("source") in ("railway", "render") else ("command" if svc.get("source") == "compose" else "the start line")
+            full = svc.get("start_full") or ""
+            add("run (as deployed)", full if full else f"{svc['start']} ... (the rest of {where} carries a value, so it is not copied)", f"{svc['evidence']}: {where}")
+        if unit and (repo / unit / "compose.yaml").is_file() or unit and (repo / unit / "docker-compose.yml").is_file() or unit and (repo / unit / "compose.yml").is_file():
+            cf = next(n for n in ("compose.yaml", "docker-compose.yml", "compose.yml") if (repo / unit / n).is_file())
+            add("run (local stack)", "docker compose up -d --build", f"{unit}/{cf}")
+            ctext = read(repo / unit / cf)
+            if "env_file" in ctext:
+                ex = next((n for n in ("example.env", ".env.example", ".env.sample", ".env.template") if (repo / unit / n).is_file()), None)
+                compose_gotcha = f"- copy `{ex}` to `.env` before `docker compose up`: the compose file reads `env_file` [{unit}/{cf}: env_file]" if ex else f"- the compose file reads `env_file`; create `.env` from the example before `docker compose up` [{unit}/{cf}: env_file]"
+        else:
+            add("run", "open question - no run script in the manifest and no platform start command found; the unit README may say", f"{unit}/README.md" if (repo / unit / "README.md").is_file() else f"{unit}")
+    units_here = [] if unit else [u for u in unit_dirs(inv, repo) if any(str(Path(p.get("path", ".")).as_posix()) == u for p in inv.get("packages") or [])]
+    index_link = central_rel if not unit else os.path.relpath(central_rel, unit).replace("\\", "/")
+    lines = [f"# {name} - for agents", "",
+             f"> **This document owns:** the commands as the manifests name them, the conventions an agent cannot infer from the code of {name}, and the gotchas. Forty lines at most; the README links here for the commands and the docs index owns everything else. " + ("*(draft, review me)* - the commands are read from the manifests; conventions and gotchas are open questions" if cmds else "*(skeleton, write me)*"),
+             "", "## Commands", ""]
+    lines += cmds or ["- open question: no install, run, test or lint script found in a manifest or task runner - write the commands as they are typed, each with its source in brackets"]
+    if units_here:
+        lines += ["- these are the root manifest's commands; each unit's own are in its agent file under Units below, and the root test or lint script covers a unit only when the manifest says so (open question until a person confirms)"]
+    seed = (repo / (unit or ".") / "CLAUDE.md")
+    if units_here:
+        lines += ["", "## Units", ""]
+        for u in units_here:
+            has_cmds = "- install:" in agent_skeleton(repo, inv, central_rel, u) or "- run" in agent_skeleton(repo, inv, central_rel, u)
+            fallback = f"; `{u}/README.md` holds the setup a person wrote" if (repo / u / "README.md").is_file() else ""
+            state = "a draft: its commands come from the manifest, its conventions are open" if has_cmds else "a skeleton today"
+            lines += [f"- [{u}/{AGENT_FILE}]({u}/{AGENT_FILE}) - the commands of `{u}`, run from that folder; the nearest agent file wins ({state}{fallback})"]
+    fold = f"- existing text to fold in: [{seed.name}]({seed.name}) - a person wrote it for agents; move what belongs here, the rest to the doc that owns it" if seed.is_file() and read(seed).strip() not in ("", "@AGENTS.md") else ""
+    for other in (".cursorrules", ".windsurfrules", "GEMINI.md", ".github/copilot-instructions.md", ".cursor/rules"):
+        op = repo / (unit or ".") / other
+        if op.exists() and (op.is_dir() or read(op).strip()):
+            fold = (fold + "\n" if fold else "") + f"- existing text to fold in: [{other}]({other}) - a person wrote it for agents; the same rule"
+    if unit and (repo / "CLAUDE.md").is_file():
+        # a parent CLAUDE.md with a heading named after this unit's folder or stack holds this unit's rules
+        parent = read(repo / "CLAUDE.md")
+        needles = {unit.rsplit("/", 1)[-1].lower()}
+        heads = [m.group(1).strip() for m in re.finditer(r"^ {0,3}#{2,3}[ \t]+(.+?)[ \t]*$", parent, re.M)]
+        hits = [h for h in heads if any(n in h.lower() for n in needles)]
+        if hits:
+            back = os.path.relpath(repo / "CLAUDE.md", repo / unit).replace("\\", "/")
+            fold = (fold + "\n" if fold else "") + f"- existing text to fold in: [{back} § {hits[0]}]({back}#{slug(hits[0])}) - the parent agent-instruction file has a section on this unit"
+    lines += ["", "## Conventions", "", "- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)"] + ([fold] if fold else [])
+    post = [f"- `postinstall` runs on every install: `{p_.get('package_manager') or 'npm'} install` executes it [{p_['evidence']}: scripts.postinstall]"
+            for p_ in inv.get("packages") or [] if "postinstall" in (p_.get("scripts") or []) and ((unit and str(Path(p_.get("path", ".")).as_posix()) == unit) or (not unit and p_.get("path") in (".", "")))]
+    lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([compose_gotcha] if compose_gotcha else []) + script_gotchas + post + ([fold] if fold else [])
+    lines += [
+              "", "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
     return "\n".join(lines) + "\n"
 
 
 def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have_index: bool, have_manifest: bool,
                front_links_index: bool, root_docs: bool, docs_root: str = "docs", package_docs: list[str] | None = None,
-               front_has_start_here: bool = True, central_rel: str | None = None) -> dict | None:
-    """What apply would create. Names templates, never carries content; the agent copies them."""
+               front_has_start_here: bool = True, central_rel: str | None = None, manifest_groups: dict | None = None,
+               index_is_table: bool = False) -> dict | None:
+    """What apply would create and move. Names templates, never carries content the agent could
+    not read from the template itself; the index, the manifest and the agent file are built here."""
     files: dict[str, dict] = {}
-    uncovered = [c for c in coverage if not c["covered_by"]]
-    if not have_index and not root_docs:
-        # With the content, not just a name. SKILL.md says the template is in the checker's
-        # output; it was a module constant nothing emitted, so two agents wrote two indexes.
-        files[f"{docs_root}/INDEX.md"] = {"template": "INDEX.md (built in)",
-                                          "lines": len(INDEX_TEMPLATE.splitlines()),
-                                          "content": INDEX_TEMPLATE}
+    uncovered = [c for c in coverage if not c["covered_by"] and not c.get("misplaced")]
+    moves = [{"from": c["misplaced"], "to": c["default_path"], "concern": c["concern"]} for c in coverage if c.get("misplaced")]
+    plan_rows = [c for c in coverage if c["concern"] == "tasks"]
+    unit_docs_dirs = sorted({f"{str(Path(p.get('path', '.')).as_posix())}/{d}" for p in (inv.get("packages") or []) if p.get("path") not in (None, ".", "")
+                             for d in DOCS_FOLDER_NAMES if (repo / p["path"] / d).is_dir()}) if "monorepo" in (inv.get("kinds") or []) else []
     manifest = {
-        # Only tracked files: a gitignored CLAUDE.md is on this machine, not in the clone the
-        # manifest travels to, and a root that does not exist there is a warning for everyone.
-        # Under root-docs the glob already covers every root file, so only a package's own doc
-        # (one with a folder in its path) is worth naming beside it.
-        "roots": ([docs_root] + [f for f in ROOT_FILES if tracked_file(repo, f)] + list(package_docs or [])) if not root_docs
+        "roots": ([docs_root] + [f for f in ROOT_FILES if tracked_file(repo, f)] + list(package_docs or []) + unit_docs_dirs) if not root_docs
                  else ["*.md"] + [p for p in (package_docs or []) if "/" in p],
-        # The index that exists, when one does. This hardcoded docs/INDEX.md whether or not
-        # detection had just found docs/README.md, and the merge below copied it into the
-        # printed proposal - so on the commonest GitHub layout apply wrote a manifest naming a
-        # file it never created, and the repository that had just passed failed on the next
-        # run with "no central index".
         "centralIndex": (central_rel if have_index and central_rel
                          else "README.md" if root_docs else f"{docs_root}/INDEX.md"),
         "indexConvention": "sibling",
         "ownerLine": {"markers": DEFAULT_MANIFEST["ownerLine"]["markers"], "enforce": False},
-        "splitAt": 500,
-        "pathPrefixes": top_level_dirs(repo),
-        "recordFolders": [c["default_path"].rsplit("/", 1)[0] + "/log" for c in uncovered if c["concern"] == "research"],
-        "counts": [{"index": c["default_path"],
-                    "folder": (c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else "") + "tasklist"}
-                   for c in uncovered if c["concern"] == "plan"],
+        "splitAt": 1000,
+        "pathPrefixes": [d for d in top_level_dirs(repo) if d not in ("tmp", "temp", "scratch", "public", "static", "assets")],
+        "recordFolders": [c["default_path"].rsplit("/", 1)[0] + "/log" for c in coverage if c["concern"] == "research"],
+        "counts": [{"index": c["default_path"], "folder": c["default_path"].rsplit("/", 1)[0] + "/tasklist"} for c in plan_rows],
         "frontDoor": front_rel,
         "ignore": [],
     }
+    manifest = {k: v for k, v in manifest.items() if v not in ([], {}, None)}
+    for k in ("ownerLine", "splitAt", "maxParts", "minPart"):
+        if k in manifest and manifest[k] == DEFAULT_MANIFEST.get(k):
+            manifest.pop(k)
     if not have_manifest:
         files[f"{docs_root}/structure.json" if not root_docs else "docs-structure.json"] = {"template": "generated", "lines": len(json.dumps(manifest, indent=2).splitlines()), "content": manifest}
-    rows = []
+    central_out = manifest["centralIndex"]
+    lines_out: list[str] = []
+    groups: dict[str, list[str]] = {}
+
+    def link_to(path: str) -> str:
+        if root_docs:
+            return path
+        base = central_out.rsplit("/", 1)[0] + "/" if "/" in central_out else ""
+        if path.startswith(base):
+            return path[len(base):]
+        return "../" * base.count("/") + path
+
+    def group_for(c: dict) -> str:
+        if c.get("unit"):
+            return "Units"
+        return BUCKET_TITLE.get(c.get("bucket") or "", "Root files")
+
     for c in uncovered:
         t = template_for(c["template"])
         if t is None:
             continue
+        if c["concern"] == "readme":
+            content = read(t).replace("<project>", project_name(repo), 1)
+            block = start_here_block(repo, front_rel, docs_root, central_out, coverage)
+            content = content.replace(START_HERE_OPEN + "\n" + START_HERE_CLOSE, block.rstrip("\n"), 1)
+            files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(content.splitlines()),
+                                        "why": "readme (always) - the front door, with the Start-here block in its slot", "concern": "readme", "content": content}
+            continue
+        if c["concern"] == "agent":
+            content = agent_skeleton(repo, inv, central_out, c.get("unit"))
+            files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(content.splitlines()),
+                                        "why": f"{c['concern']} ({c['applies']})" + (f" for {c['unit']}" if c.get("unit") else ""), "concern": c["concern"], "content": content}
+            if c.get("unit"):
+                line = index_line(f"Agent file ({c['unit']})", link_to(c["default_path"]), f"the commands of {c['unit']} as its manifest names them, run from the unit, and its conventions.",
+                                  "draft" if "(draft, review me)" in content else "skeleton")
+                lines_out.append(line)
+                groups.setdefault("Units", []).append(line)
+                continue
+            if not tracked_file(repo, "CLAUDE.md") and not (repo / "CLAUDE.md").exists() and (repo / ".claude").is_dir():
+                files["CLAUDE.md"] = {"template": "references/templates/CLAUDE.md", "lines": 1, "why": "imports the agent file for Claude Code", "concern": "agent"}
+            continue
         files[c["default_path"]] = {"template": f"references/templates/{c['template']}", "lines": len(read(t).splitlines()),
-                                    "why": f"{c['concern']} ({c['applies']})", "concern": c["concern"]}
+                                    "why": f"{c['concern']} ({c['applies']})" + (f" for {c['unit']}" if c.get("unit") else ""), "concern": c["concern"]}
+        seed_src = c.get("seed") or c.get("near_name")
+        # a seed doc that apply moves is named at the path it will have
+        seed_src = {m["from"]: m["to"] for m in moves}.get(seed_src, seed_src) if seed_src else seed_src
+        seed_here = {m["to"]: m["from"] for m in moves}.get(seed_src, seed_src) if seed_src else seed_src
+        if seed_src and (repo / seed_here).is_file():
+            # the plan knows where the text is; the skeleton says so in its lead, so the reader who lands
+            # here is one hop from it instead of at a dead end
+            tl = read(t).splitlines()
+            rel_seed = os.path.relpath(repo / seed_src, (repo / c["default_path"]).parent).replace("\\", "/")
+            sec = f" § {c['matched_heading']}" if c.get("matched_heading") else ""
+            seed_head = "\n".join(read(repo / seed_here).splitlines()[:12])
+            who = "a draft the tool wrote, unreviewed" if ("(draft, review me)" in seed_head or "(skeleton" in seed_head or "(auto, review me)" in seed_head) else "written by a person"
+            note = f"*Existing text to fold in: [{seed_src}{sec}]({rel_seed}{('#' + slug(c['matched_heading'])) if c.get('matched_heading') else ''}) - {who}; fill seeds from it, and it stays where it is until a person moves it.*"
+            notes = [note]
+            for rel_, h_ in (c.get("extra_seeds") or []):
+                rel_dst = {m["from"]: m["to"] for m in moves}.get(rel_, rel_)
+                rel_lnk = os.path.relpath(repo / rel_dst, (repo / c["default_path"]).parent).replace("\\", "/")
+                head_ = "\n".join(read(repo / rel_).splitlines()[:12]) if (repo / rel_).is_file() else ""
+                who_ = "a draft the tool wrote, unreviewed" if ("(draft, review me)" in head_ or "(skeleton" in head_ or "(auto, review me)" in head_) else "written by a person"
+                notes.append(f"*Existing text to fold in: [{rel_dst} § {h_}]({rel_lnk}#{slug(h_)}) - {who_}.*")
+            c["_seed_text"] = f"{seed_src}{sec}" + (f" (+{len(notes) - 1} more in the doc)" if len(notes) > 1 else "")
+            at = next((i for i, l in enumerate(tl) if l.strip().startswith("<!-- concern:")), None)
+            if at is not None:
+                tl = tl[:at + 1] + [""] + notes + tl[at + 1:]
+                files[c["default_path"]]["content"] = "\n".join(tl) + "\n"
+                files[c["default_path"]]["lines"] = len(tl)
         base = c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else ""
+        tbase = c["template"].rsplit("/", 1)[0] + "/" if "/" in c["template"] else ""
         for comp in c["companions"]:
-            ct = template_for(comp)
-            if ct is not None:
-                files[base + comp] = {"template": f"references/templates/{comp}", "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
-        title = c["default_path"].rsplit("/", 1)[-1][:-3]
-        link = c["default_path"].split("/", 1)[1] if (not root_docs and "/" in c["default_path"]) else c["default_path"]
-        rows.append(f"| [{title}]({link}) | {owner_text(t)} | skeleton |")
-    if not files and front_links_index and (front_has_start_here or root_docs):
+            ct = template_for(tbase + comp) or template_for(tbase + comp.replace("ADR-0001-first-decision.md", "ADR-0000-template.md"))
+            if ct is None:
+                continue
+            comp_out = comp.replace("YYYY-MM", head_month(repo)) if "YYYY-MM" in comp else comp
+            if exists_exact(repo / (base + comp_out)):
+                continue
+            files[base + comp_out] = {"template": f"references/templates/{posix(ct, TEMPLATES) if ct.is_relative_to(TEMPLATES) else ct.name}",
+                                      "lines": len(read(ct).splitlines()), "why": f"companion of {c['concern']}", "concern": c["concern"]}
+        title = doc_title(t, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
+        existing = f" Existing text to fold in: {c['_seed_text']}." if c.get("_seed_text") else ""
+        t_owner = strip_unearned(owner_text(t), coverage)
+        line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), (f"for {c['unit']}: " if c.get("unit") else "") + t_owner + existing, "skeleton")
+        lines_out.append(line)
+        groups.setdefault(group_for(c), []).append(line)
+    # docs that exist - at their path or about to be moved there - keep their own title and owner line
+    for c in coverage:
+        src = c["covered_by"] or c.get("misplaced")
+        if not src or c["concern"] == "agent" or src == front_rel or not (repo / src).is_file():
+            continue
+        d = Doc(repo / src, repo)
+        t = template_for(c["template"])
+        own = ""
+        for l in d.lines[:12]:
+            if "This document owns:" in l:
+                own = re.sub(r"\s*\*\((skeleton|draft|auto)[^)]*\)\*\s*$", "", l.split("owns:**", 1)[-1]).strip(" *")
+                break
+        # the index describes the slot, so two docs never claim one fact in the map; the doc's own owner
+        # line stays as the person wrote it
+        own = own or (strip_unearned(owner_text(t), coverage) if t else "")
+        title = doc_title(repo / src, c["default_path"].rsplit("/", 1)[-1][:-3].replace("_", " ").capitalize())
+        line = index_line(title + (f" ({c['unit']})" if c.get("unit") else ""), link_to(c["default_path"]), own, doc_state(d))
+        lines_out.append(line)
+        groups.setdefault(group_for(c), []).append(line)
+    # GitHub surfaces CONTRIBUTING.md and CHANGELOG.md at the root; the docs live in the shape, so
+    # the root carries one line pointing at each - written when the root has none, or when the
+    # root file is the one this run moves into the shape
+    for cid, label in (("contribute", "Contributing"), ("changelog", "Changelog")):
+        row = next((c for c in coverage if c["concern"] == cid and not c.get("unit")), None)
+        if row is None or root_docs:
+            continue
+        root_name = "CONTRIBUTING.md" if cid == "contribute" else "CHANGELOG.md"
+        if row["default_path"] == root_name:
+            continue
+        have_root = tracked_file(repo, root_name) or (repo / root_name).exists()
+        if have_root and row.get("misplaced") != root_name:
+            continue
+        files[root_name] = {"template": "pointer (built in)", "lines": 1, "concern": cid,
+                            "why": f"GitHub surfaces a root {root_name}; one line pointing at {row['default_path']}",
+                            "content": f"See [{label}]({row['default_path']}).\n"}
+    agent = agent_file(repo)
+    # every Markdown file the repository tracks, not only the linked ones: a unit's own docs folder, a
+    # README beside a service, a doc under ops/ - "one hop from the index" has to hold for all of them
+    placed_paths = {m.group(1) for l in lines_out for m in [re.search(r"\]\(([^)]+)\)", l)] if m}
+    placed_abs = set()
+    for lp in placed_paths:
+        try:
+            placed_abs.add(posix((repo / (central_out.rsplit("/", 1)[0] if "/" in central_out else ".") / lp).resolve(), repo))
+        except ValueError:
+            pass
+    # docs under the checked roots are the checker's business (R1 names each unlisted one); the
+    # extras are the files outside them, which no rule reads and no index used to list
+    extra_md = [rel for rel in all_markdown(repo) if rel not in placed_abs and rel not in files
+                and rel not in (package_docs or []) and not (rel.startswith(docs_root + "/") and not root_docs)]
+    for p in list(package_docs or []) + extra_md:
+        if not (repo / p).is_file() or p in (front_rel, agent, central_rel, AGENT_FILE, "CLAUDE.md") or is_community_file(p) or p in placed_abs:
+            continue
+        if Path(p).name in ("CLAUDE.md", "AGENTS.md") and "/" in p:
+            continue  # a unit agent file is listed by its row, or is a person's file
+        placed_abs.add(p)
+        pd = Doc(repo / p, repo)
+        h1 = next((t for _, lvl, t in pd.headings if lvl == 1), Path(p).stem)
+        first = next((l.strip() for l in pd.clean[1:60] if l.strip() and not l.startswith(("#", "!", "<", ">", "|", "-", "*", "`", "["))), "")
+        first = first.split(". ")[0].rstrip(".") if first else ""
+        if first.endswith(":") or len(first.split()) < 6:
+            first = ""  # "Three things:" is the start of a list, not what the doc owns; the H1 says more
+        # a package's description describes its README; any other file says what it is itself
+        owns = (package_description(repo, (repo / p).parent) if "/" in p and Path(p).stem.upper() == "README" else "") or first or h1
+        owns = re.sub(r"[*_`]+", "", owns)
+        owns = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", owns).replace("|", "/")
+        owns = (owns[:77].rsplit(" ", 1)[0] + "...") if len(owns) > 80 else owns
+        line = index_line(p, link_to(p), owns, "unreviewed")
+        lines_out.append(line)
+        beside_code = any(part in CODE_DIRS for part in Path(p).parts[:-1])
+        in_unit = any(p.startswith(u + "/") for u in unit_dirs(inv, repo))
+        groups.setdefault("Notes beside code" if beside_code else ("Units" if in_unit else ("Other folders" if "/" in p else "Root files")), []).append(line)
+    extra_order: list[str] = []
+    if index_is_table and central_rel and (repo / central_rel).is_file():
+        # every row the table index had, under its old heading, in the list grammar; a row whose
+        # doc this run places or moves is already above and is skipped here
+        cdoc = Doc(repo / central_rel, repo)
+        placed = {re.search(r"\]\(([^)]+)\)", l).group(1) for l in lines_out if re.search(r"\]\(([^)]+)\)", l)}
+        moved_from = {m["from"] for m in moves}
+        cbase = (repo / central_rel).parent
+        heading = None
+        tables = index_tables(cdoc)
+        for line in cdoc.clean:
+            s_ = line.strip()
+            if s_.startswith("## "):
+                heading = s_[3:].strip()
+                continue
+            if not (heading and s_.startswith("| [") and any(t["docs_table"] and t["heading"] == heading for t in tables)):
+                continue
+            cells = [c.strip() for c in s_.strip("|").split("|")]
+            m_ = re.search(r"\[([^\]]*)\]\(([^)#]+)", cells[0])
+            if not m_ or len(cells) < 3:
+                continue
+            target = m_.group(2)
+            rel_target = posix(cbase / target, repo)
+            if target in placed or rel_target in moved_from or rel_target in placed:
+                continue
+            owns = re.sub(r"[*_`]+", "", cells[1]).strip()
+            state = re.sub(r"[*_`]+", "", cells[-1]).strip() or "unreviewed"
+            group = BUCKET_TITLE.get(heading.lower(), heading)
+            if group not in INDEX_ORDER and group not in extra_order:
+                extra_order.append(group)
+            groups.setdefault(group, []).append(index_line(m_.group(1), target, owns, state))
+    if (not have_index or index_is_table) and not root_docs:
+        readme = inv.get("readme") or {}
+        rank = {"reviewed": 0, "draft": 1, "unreviewed": 2, "skeleton": 3}
+
+        def state_of(line: str) -> int:
+            m_ = INDEX_LINE.match(line)
+            st = (m_.group(4) or "").strip().split()[0] if m_ and m_.group(4) else "unreviewed"
+            return rank.get(st, 2)
+
+        def unit_of(line: str) -> str:
+            m_ = re.search(r"\]\((\.\./)*([^)#]+)\)", line)
+            p_ = (m_.group(2) if m_ else "").split("/")
+            return "/".join(p_[:-1]) if len(p_) > 1 else ""
+
+        for g_, ls_ in groups.items():
+            if g_ == "Units":
+                ls_.sort(key=lambda l_: (unit_of(l_), state_of(l_)))
+            else:
+                ls_.sort(key=state_of)
+        content = index_content(groups, project_name(repo), readme.get("first_paragraph") or "", extra_order)
+        files[central_out] = {"template": "INDEX.md (built in)", "lines": len(content.splitlines()), "content": content,
+                              "why": "rewrite in the list grammar" if index_is_table else "the central index"}
+    if not files and not moves and front_links_index and (front_has_start_here or root_docs):
         return None
-    out: dict = {"files": files, "index_rows": rows,
-                 "print_only": {(agent_file(repo) or "AGENTS.md"): routing_section(coverage, docs_root, manifest["centralIndex"])},
-                 "agent_file": agent_file(repo),
+    readme_row = next((c for c in coverage if c["concern"] == "readme" and c["covered_by"]), None)
+    readme_append = []
+    if readme_row and readme_row.get("missing_sections"):
+        rt = template_for("README.md")
+        guides = dict(template_sections(rt)) if rt else {}
+        readme_append = [{"heading": h, "content": f"## {h}\n\n{guides.get(h, '')}\n"} for h in readme_row["missing_sections"]]
+    out: dict = {"files": files, "moves": moves, "index_lines": lines_out, "index_groups": groups,
+                 # roots a monorepo's manifest should carry so the unit docs are checked, not only listed
+                 "manifest_add_roots": unit_docs_dirs if have_manifest else [],
+                 # sections the README template has and this README lacks; `apply readme` appends them, in this order, after the existing text
+                 "readme_append": readme_append,
+                 "agent_file": agent,
                  "then": "run the checker again; skeletons show up in the section states until written or filled"}
-    if not root_docs and (not front_links_index or not front_has_start_here):
-        out["front_door"] = {"path": front_rel,
-                             "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
-                             "content": start_here_block(repo, front_rel, docs_root, manifest["centralIndex"], coverage),
-                             "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"}
+    if not root_docs and front_rel not in files:
+        block = start_here_block(repo, front_rel, docs_root, central_out, coverage)
+        stale = False
+        if front_links_index and front_has_start_here and (repo / front_rel).is_file():
+            text = read(repo / front_rel)
+            if START_HERE_OPEN in text and START_HERE_CLOSE in text:
+                have = text[text.index(START_HERE_OPEN):text.index(START_HERE_CLOSE) + len(START_HERE_CLOSE)]
+                stale = have.replace("\r\n", "\n").strip() != block.strip()
+        if not front_links_index or not front_has_start_here or stale:
+            out["front_door"] = {"path": front_rel,
+                                 "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
+                                 "content": block,
+                                 "why": ("the block between the markers is out of date; replace it" if stale
+                                         else "so the front door hands off to the index in the same three-step shape on every repo (R11)")}
     return out
 
 
@@ -1705,19 +2581,60 @@ def sibling_index(folder: Path, repo: Path, convention: str) -> Path | None:
 
 
 def index_for(doc: Doc, repo: Path, roots: list[Path], convention: str) -> Path | None:
-    """Walk up from the doc's folder to a root looking for a sibling index."""
+    """Walk up from the doc's folder to a root looking for a sibling index. A bucket folder of
+    the shape has none - the central index is its index, one hop - and `decisions/` carries its
+    own README inside whatever the repo's convention is."""
     folder = doc.path.parent
     while True:
         if folder in roots or folder == repo:
             return None
         idx = sibling_index(folder, repo, convention)
+        if idx is None and folder.name == "decisions" and convention != "inside":
+            idx = sibling_index(folder, repo, "inside")
         if idx is not None and idx != doc.path:
             return idx
         folder = folder.parent
 
 
-def split_analysis(doc: Doc, split_at: int, max_parts: int) -> dict:
+def part_groups(lines: list[str], cuts: list[int], min_part: int) -> list[tuple[int, int]]:
+    """Cut points to (start, end) line ranges, 1-based start, exclusive end. A heading with no
+    body merges into the part that follows; a part shorter than min_part merges into the
+    part that follows it (or, last, into the one before). Eighteen six-line parts were the
+    alternative."""
+    n = len(lines)
+    bounds = list(cuts) + [n + 1]
+    raw: list[tuple[int, int]] = []
+    i = 0
+    while i < len(bounds) - 1:
+        j = i
+        while j + 1 < len(bounds) - 1 and not [l for l in lines[bounds[j]:bounds[j + 1] - 1] if l.strip()]:
+            j += 1
+        raw.append((bounds[i], bounds[j + 1]))
+        i = j + 1
+    merged: list[tuple[int, int]] = []
+    carry: tuple[int, int] | None = None
+    for start, end in raw:
+        if carry is not None:
+            start = carry[0]
+            carry = None
+        if end - start < min_part:
+            carry = (start, end)
+            continue
+        merged.append((start, end))
+    if carry is not None:
+        if merged:
+            s0, _ = merged.pop()
+            merged.append((s0, carry[1]))
+        else:
+            merged.append(carry)
+    return merged
+
+
+def split_analysis(doc: Doc, split_at: int, max_parts: int, min_part: int = 80) -> dict:
     """Where a doc could be cut. Reports, never cuts."""
+    # A manifest that lowers splitAt for a small repo keeps the ratio: a part is never asked to
+    # be longer than a fifth of what counts as long, or every section merges into one.
+    min_part = max(1, min(min_part, split_at // 5))
     n = len(doc.lines)
     out: dict = {"path": doc.rel, "lines": n, "level": None, "parts": None,
                  "largest": None, "refuse": None}
@@ -1740,21 +2657,7 @@ def split_analysis(doc: Doc, split_at: int, max_parts: int) -> dict:
         if intro > split_at:
             reasons.append(f"H{level}: intro is {intro} lines")
             continue
-        # merge a heading with no body into the part that follows it
-        bounds = [c[0] for c in cuts] + [n + 1]
-        parts = []
-        i = 0
-        while i < len(bounds) - 1:
-            start, end = bounds[i], bounds[i + 1]
-            body = [l for l in doc.lines[start:end - 1] if l.strip()]
-            if not body and i + 1 < len(bounds) - 1:
-                i += 1
-                end = bounds[i + 1]
-                while i + 1 < len(bounds) - 1 and not [l for l in doc.lines[bounds[i]:bounds[i + 1] - 1] if l.strip()]:
-                    i += 1
-                    end = bounds[i + 1]
-            parts.append(end - start)
-            i += 1
+        parts = [end - start for start, end in part_groups(doc.lines, [c[0] for c in cuts], min_part)]
         largest = max(parts)
         if len(parts) < 3:
             reasons.append(f"H{level}: only {len(parts)} part(s)")
@@ -2039,7 +2942,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 if seen >= 12:
                     break
         if (not has_owner and not exempt("R2", d.rel) and not d.skipped and generator is None
-                and not is_community_file(d.rel)
+                and not is_community_file(d.rel) and d.rel != central_rel
                 and (root_docs and d.rel not in ROOT_FILES or d.path not in roots)):
             if rec:
                 pass  # a record folder describes a moment; R6 and R7 already relax there, and so does this
@@ -2171,6 +3074,32 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 if age > stale_days:
                     add("R13", d.rel, i, f"verified against {src.strip()} on {ymd}, older than {stale_days} days - look again or strike the line", "warn")  # no day count: the snapshot must not change with the calendar
 
+    # ---- R14 the index says where each doc stands, in words the checker can read
+    if central_exists and not exempt("R14", central_rel):
+        cdoc = by_rel.get(central_rel) or Doc(central, repo)
+        for i, line in enumerate(cdoc.clean, start=1):
+            s_ = line.strip()
+            raw_state = None
+            lm = INDEX_LINE.match(line)
+            if lm:
+                raw_state = lm.group(4) or ""
+                if not raw_state:
+                    add("R14", central_rel, i, "index line carries no state; end it with ' - skeleton', ' - draft', ' - unreviewed', ' - reviewed YYYY-MM-DD', ' - none YYYY-MM-DD' or ' - stale YYYY-MM-DD'", "warn")
+                    continue
+            elif s_.startswith("|") and not set(s_.replace("|", "").strip()) <= set("-: "):
+                cells = [c.strip() for c in s_.strip("|").split("|")]
+                if len(cells) < 3 or cells[0].lower() in ("doc", "part", "phase") or not LINK_RE.search(cells[0]):
+                    continue
+                raw_state = cells[-1]
+            if raw_state is None:
+                continue
+            state = raw_state.strip("*` ").lower()
+            m = re.match(r"(skeleton|draft|unreviewed|reviewed|none|current|stale)\b(.*)$", state)
+            if not m:
+                add("R14", central_rel, i, f"state '{raw_state[:40]}' is not one of skeleton, draft, unreviewed, reviewed <date>, none <date>, stale <date>", "warn")
+            elif m.group(1) in ("reviewed", "current", "stale") and not re.search(r"\d{4}-\d{2}-\d{2}", m.group(2)):
+                add("R14", central_rel, i, f"state '{m.group(1)}' carries no date; write {m.group(1)} YYYY-MM-DD so a reader knows when", "warn")
+
     # ---- R1 aggregate when no central index
     if not r1_off and not central_exists and unreachable:
         if manifest_path is not None and repo.resolve() in manifest_path.resolve().parents:
@@ -2185,8 +3114,9 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
             f"no central index - {len(unreachable)} doc(s) are linked only from the front door, if at all")
 
     # ---- R3 candidates
-    split_at = int(manifest.get("splitAt") or 500)
-    max_parts = int(manifest.get("maxParts") or 30)
+    split_at = int(manifest.get("splitAt") or 1000)
+    max_parts = int(manifest.get("maxParts") or 12)
+    min_part = int(manifest.get("minPart") or 80)
     candidates = []
     for d in docs:
         if d.skipped:
@@ -2194,12 +3124,25 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 add("R3", d.rel, 1, f"over {MAX_READ} bytes, not analysed - oversize by any measure", "warn")
             continue
         if len(d.lines) > split_at and not exempt("R3", d.rel) and not is_community_file(d.rel):
-            a = split_analysis(d, split_at, max_parts)
+            a = split_analysis(d, split_at, max_parts, min_part)
             candidates.append(a)
             if a["refuse"]:
                 add("R3", d.rel, 1, f"{a['lines']} lines, oversize and unsplittable ({a['refuse']}) - needs a human restructure", "warn")
             else:
                 add("R3", d.rel, 1, f"{a['lines']} lines - could become an index plus {a['parts']} parts at {a['level']} (largest {a['largest']})", "warn")
+
+    # ---- R3, the other direction: a folder of parts averaging under minPart is confetti from an
+    #      older cut, and the checker had no word for it.
+    folders: dict[str, list[int]] = {}
+    for d in docs:
+        if d.path.parent != repo and not d.skipped and SPLIT_PART.search(d.raw[:800]):
+            folders.setdefault(posix(d.path.parent, repo), []).append(len(d.lines))
+    for folder, sizes in sorted(folders.items()):
+        # phase files under tasklist/ and dated records are short by design, not confetti
+        if Path(folder).name.lower() in ("tasklist", "tasks") or matches_any(folder, record_folders):
+            continue
+        if len(sizes) >= 3 and sum(sizes) / len(sizes) < min_part and not exempt("R3", folder):
+            add("R3", folder + "/", 1, f"{len(sizes)} parts averaging {sum(sizes) // len(sizes)} lines, under minPart {min_part} - a merge candidate: rejoin them under the index, or into fewer chapters", "warn")
 
     # ---- R8 duplicated measurements
     owners: dict[str, list[str]] = {}
@@ -2322,9 +3265,56 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
     unreadable = (bool(coverage) and len(scorable) >= 2
                   and not any(c.get("covered_by") or c.get("near_name") for c in coverage)
                   and bool(heads) and foreign * 5 > len(heads))
+    for c in coverage:
+        if c["concern"] == "readme" and c["covered_by"]:
+            rt_ = template_for("README.md")
+            if rt_ is not None:
+                st_ = section_states(by_rel.get(c["covered_by"]) or Doc(repo / c["covered_by"], repo), rt_)
+                c["state"], c["missing_sections"] = st_["owner"], st_["missing"]
     if front_doc is not None:
         for gap in front_door_gaps(front_doc, repo, coverage, inv):
             add("R11", front_rel, 1, f"front door does not answer {gap} - advice, apply writes none of it", "warn")
+        # "One doc owns each fact" was a sentence in the index and nothing checked it at the one
+        # file every reader lands on: a README kept its own deployment section while
+        # DEPLOYMENT.md sat beside it. A README H2 whose words match a concern another doc owns
+        # is that drift in the making; the README keeps a line and a link.
+        rt = template_for("README.md")
+        readme_h2 = {slug(h) for h, _ in template_sections(rt)} if rt else set()
+        readme_row = next((r for r in coverage if r["concern"] == "readme"), None)
+        if readme_row and readme_row.get("covered_by") and readme_row.get("missing_sections"):
+            add("R11", front_rel, 1, "front door lacks the template's sections " + ", ".join(readme_row["missing_sections"])
+                + " - advice; `apply readme` appends them as skeletons after the existing text", "warn")
+        for cid, bucket, applies, default_file, keywords, companions in CONCERNS:
+            row = next((r for r in coverage if r["concern"] == cid and not r.get("unit")), None)
+            if not row or not row.get("covered_by") or row["covered_by"] == front_rel or not keywords:
+                continue
+            kw = {tokens(k).strip() for k in keywords}
+            for ln, lvl, text in front_doc.headings:
+                if lvl != 2:
+                    continue
+                t = tokens(text)
+                if slug(text) in readme_h2:
+                    continue  # the README template's own section; what it holds is the front door's by design
+                if sum(1 for k in kw if f" {k} " in t) >= 1 and not is_start_here_heading(text):
+                    # the section's own lines: stop at the next heading, or the next section's
+                    # content made a one-line pointer look like forty lines
+                    body = []
+                    for l in front_doc.lines[ln:ln + 60]:
+                        if l.startswith("#"):
+                            break
+                        if l.strip():
+                            body.append(l)
+                    if len(body) <= 1:
+                        continue  # a line and a link is the shape asked for
+                    # a name inside a link is a pointer, not a second home; a name in backticks
+                    # in prose ("set `DATABASE_URL`") is exactly the second home
+                    body_text = re.sub(r"\[[^\]]*\]\([^)]*\)", " ", " ".join(body))
+                    named = {n for e in (inv.get("env") or []) for n in (e.get("names") or [])} | {s.get("name") for s in (inv.get("services") or []) if s.get("name")}
+                    hits = sum(1 for n in named if n and re.search(rf"(?<![A-Za-z0-9_]){re.escape(n)}(?![A-Za-z0-9_])", body_text))
+                    # six lines that name two env variables are a second home; so are forty lines that name none
+                    if len(body) > 6 or hits >= 2:
+                        add("R11", front_rel, ln, f"section '{text}' is a second home for {cid}, which {row['covered_by']} owns - keep a line and a link, move the rest", "warn")
+                    break
     if generator is None:
         for c in coverage:
             if c["covered_by"]:
@@ -2347,12 +3337,38 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                 continue  # two candidate docs folders went unread; their docs may cover this
             if unreadable:
                 continue  # nothing scored anywhere; the report says coverage was not determined
+            if c.get("misplaced"):
+                # R15 carries the move; R12 says nothing twice
+                continue
+            unit = f" for {c['unit']}" if c.get("unit") else ""
             if c.get("near_name"):
                 add("R12", anchor_path, 1,
-                    f"no doc scored for '{c['concern']}' ({why}), but {c['near_name']} is named for it - confirm before creating {c['default_path']}", "warn")
+                    f"no doc scored for '{c['concern']}'{unit} ({why}), but {c['near_name']} is named for it - confirm before creating {c['default_path']}", "warn")
                 continue
-            add("R12", anchor_path, 1, f"no doc covers '{c['concern']}' ({why}{seed}) - apply creates {c['default_path']} from the template",
+            add("R12", anchor_path, 1, f"no doc covers '{c['concern']}'{unit} ({why}{seed}) - apply creates {c['default_path']} from the template",
                 "fail" if manifest.get("requireConcerns") else "warn")
+        # ---- R15 the layout: a doc that covers a concern sits at that concern's canonical path
+        for c in coverage:
+            if c.get("misplaced"):
+                add("R15", c["misplaced"], 1, f"covers '{c['concern']}' but sits at the wrong path - move to {c['default_path']} (apply moves it and rewrites inbound links)")
+    index_is_table = False
+    if central_exists and generator is None and not root_docs:
+        cdoc0 = by_rel.get(central_rel) or Doc(central, repo)
+        if any(t["docs_table"] for t in index_tables(cdoc0)) and not index_lines(cdoc0):
+            index_is_table = True
+            add("R15", central_rel, 1, "the index is a table; the shape's index is a list - one line per doc, a link, a colon, what it owns, a dash, its state (apply rewrites it)")
+    # R11 on the agent file
+    if generator is None and not exempt("R11", AGENT_FILE):
+        agent_max = int(manifest.get("agentFileMaxLines") or 40)
+        if tracked_file(repo, AGENT_FILE):
+            n_lines = len([l for l in read(repo / AGENT_FILE).splitlines() if l.strip()])
+            if n_lines > agent_max:
+                add("R11", AGENT_FILE, 1, f"{n_lines} non-blank lines, over {agent_max} - an agent file is commands, conventions and gotchas; explanation belongs in a doc the index lists", "warn")
+            if tracked_file(repo, "CLAUDE.md"):
+                ctext = read(repo / "CLAUDE.md").strip()
+                if ctext and "@AGENTS.md" not in ctext:
+                    ctext = read(repo / "CLAUDE.md")
+                    add("R11", "CLAUDE.md", 1, "CLAUDE.md has content of its own beside AGENTS.md - " + ("its code block of commands belongs in AGENTS.md § Commands with sources, its rules in the doc that owns each; then " if "```" in ctext else "move its rules into the doc that owns each; then ") + "make it the one line `@AGENTS.md` so the two cannot drift", "warn")
     states: dict[str, dict] = {}
     for c in coverage:
         if c["covered_by"] and c["covered_by"] in by_rel:
@@ -2374,8 +3390,10 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
         front_links_index = target in fl or (target.rsplit("/", 1)[0] in fl)
     front_has = has_start_here(by_rel.get(front_rel) or Doc(front, repo)) if front.is_file() else False
     init = None if (generator is not None or ambiguous or unreadable) else init_block(repo, front_rel, coverage, inv, central_exists, source == "found", front_links_index, root_docs, docs_root,
-                                                          discovery.get("package_docs", []) if discovery else [], front_has,
-                                                          central_rel)
+                                                          sorted(set(discovery.get("package_docs", []) if discovery else []) | {r for r in roots_rel if (repo / r).is_file()}
+                                                                 # in a monorepo every package README is a row, linked or not: "one hop from the index" was false for exactly those
+                                                                 | ({str(Path(p.get("path", ".")).as_posix()) + "/README.md" for p in (inv.get("packages") or []) if p.get("path") not in (None, ".", "") and (repo / p["path"] / "README.md").is_file()} if "monorepo" in (inv.get("kinds") or []) else set())), front_has,
+                                                          central_rel, manifest_groups=manifest.get("indexGroups"), index_is_table=index_is_table)
 
     # ---- placeholders
     placeholders = 0
@@ -2474,6 +3492,7 @@ def build(repo: Path, manifest: dict, manifest_path: Path | None, source: str,
                    "warnings": sum(1 for f in findings if f["level"] == "warn"),
                    "placeholders": placeholders, "split_candidates": len(candidates),
                    "concerns_covered": sum(1 for c in coverage if c["covered_by"]), "concerns_missing": sum(1 for c in coverage if not c["covered_by"]),
+                   "moves": sum(1 for c in coverage if c.get("misplaced")),
                    "states": state_totals},
         "rules": per_rule,
         "findings": findings,
@@ -2537,19 +3556,21 @@ def render(d: dict, top: int) -> str:
         L.append("")
     if d.get("concerns"):
         st = t["states"]
-        L.append(f"Concerns: {t['concerns_covered']} covered, {t['concerns_missing']} {'not determined' if d.get('coverage_determined') is False else 'missing'}   Sections: {st['skeleton']} skeleton, {st['draft']} draft, {st['reviewed']} reviewed, {st['missing']} template sections absent from hand-written docs (advice)")
+        L.append(f"Concerns: {t['concerns_covered']} covered, {t['concerns_missing']} {'not determined' if d.get('coverage_determined') is False else 'missing'} ({t.get('moves', 0)} of them a move)   Sections: {st['skeleton']} skeleton, {st['draft']} draft, {st['reviewed']} reviewed, {st['missing']} template sections absent from hand-written docs (advice)")
         L.append("")
         L.append("| concern | applies because | covered by | matched by | state |")
         L.append("|---|---|---|---|---|")
         for c in d["concerns"]:
             cov = c["covered_by"] or (f"not determined" if d.get("coverage_determined") is False
-                                      else f"none - apply creates {c['default_path']}") + (f" (seed: {c['seed']})" if c.get("seed") else "")
+                                      else (f"move {c['misplaced']} -> {c['default_path']}" if c.get("misplaced")
+                                            else f"none - apply creates {c['default_path']}")) + (f" (fill can seed from {c['seed']})" if c.get("seed") else "")
             extra = f" (also {c['runner_up']})" if c.get("runner_up") else ""
             # Reusing the outer quote inside an f-string expression is PEP 701, so 3.12 only.
             # The skill promises 3.11+, where this is a SyntaxError at import and every one of
             # the three scripts dies.
             weak = " (weak)" if c.get("weak") else ""
-            L.append(f"| {c['concern']} | {c['applies']} | {cov}{weak}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
+            unit = f" ({c['unit']})" if c.get("unit") else ""
+            L.append(f"| {c['concern']}{unit} | {c['applies']} | {cov}{weak}{extra} | {c['matched_by'] or '-'} | {c.get('state', '-')} |")
     L.append("")
     L.append("| rule | severity | failures | warnings | first |")
     L.append("|---|---|---|---|---|")
@@ -2587,12 +3608,15 @@ def render(d: dict, top: int) -> str:
         for path, info in d["init"]["files"].items():
             why = f"  - {info['why']}" if info.get("why") else ""
             L.append(f"  {path}  ({info['lines']} lines, {info['template']}){why}")
-        for row in d["init"].get("index_rows", []):
-            L.append(f"  index row: {row}")
+        for m in d["init"].get("moves", []):
+            L.append(f"  move: {m['from']} -> {m['to']}  ({m['concern']})")
+        for ra in d["init"].get("readme_append", []):
+            L.append(f"  readme: append '## {ra['heading']}' (apply readme)")
+        for row in d["init"].get("index_lines", []):
+            L.append(f"  index line: {row}")
         fd = d["init"].get("front_door")
         if fd:
             L.append(f"  {fd['path']}  + a 'Start here' section ({len(fd['content'].splitlines())} lines) {fd['where'].split(';')[0]}")
-        L.append("  and print a starter 'Docs routing' section for CLAUDE.md or AGENTS.md (not written).")
     if d["warnings"]:
         L.append("")
         L.extend(f"note: {w}" for w in d["warnings"])

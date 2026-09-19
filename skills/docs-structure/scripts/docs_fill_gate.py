@@ -28,6 +28,11 @@ What it checks, per section that carries the draft marker:
       or the draft names the scan behind it, or cites the inventory key it counted
   G10 a negative claim names a search: a grep, a scanned path, or an inventory key. Citing a
       file is not a search - it says the file was read, never that anything was looked for
+  G11 an `[inventory: key]` bracket names a key the doc's own `fill:` comment allows
+  G12 a table column that reads the same in every row is said once above the table
+  G13 the two grammars the shape fixes: a decision record (explanation/decisions/ADR-*.md)
+      carries its status-and-date line and its four sections; an index line carries its state
+  G14 the agent file (AGENTS.md) stays under its line cap; it is commands, conventions and gotchas
 
 G1 to G8 check the shape of a sentence. G9 and G10 are the two shapes that were actually
 wrong when drafts were read by hand: a number a second scanner disagrees with, and an
@@ -186,7 +191,12 @@ INV_BRACKET = re.compile(r"\[inventory:[ 	]*([^\]]+)\]")
 # The keys docs_evidence actually emits.
 INVENTORY_KEYS = {"packages", "services", "env", "schema", "routes", "cli", "exports", "frontend",
                   "tests", "ci", "ops", "decisions", "readme", "tree", "release", "kinds",
-                  "ecosystems", "warnings"}
+                  "ecosystems", "warnings", "auth", "jobs", "integrations", "changelog", "env_count"}
+ADR_STATUS = re.compile(r"^>\s*[*]{2}Status[:][*]{2}\s*(proposed|accepted|rejected|deprecated|superseded)\b.*[*]{2}Date[:][*]{2}\s*\d{4}-\d{2}-\d{2}", re.I)
+ADR_SECTIONS = ("Context", "Options", "Decision", "Consequences")
+INDEX_LINE = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*:\s*(?:(.*)\s-\s(\S.*?)|(.*?))\s*$")
+INDEX_STATE = re.compile(r"^(skeleton|draft|unreviewed|reviewed \d{4}-\d{2}-\d{2}|none \d{4}-\d{2}-\d{2}|stale \d{4}-\d{2}-\d{2})\b")
+AGENT_MAX_LINES = 40
 KEY_BRACKET = re.compile(r"\[[^\]]+\.[A-Za-z0-9]+:\s*[^\]]+\]")
 URL_TOKEN = re.compile(r"\b[a-z][a-z0-9+.-]*://\S+")
 # Source extensions only: ".com:5432" and "redis.io:6379" are a host and a port, and a
@@ -275,7 +285,7 @@ def is_template_text(candidate: list[str]) -> bool:
     if _TEMPLATE_LINES is None:
         _TEMPLATE_LINES = set()
         try:
-            for p in sorted(TEMPLATES_DIR.glob("*.md")):
+            for p in sorted(TEMPLATES_DIR.rglob("*.md")):
                 for l in read(p).splitlines():
                     t = l.strip()
                     if not t:
@@ -408,7 +418,7 @@ def quote_sources(repo: Path, refs: list[str]) -> list[str]:
     for ref in refs:
         for part in ref.split(";"):
             r = part.strip()
-            if not r or r.lower().startswith("inventory:"):
+            if not r or r.lower().startswith(("inventory:", "verified:")):
                 continue
             if SHA_REF.match(r):
                 sha = r.split()[0]
@@ -522,6 +532,10 @@ def resolve_bracket(repo: Path, ref: str) -> str | None:
             if key and INVENTORY_KEYS and key not in INVENTORY_KEYS:
                 return f"no such inventory key: {key}"
             continue
+        # [verified: Railway 2026-09-18]: a fact read from a platform, a dashboard or a person,
+        # said so. A platform-sourced sentence used to carry repo paths that did not hold it.
+        if re.match(r"^verified: .+ \d{4}-\d{2}-\d{2}$", part):
+            continue
         if SHA_REF.match(part):
             sha, when = part.split()[0], part.split()[1]
             if not sha_known(SHA_REPO or repo, sha):
@@ -597,6 +611,7 @@ COUNT_FIELDS: dict[str, tuple] = {
     # runner config and one per workflow *file*, so it answers a different question from the
     # one a sentence counting jobs or test files is asking, and blocked true counts.
     "dependencies": ("#deps",), "names": ("#env",), "variables": ("#env",), "keys": ("#env",),
+    "integrations": ("integrations", "count"), "sdks": ("integrations", "count"),
 }
 
 
@@ -704,6 +719,36 @@ def gate_inventory(repo: Path) -> tuple[set[str], dict[str, set[str]] | None]:
 
 
 
+MOVED_HEADING = re.compile(r"^ {0,3}(#{2,6})[ \t]+(?:.*\(from [^)]+\.(?:md|mdx)\)|From \S+\.(?:md|mdx))[ \t]*$")
+
+
+def blank_moved(lines: list[str]) -> list[str]:
+    """The lines under a `### <heading> (from <doc>)` block - what the restructure pasted in from
+    another document - replaced by blanks, up to the next heading of the same or a higher level."""
+    out = list(lines)
+    fenced = False
+    level = 0
+    for i, l in enumerate(lines):
+        if FENCE.match(l):
+            fenced = not fenced
+            if level:
+                out[i] = ""
+            continue
+        if fenced:
+            if level:
+                out[i] = ""
+            continue
+        h = HEADING.match(l)
+        if h and level and len(h.group(1)) <= level:
+            level = 0
+        mv = MOVED_HEADING.match(l)
+        if mv:
+            level = len(mv.group(1))
+        if level:
+            out[i] = ""
+    return out
+
+
 def sections(lines: list[str]) -> list[tuple[str, int, int]]:
     """(heading text, first body line index, end index) for the lead and every H2.
 
@@ -767,8 +812,75 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
 
     if len(lines) > max_lines:
         add("G8", 1, f"{len(lines)} lines, over the {max_lines}-line draft cap; a draft must not become a split candidate")
+    # G13: the two grammars the shape fixes. A decision record without its status line is a note;
+    # an index line without a state tells a reader nothing about whether to trust the doc.
+    name = Path(rel).name
+    if name.upper().startswith("ADR-") and "decisions" in Path(rel).parts:
+        if not any(ADR_STATUS.match(l.strip()) for l in lines[:6]):
+            add("G13", 1, "a decision record carries `> **Status:** <proposed|accepted|rejected|deprecated|superseded> · **Date:** YYYY-MM-DD` under its title")
+        h2s = {HEADING.match(l).group(2).strip() for l in lines if HEADING.match(l) and len(HEADING.match(l).group(1)) == 2}
+        for sec in ADR_SECTIONS:
+            if sec not in h2s:
+                add("G13", 1, f"a decision record has a `## {sec}` section")
+    if name.upper() in ("INDEX.MD",) or (name.upper() == "README.MD" and "decisions" in Path(rel).parts):
+        for i_, l in enumerate(lines, start=1):
+            m_ = INDEX_LINE.match(l)
+            if m_ and not INDEX_STATE.match((m_.group(4) or "").strip("*` ").lower()):
+                add("G13", i_, "an index line ends with its state: ' - skeleton', ' - draft', ' - unreviewed', ' - reviewed YYYY-MM-DD', ' - none YYYY-MM-DD' or ' - stale YYYY-MM-DD'")
+    # G14: the agent file is read by every agent on every run; past forty lines it is a document,
+    # and documents have an index to live in
+    if name.upper() == "AGENTS.MD":
+        n_ = sum(1 for l in lines if l.strip())
+        if n_ > AGENT_MAX_LINES:
+            add("G14", 1, f"{n_} non-blank lines in the agent file, over {AGENT_MAX_LINES}; keep commands, conventions and gotchas, move the rest to a doc the index lists")
+    # G12: a column that says the same thing in every row is not a column. 'meaning: not
+    # documented' was printed fifty times under a sentence that had already said it once.
+    i = 0
+    while i < len(lines):
+        if lines[i].lstrip().startswith("|"):
+            j = i
+            while j < len(lines) and lines[j].lstrip().startswith("|"):
+                j += 1
+            rows = [[c.strip() for c in l.strip().strip("|").split("|")] for l in lines[i:j]]
+            data = [r for r in rows[2:] if r and not set("".join(r)) <= set("-: ")] if len(rows) > 2 else []
+            if len(data) >= 3:
+                width = min(len(r) for r in data)
+                for col in range(width):
+                    vals = {r[col] for r in data}
+                    v = next(iter(vals))
+                    if len(vals) == 1 and v and not BRACKET_END.fullmatch(v) and not re.fullmatch(r"\[[^\]]+\]", v):
+                        head = rows[0][col] if col < len(rows[0]) else str(col)
+                        add("G12", i + 1, f"column '{head}' reads '{v[:40]}' in every one of {len(data)} rows; say it once above the table and drop the column")
+                        break
+            i = j
+        else:
+            i += 1
 
+    # One marker per document: when the owner line carries it, every section is a draft and is
+    # judged, whether or not it repeats the marker at its end.
+    owner_draft = any(DRAFT_MARK in l and OWNER_LINE.match(l.strip()) for l in lines[:12])
+    # G11: the template comment names the inventory keys this document may draw on. An
+    # [inventory: services] bracket in ARCHITECTURE is deploy evidence in the wrong home: the
+    # production service list landed there because DEPLOYMENT did not exist yet.
+    fill_m = re.search(r"<!--\s*concern: ?\s*([a-z]+);\s*fill: ?\s*([^>]*?)\s*-->", text)
+    fill_keys = None
+    if fill_m and fill_m.group(2).strip().lower() not in ("", "none"):
+        fill_keys = {k.strip().split(" ")[0].split("(")[0] for k in fill_m.group(2).split(",") if k.strip()}
+    if fill_keys:
+        for i, l in enumerate(lines, start=1):
+            for key in re.findall(r"\[inventory: ?\s*([a-z_]+)", l):
+                if key in INVENTORY_KEYS and key not in fill_keys and key not in ("tree", "kinds", "readme"):
+                    found.append({"doc": rel, "line": i, "rule": "G11",
+                                  "message": f"[inventory: {key}] is another concern's evidence (this document fills from {', '.join(sorted(fill_keys))}); the fact belongs in the doc that owns it, link to it from here"})
     _HEADINGS_SEEN[rel] = [h for h, _, _ in sections(lines)]
+    # Text the restructure moved here from another doc - an H3 whose heading ends "(from X.md)" -
+    # is a person's prose, never a draft: it is blanked out before the sections are judged, so a
+    # README table pasted under a drafted section does not fail G1 for lacking a bracket.
+    lines = blank_moved(lines)
+    # the agent file's prose is never judged: its commands are read from the manifests (G14 already
+    # holds it to forty lines) and its conventions and gotchas are a person's, marked or not
+    if Path(rel).name == "AGENTS.md":
+        lines = []
     for heading, start, end in sections(lines):
         body = [l for l in lines[start:end] if l.strip()]
         if not body:
@@ -809,7 +921,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
         # ... --> - so the moment a person reviewed the owner line and took its marker off, the
         # lead "carried prose", the finding had no section for --wrote to name, and refill on
         # that document exited 1 for ever. That is the messy-middle case the skill is for.
-        elif heading == "(lead)" and DRAFT_MARK in text and len(
+        elif heading == "(lead)" and DRAFT_MARK in text and not owner_draft and len(
                 [l for l in body if not OWNER_LINE.match(l.strip())
                  and not l.strip().startswith("<!--")]) > 0:
             found.append({"doc": rel, "line": start, "rule": "G0", "level": "skipped",
@@ -817,7 +929,7 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                           "message": "the lead carries prose and no " + DRAFT_MARK + " marker, "
                                      "so it was not judged; flip the owner line if fill wrote it"})
             continue
-        elif body[-1].strip() != DRAFT_MARK:
+        elif body[-1].strip() != DRAFT_MARK and not owner_draft:
             # Not a drafted section, so a person's prose is left alone - but a section inside a
             # drafted document that carries no marker of its own was silently unjudged, and the
             # report then read OK for the whole file.
@@ -1085,14 +1197,23 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
             if neg and not scoped:
                 add("G10", first, f"negative claim (\"{neg.group(0)}\") names no scope; say what was searched, or cite an [inventory: key]")
 
+        sourced = {"table": False}
+
         def flush(next_is_table: bool = False) -> None:
             if not para:
+                if not next_is_table:
+                    sourced["table"] = False
                 return
             first = para[0][0]
             joined = " ".join(t for _, t in para)
             last = para[-1][1]
             bare = CODESPAN.sub("", joined)
             if OWNER_LINE.match(joined.strip()) or is_template_text([t for _, t in para]):
+                para.clear()
+                return
+            # A "verified against <source> on <date>" line stands alone by rule: it is R13's line, not a
+            # claim about the repository, and it carries its date instead of a bracket.
+            if re.match(r"^\s*verified against .+ on \d{4}-\d{2}-\d{2}\.?\s*$", joined.strip(), re.I):
                 para.clear()
                 return
             if not joined.lower().startswith("open question:"):
@@ -1105,11 +1226,10 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                            and BRACKET_ANY.search(CODESPAN.sub(" ", joined)) is not None)
                 if not BRACKET_END.search(CODESPAN.sub(" ", last)) and not lead_in:
                     add("G1", first, f"paragraph does not end with an evidence bracket: {safe(joined[:60])}")
-                breaks = [m for m in BAD_BREAK.finditer(bare)
-                          if not ABBREV.search(bare[:m.end(0)].rstrip())
-                          and not LIST_MARKER.search(bare[:m.end(0)].rstrip())]
-                if breaks:
-                    add("G1", first, "a sentence inside this paragraph ends without an evidence bracket")
+                # Sources are per paragraph. A bracket after every sentence made a nine-line
+                # paragraph carry six of them and read like a legal brief; the paragraph ends
+                # with its sources and that is the unit a reviewer checks.
+                sourced["table"] = bool(next_is_table and BRACKET_ANY.search(CODESPAN.sub(" ", joined)))
                 for ref in BRACKET_ANY.findall(CODESPAN.sub(" ", joined)):
                     why = resolve_bracket(repo, ref)
                     if why:
@@ -1175,8 +1295,9 @@ def check_doc(repo: Path, rel: str, names: set[str], max_lines: int,
                 # Any cell, not the last: structure.md and the API template both prescribe a
                 # guard column after the handler, so the evidence lands mid-row by design.
                 m = next((BRACKET_END.search(c) for c in reversed(cells) if BRACKET_END.search(c)), None)
-                if not m:
-                    add("G1", n, "table row carries no evidence bracket in any cell")
+                if not m and not sourced["table"]:
+                    # A row needs its own bracket only when the table's lead-in carried none.
+                    add("G1", n, "table row carries no evidence bracket in any cell, and the sentence introducing the table cites nothing")
                 else:
                     why = resolve_bracket(repo, m.group(1))
                     if why:

@@ -42,7 +42,7 @@ SUBTITLE = "Evidence-first code audits for any SKILL.md agent"
 
 SKILLS = [
     "feature-audit", "test-gap-audit", "docs-sync-audit",
-    "repo-health-audit", "feature-brainstorm", "pr-branch-summary",
+    "docs-structure", "repo-health-audit",
 ]
 
 FONT_DIRS = [Path("C:/Windows/Fonts"), Path("/usr/share/fonts"), Path("/Library/Fonts")]
@@ -117,7 +117,7 @@ def main() -> int:
     py = cy + 66
     d.rounded_rectangle([x, py, W - 62, py + 172], radius=12, fill=PANEL, outline=BORDER)
     ty = py + 22
-    d.text((x + 26, ty), "Security Audit: exports", font=f_code_b, fill=FG)
+    d.text((x + 26, ty), "Feature Audit: exports", font=f_code_b, fill=FG)
     ty += 38
     d.text((x + 26, ty), "1. ", font=f_code, fill=MUTED)
     d.text((x + 26 + d.textlength("1. ", font=f_code), ty), "P1:", font=f_code_b, fill=SEV)
@@ -125,7 +125,7 @@ def main() -> int:
            "Team members can request another team's export by ID.",
            font=f_code, fill=FG)
     ty += 32
-    d.text((x + 26, ty), "   Abuse path: an authenticated user guesses an export ID.",
+    d.text((x + 26, ty), "   Impact: an authenticated user guesses an export ID.",
            font=f_code, fill=MUTED)
     ty += 32
     d.text((x + 26, ty), "   Evidence: ", font=f_code, fill=MUTED)

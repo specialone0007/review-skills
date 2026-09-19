@@ -3,10 +3,12 @@
     "dependencies",
     "endpoints",
     "handlers",
+    "integrations",
     "keys",
     "names",
     "packages",
     "routes",
+    "sdks",
     "variables"
   ],
   "docs": [
@@ -20,6 +22,12 @@
       "line": 1,
       "message": "101 lines, over the 50-line draft cap; a draft must not become a split candidate",
       "rule": "G8"
+    },
+    {
+      "doc": "docs/drafted.md",
+      "line": 50,
+      "message": "[inventory: services] is another concern's evidence (this document fills from ci, packages, tests); the fact belongs in the doc that owns it, link to it from here",
+      "rule": "G11"
     },
     {
       "doc": "docs/drafted.md",
@@ -185,6 +193,6 @@
     }
   ],
   "repo": "<fixture>",
-  "total": 28,
+  "total": 29,
   "warnings": []
 }

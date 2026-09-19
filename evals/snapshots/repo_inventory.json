@@ -16,6 +16,7 @@
     "src/app/api/items/[sku]/route.js",
     "docs/guide/advanced.md",
     "src/api/OwnerController.java",
+    "src/jobs/export-worker.js",
     "src/lib/format-date.js",
     "src/routes/admin.js",
     "src/routes/exports.js",
@@ -41,6 +42,7 @@
     "tests/smoke.test.js",
     ".env.example",
     ".env.local",
+    "CHANGELOG.md",
     "DEPLOY.md",
     "Dockerfile",
     "LICENSE.md",
@@ -57,13 +59,13 @@
     },
     {
       "dir": "(root)",
-      "files": 9,
-      "lines": 107
+      "files": 10,
+      "lines": 121
     },
     {
       "dir": "src",
-      "files": 12,
-      "lines": 89
+      "files": 13,
+      "lines": 95
     },
     {
       "dir": "tests",
@@ -78,11 +80,11 @@
   "extensions": [
     {
       "ext": ".js",
-      "files": 14
+      "files": 15
     },
     {
       "ext": ".md",
-      "files": 13
+      "files": 14
     },
     {
       "ext": ".json",
@@ -156,8 +158,8 @@
       "path": "docs/history.md"
     },
     {
-      "bytes": 515,
-      "lines": 21,
+      "bytes": 553,
+      "lines": 24,
       "path": "package.json"
     },
     {
@@ -201,6 +203,11 @@
       "path": "src/server.js"
     },
     {
+      "bytes": 261,
+      "lines": 6,
+      "path": "src/jobs/export-worker.js"
+    },
+    {
       "bytes": 247,
       "lines": 8,
       "path": "tests/format-date.test.js"
@@ -229,6 +236,11 @@
       "bytes": 210,
       "lines": 8,
       "path": "tests/health.test.js"
+    },
+    {
+      "bytes": 206,
+      "lines": 11,
+      "path": "CHANGELOG.md"
     },
     {
       "bytes": 202,
@@ -305,9 +317,9 @@
     ]
   },
   "totals": {
-    "doc_files": 12,
-    "files": 35,
-    "lines": 494,
+    "doc_files": 13,
+    "files": 37,
+    "lines": 514,
     "test_files": 3
   },
   "warnings": []

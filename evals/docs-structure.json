@@ -51,6 +51,18 @@
       "expect_skill": "docs-structure"
     },
     {
+      "id": "agents-md",
+      "kind": "trigger",
+      "prompt": "write our AGENTS.md from what the repo actually has - the commands, nothing an agent can read off the README",
+      "expect_skill": "docs-structure"
+    },
+    {
+      "id": "misplaced-docs",
+      "kind": "trigger",
+      "prompt": "our docs are a flat pile under docs/ - which ones belong in guides, reference or explanation, and what moves?",
+      "expect_skill": "docs-structure"
+    },
+    {
       "id": "accuracy-goes-to-sync",
       "kind": "anti-trigger",
       "prompt": "is docs/ARCHITECTURE.md still accurate after the auth refactor?",
@@ -69,10 +81,10 @@
       "expect_skill": "repo-health-audit"
     },
     {
-      "id": "pr-summary-goes-elsewhere",
+      "id": "readiness-goes-to-feature-audit",
       "kind": "anti-trigger",
-      "prompt": "summarise what changed under docs/ on this branch versus staging for the PR body",
-      "expect_skill": "pr-branch-summary"
+      "prompt": "the onboarding flow is documented but is it actually safe to ship - check it for launch blockers",
+      "expect_skill": "feature-audit"
     },
     {
       "id": "finds-planted-shape-defects",
@@ -82,7 +94,8 @@
       "must_include": [
         "Docs Structure: ",
         "Plan only, no files changed",
-        "Evidence:"
+        "Evidence:",
+        "move"
       ],
       "must_not_include": [
         "I edited",
@@ -92,7 +105,7 @@
       ],
       "rubric": [
         "reports one P1 that there is no central index, not one finding per doc",
-        "shows a concern table in which `develop` is covered by docs/setup.md through its headings and purpose, architecture, plan, testing and operate are uncovered",
+        "shows a concern table in which `setup` is a move of docs/setup.md to docs/getting-started/SETUP.md (R15), `operate` a move of docs/h3-style.md, `changelog` a move of the root CHANGELOG.md, and develop, deploy, testing, architecture, http, security, purpose and pipelines are uncovered with the path apply creates",
         "reports the dead anchor `#configuration` in docs/setup.md with its line",
         "reports the `src/config.js:12` citation in docs/setup.md as a line-number citation",
         "reports that docs/history.md cannot be split because it has two H1 headings, and that docs/guide.md could become three parts",
@@ -103,7 +116,7 @@
     {
       "id": "start-here",
       "kind": "trigger",
-      "prompt": "add a Start here section to our README that points at the docs index",
+      "prompt": "our README should hand off to the docs index and an AGENTS.md - set that up the way our other repos have it",
       "expect_skill": "docs-structure"
     }
   ]

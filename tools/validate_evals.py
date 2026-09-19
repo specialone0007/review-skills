@@ -61,6 +61,13 @@ SNAPSHOT_SCRIPTS = {
     # proof block is part of the snapshot, so a reversal that stops being line-identical shows.
     "docs_split": {"path": "skills/docs-structure/scripts/docs_split.py", "drop": [],
                    "args": ["--doc", "docs/drafted.md", "--split-at", "30"]},
+    # A move to the shape's canonical path: the doc's own links rebased, inbound links rewritten,
+    # the proof that every one resolves.
+    "docs_move": {"path": "skills/docs-structure/scripts/docs_split.py", "drop": [],
+                  "args": ["--move", "docs/setup.md", "docs/getting-started/SETUP.md"]},
+    # Every covered or misplaced doc and the README fitted into the template order, with the
+    # line-preservation proof; the fixture's README gives its sections away where a doc owns them.
+    "docs_restructure": {"path": "skills/docs-structure/scripts/docs_restructure.py", "drop": []},
 }
 # The mini-app fixture carries a planted .env.local canary. No script may ever print it.
 CANARY = "canary-7f3a9c1e2b4d5f6a-do-not-print"
@@ -145,7 +152,7 @@ def validate_cases(docs: dict[str, dict], skill_names: set[str]) -> int:
                 error(f"{where}: `fixture` {fixture!r} does not exist under evals/")
             total += 1
 
-        # Anti-trigger cases are the whole point with seven overlapping skills.
+        # Anti-trigger cases are the whole point with five overlapping skills.
         if "anti-trigger" not in kinds_present:
             error(f"{name}: no anti-trigger case; routing away from this skill is untested")
         if "behavior" not in kinds_present:

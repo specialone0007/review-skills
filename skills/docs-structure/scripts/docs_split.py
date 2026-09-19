@@ -5,6 +5,13 @@ Read-only. Standard library only. Writes nothing into the repository.
 
     python docs_split.py --repo . --doc docs/BIG.md --format json
     python docs_split.py --repo . --doc docs/BIG.md --out <scratch>   # materialise outside the repo
+    python docs_split.py --repo . --move docs/RUNBOOK.md docs/guides/OPERATIONS.md --out <scratch>
+
+A move takes one doc to the path the shape gives it (R15): the doc's own relative links are
+rebased so they still resolve from the new folder, every tracked Markdown file that links the old
+path is rewritten to the new one, and the proof is that every rewritten link resolves. A split
+parts folder beside the doc moves with it. Nothing is deleted by the script; `delete` names the
+old path for the agent.
 
 The rules are the ones in references/structure.md, "The split, exactly": fence-aware parse, refuse
 on more than one H1 or reference-style definitions, cut at H2 (else H3) so that no part is over
@@ -107,7 +114,20 @@ def unsplice(line: str, records: list[tuple[str, str]]) -> str:
     return ds.LINK_RE.sub(sub, line)
 
 
-def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
+def clean_slug(text: str) -> str:
+    """A filename from a heading: code spans and paths out, parentheticals out, five words at
+    most. `01-data-model-apps-web-src-db-schema-ts.md` was a heading slugged whole."""
+    t = re.split(r"\s+[—–-]\s+|:\s|,\s", text, maxsplit=1)[0]
+    t = re.sub(r"\b\d{4}-\d{2}-\d{2}\b", " ", t)
+    t = re.sub(r"`[^`]*`", " ", t)
+    t = re.sub(r"\([^)]*\)", " ", t)
+    t = re.sub(r"\S+[/\\]\S+", " ", t)
+    t = re.sub(r"^\s*\d+[.)]\s*", "", t)
+    words = [w for w in ds.slug(t).split("-") if w][:5]
+    return "-".join(words) or ds.slug(text)
+
+
+def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int, min_part: int = 80) -> dict:
     doc_path = repo / doc_rel
     if not doc_path.is_file():
         sys.stderr.write(f"error: {doc_rel} is not a file under {repo}\n")
@@ -119,7 +139,8 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     if doc.skipped or doc.undecodable:
         out["refuse"] = "the file could not be read as text"
         return out
-    analysis = ds.split_analysis(doc, split_at, max_parts)
+    min_part = max(1, min(min_part, split_at // 5))
+    analysis = ds.split_analysis(doc, split_at, max_parts, min_part)
     if analysis["refuse"]:
         out["refuse"] = analysis["refuse"]
         return out
@@ -133,16 +154,9 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     h1 = next((t for _, lvl, t in heads if lvl == 1), Path(doc.rel).stem)
     cuts = [ln for ln, lvl, _ in heads if 2 <= lvl <= level]
     bounds = cuts + [n + 1]
-    # Group: a heading with no body before the next cut merges into the part that follows.
-    groups: list[tuple[int, int]] = []
-    i = 0
-    while i < len(bounds) - 1:
-        start = bounds[i]
-        j = i
-        while j + 1 < len(bounds) - 1 and not [l for l in lines[bounds[j]:bounds[j + 1] - 1] if l.strip()]:
-            j += 1
-        groups.append((start, bounds[j + 1]))
-        i = j + 1
+    # Group: a heading with no body merges into the part that follows; so does a part shorter
+    # than min_part, so a part is a chapter and not a heading.
+    groups = ds.part_groups(lines, cuts, min_part)
     intro_lines = lines[:cuts[0] - 1]
     if len(intro_lines) > split_at:
         out["refuse"] = f"intro is {len(intro_lines)} lines"; return out
@@ -173,8 +187,9 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
         for ln, lvl, text in heads:
             if start <= ln < end:
                 slug_home[anchor_for(text)] = idx
-        part_specs.append({"n": idx, "start": start, "end": end, "shift": shift, "first": first_text,
-                           "slug": ds.slug(first_text), "body": body, "group": None})
+        covers = [t for ln, lvl, t in heads if start <= ln < end and lvl <= level]
+        part_specs.append({"n": idx, "start": start, "end": end, "shift": shift, "first": first_text, "covers": covers,
+                           "slug": clean_slug(first_text), "body": body, "group": None})
     # Part filenames.
     for p in part_specs:
         p["file"] = f"{p['n']:02d}-{p['slug']}.md"
@@ -228,7 +243,14 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
                 line = rewrite_line(line, p["n"], p["rel"], li + 2)
             new_body.append(line)
         injected = [f"> Part of [{h1}](../{Path(index_rel).name})", ""]
-        files[p["rel"]] = injected + new_body
+        prev_ = part_specs[p["n"] - 2]["file"] if p["n"] > 1 else None
+        next_ = part_specs[p["n"]]["file"] if p["n"] < len(part_specs) else None
+        nav = " · ".join(x for x in (f"Previous: [{prev_}]({prev_})" if prev_ else None,
+                                     f"Index: [{Path(index_rel).name}](../{Path(index_rel).name})",
+                                     f"Next: [{next_}]({next_})" if next_ else None) if x)
+        while new_body and not new_body[-1].strip():
+            new_body.pop()
+        files[p["rel"]] = injected + new_body + ["", nav]
         out["parts"].append({"n": p["n"], "path": p["rel"], "heading": p["first"], "lines": len(new_body)})
     # Index: intro, owner line if absent, a table of parts.
     intro = list(intro_lines)
@@ -238,9 +260,9 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     has_owner = any(OWNER_RE.match(l) for l in intro[:12] if l.strip())
     if not has_owner:
         injected_index += [f"> **This document owns:** {h1} - an index of its parts under `{parts_dir_name}/`. *(auto, review me)*", ""]
-    injected_index += ["## Parts", "", "| part | covers | lines |", "|---|---|---|"]
+    injected_index += ["## Parts", "", f"<!-- docs-split: {analysis['level']} -->", "", "| part | covers | lines |", "|---|---|---|"]
     for p, info in zip(part_specs, out["parts"]):
-        injected_index.append(f"| [{p['file']}]({parts_dir_name}/{p['file']}) | {p['first']} | {info['lines']} |")
+        injected_index.append(f"| [{p['file']}]({parts_dir_name}/{p['file']}) | {'; '.join(p['covers']) or p['first']} | {info['lines']} |")
     injected_index.append("")
     while intro and not intro[-1].strip():
         intro.pop()
@@ -304,7 +326,9 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     # the index had its trailing blank lines trimmed; the original's come back here
     rebuilt = rebuilt + intro_lines[len(rebuilt):] if len(intro_lines) > len(rebuilt) else rebuilt
     for p in part_specs:
-        body = files[p["rel"]][2:]
+        body = files[p["rel"]][2:-2]
+        # the part had its trailing blank lines trimmed before the nav line; the original's come back
+        body = body + p["body"][len(body):] if len(p["body"]) > len(body) else body
         pm = mask[p["start"] - 1:p["end"] - 1]
         restored = []
         for li, line in enumerate(body):
@@ -322,7 +346,7 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
         else:
             problems.append(f"reversal differs in length: {len(rebuilt)} vs {len(lines)}")
     for p, info in zip(part_specs, out["parts"]):
-        body = files[p["rel"]][2:]
+        body = files[p["rel"]][2:-2]
         pm = mask[p["start"] - 1:p["end"] - 1]
         hs = [HEADING_RE.match(l) for li, l in enumerate(body) if not pm[li] and HEADING_RE.match(l)]
         if any(len(h.group(1)) == 1 for h in hs):
@@ -331,7 +355,7 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
             problems.append(f"{p['rel']}: first heading is not H2")
         if f"{p['n']:02d}-" != p["file"][:3]:
             problems.append(f"{p['rel']}: number does not match table position")
-        if hs and ds.slug(hs[0].group(2)) != p["slug"]:
+        if hs and clean_slug(hs[0].group(2)) != p["slug"]:
             problems.append(f"{p['rel']}: filename slug differs from first-heading slug")
     # Every link in a touched file resolves in the new tree, and reaches the same absolute target.
     tree_anchors: dict[Path, set[str]] = {}
@@ -386,15 +410,292 @@ def propose(repo: Path, doc_rel: str, split_at: int, max_parts: int) -> dict:
     return out
 
 
+def merge(repo: Path, doc_rel: str) -> dict:
+    """Undo a split: the index and its parts become one doc again. Injected lines out, headings
+    shifted back by the recorded level, links rebased to the index's folder, in-doc anchors
+    restored, inbound links to parts pointed at the whole. Every link is checked; nothing is written."""
+    doc_path = repo / doc_rel
+    if not doc_path.is_file():
+        sys.stderr.write(f"error: {doc_rel} is not a file under {repo}\n")
+        raise SystemExit(2)
+    raw = ds.read(doc_path)
+    lines = raw.splitlines()
+    out: dict = {"doc": doc_rel, "refuse": None, "files": {}, "delete": [], "inbound": {}, "rewrites": 0,
+                 "newline": "crlf" if dominant_newline(raw) == "\r\n" else "lf", "proof": None}
+    parts_dir_name = Path(doc_rel).stem.lower()
+    parts_dir = doc_path.parent / parts_dir_name
+    # the parts table: every row linking into the parts folder, in order
+    rows = [l for l in lines if re.match(rf"^\|\s*\[[^\]]+\]\({re.escape(parts_dir_name)}/[^)]+\)", l.strip())]
+    part_files = [re.search(rf"\({re.escape(parts_dir_name)}/([^)]+)\)", r).group(1) for r in rows]
+    if len(part_files) < 2:
+        out["refuse"] = f"no parts table linking into {parts_dir_name}/"
+        return out
+    level_m = re.search(r"<!-- docs-split: H(\d) -->", raw)
+    shift_back = int(level_m.group(1)) - 2 if level_m else 0
+    # the intro: everything before the "## Parts" heading the split wrote (or before the first parts row)
+    cut = next((i for i, l in enumerate(lines) if l.strip() == "## Parts"), None)
+    if cut is None:
+        cut = next(i for i, l in enumerate(lines) if l.strip() in rows)
+        while cut > 0 and lines[cut - 1].strip().startswith("|"):
+            cut -= 1
+    intro = lines[:cut]
+    while intro and not intro[-1].strip():
+        intro.pop()
+    def unrebase_intro(line: str) -> str:
+        def sub0(m: re.Match) -> str:
+            target = (m.group(2) or m.group(3) or "").strip()
+            file_part, _, anchor = target.partition("#")
+            if not file_part or file_part.startswith(("http://", "https://", "/")):
+                return m.group(0)
+            absolute = (doc_path.parent / ds.unquote(file_part)).resolve()
+            if absolute.parent == parts_dir.resolve() and absolute.name in part_files:
+                return splice(m, "#" + anchor) if anchor else m.group(0)
+            return m.group(0)
+        return ds.LINK_RE.sub(sub0, line) if "](" in line else line
+
+    im = fence_mask(intro)
+    merged = [unrebase_intro(l) if not im[i] else l for i, l in enumerate(intro)]
+    problems: list[str] = []
+    for pf in part_files:
+        pp = parts_dir / pf
+        if not pp.is_file():
+            problems.append(f"{parts_dir_name}/{pf}: listed in the parts table but missing")
+            continue
+        body = ds.read(pp).splitlines()
+        # the split writes the Part-of line first; an older cut put it under an H1 - drop it wherever
+        # it sits in the first six lines, with the blank after it
+        for k in range(min(6, len(body))):
+            if re.match(r"^\s*>\s*(\*\*)?Part of(\*\*)?\s*\[", body[k]):
+                del body[k]
+                if k < len(body) and not body[k].strip():
+                    del body[k]
+                break
+        while body and not body[0].strip():
+            body = body[1:]
+        part_shift = shift_back
+        if body and HEADING_RE.match(body[0]) and len(HEADING_RE.match(body[0]).group(1)) == 1:
+            part_shift = 1  # an older cut left each part its own H1; under the index it is an H2
+        if body and re.match(r"^(Previous: |Index: )", body[-1].strip()):
+            body = body[:-1]
+            while body and not body[-1].strip():
+                body.pop()
+        pm = fence_mask(body)
+        restored = []
+        for li, line in enumerate(body):
+            if not pm[li]:
+                hm = HEADING_RE.match(line)
+                if hm and part_shift:
+                    line = "#" * part_shift + line
+
+                def sub(m: re.Match) -> str:
+                    target = (m.group(2) or m.group(3) or "").strip()
+                    if not target or target.startswith(("http://", "https://", "mailto:", "tel:", "data:", "/")):
+                        return m.group(0)
+                    file_part, _, anchor = target.partition("#")
+                    if not file_part:
+                        return m.group(0)
+                    absolute = (parts_dir / ds.unquote(file_part)).resolve()
+                    if absolute == doc_path.resolve() or absolute.parent == parts_dir.resolve() and absolute.name in part_files:
+                        return splice(m, "#" + anchor) if anchor else m.group(0)
+                    return splice(m, rebase(target, parts_dir, doc_path.parent, repo))
+                line = ds.LINK_RE.sub(sub, line) if "](" in line else line
+            restored.append(line)
+        merged += [""] + restored
+        out["delete"].append(ds.posix(pp, repo))
+    out["files"][doc_rel] = merged
+    # inbound: links into the parts folder from other tracked Markdown point at the whole doc
+    for rel in tracked_markdown(repo):
+        if rel == doc_rel or Path(rel).suffix.lower() not in (".md", ".mdx") or rel in out["delete"]:
+            continue
+        p = repo / rel
+        text = ds.read(p)
+        if not text or parts_dir_name + "/" not in text:
+            continue
+        src_lines = text.splitlines()
+        m2 = fence_mask(src_lines)
+        changed = False
+        new_lines = []
+        for li, line in enumerate(src_lines):
+            if m2[li] or "](" not in line:
+                new_lines.append(line)
+                continue
+
+            def sub2(m: re.Match) -> str:
+                target = (m.group(2) or m.group(3) or "").strip()
+                file_part, _, anchor = target.partition("#")
+                if not file_part or file_part.startswith(("http://", "https://")):
+                    return m.group(0)
+                absolute = ds.resolve_target(p, repo, file_part).resolve()
+                if absolute.parent == parts_dir.resolve() and absolute.name in part_files:
+                    new = os.path.relpath(doc_path.resolve(), p.parent.resolve()).replace("\\", "/") + ("#" + anchor if anchor else "")
+                    out["rewrites"] += 1
+                    return splice(m, new)
+                return m.group(0)
+            nl_ = ds.LINK_RE.sub(sub2, line)
+            changed |= nl_ != line
+            new_lines.append(nl_)
+        if changed:
+            out["inbound"][rel] = new_lines
+    # proof: no injected line survives; every link in the merged doc resolves
+    anchors = ds.anchors(ds.strip_fences(merged))
+    for li, line in enumerate(merged):
+        if re.match(r"^\s*>\s*(\*\*)?Part of", line) or re.match(r"^(Previous: |Index: )", line.strip()):
+            problems.append(f"line {li + 1}: an injected line survived the merge")
+        for img, angled, plain in ds.LINK_RE.findall(ds.CODESPAN_RE.sub("", line)):
+            target = (angled or plain).strip()
+            if not target or target.startswith(("http://", "https://", "mailto:", "tel:", "data:")):
+                continue
+            file_part, _, anchor = target.partition("#")
+            if file_part:
+                tpath = ds.resolve_target(doc_path, repo, file_part)
+                if not tpath.exists() or ds.posix(tpath, repo) in out["delete"]:
+                    problems.append(f"line {li + 1}: link `{target}` does not resolve after the merge")
+            elif anchor and anchor not in anchors:
+                problems.append(f"line {li + 1}: anchor `#{anchor}` not found in the merged doc")
+    out["proof"] = {"ok": not problems, "problems": problems[:20]}
+    return out
+
+
+def move(repo: Path, from_rel: str, to_rel: str) -> dict:
+    """One doc to its canonical path, links kept whole."""
+    out: dict = {"doc": from_rel, "to": to_rel, "files": {}, "inbound": {}, "delete": [], "mentions": [],
+                 "rewrites": 0, "refuse": None, "proof": None, "newline": "lf", "move_folder": None}
+    src = repo / from_rel
+    if not src.is_file():
+        out["refuse"] = f"{from_rel} does not exist"
+        return out
+    if (repo / to_rel).exists():
+        out["refuse"] = f"{to_rel} already exists; merge by hand"
+        return out
+    if Path(to_rel).suffix.lower() != ".md":
+        out["refuse"] = "the target must be a Markdown file"
+        return out
+    raw = ds.read(src)
+    nl = dominant_newline(raw)
+    out["newline"] = "crlf" if nl == "\r\n" else "lf"
+    lines = raw.splitlines()
+    old_dir, new_dir = src.parent, (repo / to_rel).parent
+    rewrites: list[tuple[str, int, str, str]] = []
+    # a split's parts folder moves with its doc; its Part-of links point at the doc by name and keep working
+    parts_dir = old_dir / Path(from_rel).stem.lower()
+    parts_moved: dict[str, str] = {}
+    if parts_dir.is_dir() and any(p.suffix.lower() == ".md" for p in parts_dir.iterdir()):
+        new_parts = new_dir / Path(to_rel).stem.lower()
+        out["move_folder"] = {"from": ds.posix(parts_dir, repo), "to": ds.posix(new_parts, repo)}
+        for p in sorted(parts_dir.iterdir()):
+            if p.is_file():
+                parts_moved[ds.posix(p, repo)] = ds.posix(new_parts / p.name, repo)
+
+    def new_path_for(abs_target: Path) -> Path | None:
+        rel = ds.posix(abs_target, repo) if abs_target.is_relative_to(repo) else None
+        if rel is None:
+            return None
+        if rel == from_rel:
+            return repo / to_rel
+        if rel in parts_moved:
+            return repo / parts_moved[rel]
+        return None
+
+    # 1. the doc's own links, rebased to the new folder
+    mask = fence_mask(lines)
+    moved: list[str] = []
+    for li, line in enumerate(lines):
+        if mask[li] or "](" not in line:
+            moved.append(line)
+            continue
+
+        def sub(m: re.Match, _li=li) -> str:
+            target = (m.group(2) or m.group(3) or "").strip()
+            file_part, _, anchor = target.partition("#")
+            if not file_part or file_part.startswith(EXTERNAL):
+                return m.group(0)
+            abs_t = ds.resolve_target(src, repo, file_part).resolve()
+            dest = new_path_for(abs_t) or abs_t
+            new = os.path.relpath(dest, new_dir.resolve()).replace("\\", "/") + (("#" + anchor) if anchor else "")
+            if new == target:
+                return m.group(0)
+            rewrites.append((to_rel, _li + 1, target, new))
+            return splice(m, new)
+        moved.append(ds.LINK_RE.sub(sub, line))
+    out["files"][to_rel] = moved
+    out["delete"].append(from_rel)
+    # 2. every other tracked Markdown file that links the old path (or a moved part)
+    old_abs = src.resolve()
+    old_names = {Path(from_rel).name} | {Path(p).name for p in parts_moved}
+    for rel in tracked_markdown(repo):
+        if rel == from_rel or rel in parts_moved:
+            continue
+        p = repo / rel
+        text = ds.read(p)
+        if not text:
+            continue
+        if Path(rel).suffix.lower() not in (".md", ".mdx"):
+            if from_rel in text:
+                out["mentions"].append(rel)
+            continue
+        if not any(n in text for n in old_names):
+            continue
+        src_lines = text.splitlines()
+        m2 = fence_mask(src_lines)
+        changed = False
+        new_lines = []
+        for li, line in enumerate(src_lines):
+            if m2[li] or "](" not in line:
+                new_lines.append(line)
+                continue
+
+            def sub2(m: re.Match, _rel=rel, _li=li, _p=p) -> str:
+                target = (m.group(2) or m.group(3) or "").strip()
+                file_part, _, anchor = target.partition("#")
+                if not file_part or file_part.startswith(EXTERNAL):
+                    return m.group(0)
+                abs_t = ds.resolve_target(_p, repo, file_part).resolve()
+                dest = new_path_for(abs_t)
+                if dest is None:
+                    return m.group(0)
+                new = os.path.relpath(dest, _p.parent.resolve()).replace("\\", "/") + (("#" + anchor) if anchor else "")
+                rewrites.append((_rel, _li + 1, target, new))
+                return splice(m, new)
+            nl2 = ds.LINK_RE.sub(sub2, line)
+            changed |= nl2 != line
+            new_lines.append(nl2)
+        if changed:
+            out["inbound"][rel] = new_lines
+    out["rewrites"] = len(rewrites)
+    # the parts, byte-identical, at their new place (their ../DOC.md link still names the doc by its stem)
+    for old_p, new_p in parts_moved.items():
+        body = ds.read(repo / old_p).splitlines()
+        if Path(from_rel).stem != Path(to_rel).stem:
+            body = [l.replace(f"../{Path(from_rel).name}", f"../{Path(to_rel).name}") for l in body]
+        out["files"][new_p] = body
+        out["delete"].append(old_p)
+    # 3. proof: every rewritten link resolves against the tree as it will be
+    problems: list[str] = []
+    future = {to_rel} | set(parts_moved.values()) | {r for r in tracked_markdown(repo) if r != from_rel and r not in parts_moved}
+    for rel, ln, old, new in rewrites:
+        base = (repo / rel).parent
+        file_part = new.partition("#")[0]
+        target_rel = ds.posix((base / file_part).resolve(), repo) if (base / file_part).resolve().is_relative_to(repo) else file_part
+        if target_rel not in future and not (repo / target_rel).is_dir():
+            problems.append(f"{rel}:{ln} -> {new} does not resolve after the move")
+    if not moved or moved[0].strip() != lines[0].strip():
+        problems.append("the first line changed")
+    out["proof"] = {"ok": not problems, "problems": problems, "rewrites": [f"{r}:{ln} {o} -> {n}" for r, ln, o, n in rewrites[:50]]}
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--repo", default=".", help="repository path (default: current directory)")
-    ap.add_argument("--doc", required=True, help="the doc to split, relative to the repo")
+    ap.add_argument("--doc", help="the doc to split, relative to the repo")
+    ap.add_argument("--move", nargs=2, metavar=("FROM", "TO"), help="move one doc to its canonical path, rewriting every link that points at it")
     ap.add_argument("--no-git-root", action="store_true", help="do not expand --repo to its git root")
     ap.add_argument("--manifest", help="manifest path (default: <repo>/docs/structure.json, then docs-structure.json)")
     ap.add_argument("--split-at", type=int, help="override the manifest's splitAt (default 500)")
-    ap.add_argument("--max-parts", type=int, help="override the manifest's maxParts (default 30)")
+    ap.add_argument("--max-parts", type=int, help="override the manifest's maxParts (default 12)")
+    ap.add_argument("--min-part", type=int, help="override the manifest's minPart (default 80): a shorter section merges into the next")
     ap.add_argument("--out", help="a folder OUTSIDE the repository to materialise the proposal into")
+    ap.add_argument("--merge", action="store_true", help="undo a split: --doc is the index; its parts become one doc again, with the same proof")
     ap.add_argument("--format", choices=("text", "json"), default="text")
     a = ap.parse_args()
     repo = Path(a.repo).resolve()
@@ -402,12 +703,18 @@ def main() -> int:
         root = ds.git_root(repo) if hasattr(ds, "git_root") else None
         repo = root or repo
     manifest, _, _ = ds.load_manifest(repo, a.manifest)
-    split_at = a.split_at or int(manifest.get("splitAt") or 500)
-    max_parts = a.max_parts or int(manifest.get("maxParts") or 30)
-    doc_rel = Path(a.doc).as_posix()
-    if (repo / doc_rel).is_file() is False and Path(a.doc).is_file():
-        doc_rel = ds.posix(Path(a.doc).resolve(), repo)
-    result = propose(repo, doc_rel, split_at, max_parts)
+    split_at = a.split_at or int(manifest.get("splitAt") or 1000)
+    max_parts = a.max_parts or int(manifest.get("maxParts") or 12)
+    min_part = a.min_part or int(manifest.get("minPart") or 80)
+    if not a.doc and not a.move:
+        ap.error("one of --doc or --move is required")
+    if a.move:
+        result = move(repo, Path(a.move[0]).as_posix(), Path(a.move[1]).as_posix())
+    else:
+        doc_rel = Path(a.doc).as_posix()
+        if (repo / doc_rel).is_file() is False and Path(a.doc).is_file():
+            doc_rel = ds.posix(Path(a.doc).resolve(), repo)
+        result = merge(repo, doc_rel) if a.merge else propose(repo, doc_rel, split_at, max_parts, min_part)
     result["repo"] = str(repo)
     nl = "\r\n" if result["newline"] == "crlf" else "\n"
     if a.out and not result["refuse"] and result["proof"] and result["proof"]["ok"]:
@@ -422,6 +729,36 @@ def main() -> int:
         result["written_to"] = str(out_dir)
     if a.format == "json":
         print(json.dumps(result, indent=2, ensure_ascii=False))
+        return 0
+    if a.move:
+        L = [f"# Move proposal: {result['doc']} -> {result['to']} ({result['newline']})", ""]
+        if result["refuse"]:
+            L.append(f"REFUSED: {result['refuse']}")
+        else:
+            L.append(f"links rewritten: {result['rewrites']} ({len(result['inbound'])} inbound files); delete after writing: {', '.join(result['delete'])}")
+            if result.get("move_folder"):
+                L.append(f"parts folder moves too: {result['move_folder']['from']} -> {result['move_folder']['to']}")
+            for m in result["mentions"][:10]:
+                L.append(f"  mention (not edited): {m}")
+            pr = result["proof"]
+            L.append("Proof: " + ("ok - every rewritten link resolves after the move" if pr["ok"] else "FAILED"))
+            L += [f"  {x}" for x in pr["problems"]]
+            if result.get("written_to"):
+                L.append(f"Written to: {result['written_to']}")
+            L += ["", "Nothing was written into the repository. Write the new files, rewrite the inbound ones, delete the old path, only when the proof is ok."]
+        print("\n".join(L))
+        return 0
+    if a.merge:
+        L = [f"# Merge proposal: {result['doc']} ({result['newline']})", ""]
+        if result["refuse"]:
+            L.append(f"REFUSED: {result['refuse']}")
+        else:
+            L.append(f"{len(result['delete'])} parts fold back into {result['doc']} ({len(result['files'][result['doc']])} lines); inbound links rewritten: {result['rewrites']} in {len(result['inbound'])} files")
+            pr = result["proof"]
+            L.append("Proof: " + ("ok - no injected line survives and every link resolves" if pr["ok"] else "FAILED"))
+            L += [f"  {x}" for x in pr["problems"]]
+            L += ["", "Nothing was written into the repository. Write the doc, delete the parts, only when the proof is ok."]
+        print("\n".join(L))
         return 0
     L = [f"# Split proposal: {result['doc']} ({result['lines']} lines, {result['newline']})", ""]
     if result["refuse"]:

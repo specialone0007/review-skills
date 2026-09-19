@@ -5,20 +5,38 @@ rule exists, where each concern's evidence comes from, and spells out the split 
 
 ## The shape in one paragraph
 
-One central index lists every doc with one line saying what it owns. A doc that grows past one
-context load becomes an index plus a folder of parts, and the index beside the folder links every
-part. Every doc says what it owns under its title, so a fact has one home and the other docs link
+The layout itself - the tree, one row per document, the scenario per repository kind, the index,
+agent-file and decision-record grammars - is `shape.md`; this paragraph is the summary. Five
+buckets by what a reader came to do: getting-started (learn), guides (do), reference (look up),
+explanation (understand), plans (what is next), history (record); every doc in its bucket folder,
+always. One central index, shaped like an `llms.txt` file, lists every doc with one line saying
+what it owns and its state. `AGENTS.md` at the root holds the commands and conventions a coding
+agent needs, forty lines at most, and `CLAUDE.md` imports it. A doc that grows past a thousand
+lines becomes an index plus a folder of a few chapter-sized parts, each linking the previous and
+next. Every doc says what it owns under its title, so a fact has one home and the other docs link
 to it. Links point at headings that exist, paths that exist, and never at line numbers. The README
-says what the project is and how to run it, then points at the index once. An agent loads the
-index plus one doc, not the whole tree.
+says what the project is and how to run it, then points at the index once. A doc at any other path
+than the one the shape gives it is a move, and the skill performs it. An agent loads the index plus
+one doc, not the whole tree.
 
 ## Why each rule
 
 - **R1 reachable.** A doc nobody links to is a doc nobody reads.
 - **R2 owner line.** One owner per fact. When two docs both state a number, one is stale within a
   month. The line under the title says which doc is the home.
-- **R3 oversize.** 500 lines is a proxy for one context load. A candidate list only; a human
-  confirms each split, because the cut is the largest diff this skill can produce.
+- **R3 oversize.** A thousand lines is where a doc stops being one read. A candidate list only; a
+  human confirms each split, because the cut is the largest diff this skill can produce. The cut
+  makes chapters, not confetti: a part is at least `minPart` lines (shorter sections merge into the
+  next), a doc becomes at most `maxParts` parts, and each part links the previous and the next.
+  Found the day a 359-line doc was cut into eighteen parts of six to forty lines, and the
+  filenames were headings slugged whole, paths and asides included.
+- **R14 index state.** The index is where a reader learns whether a doc can be trusted. That
+  needs a closed vocabulary with a date: `skeleton`, `draft`, `reviewed 2026-09-18`,
+  `stale 2026-09-18`, and `unreviewed` for a hand-written doc no one has dated. Free text alone
+  ("current - mostly checked") tells a reader nothing the checker can hold anyone to; a note after
+  the token is welcome. A commit date is not a review date.
+- **R8 and prose.** One home per fact is enforced for numbers (three copies of a measurement) and
+  checked at fill time for evidence keys (G11); a repeated prose fact is a reviewer's job.
 - **R4 index and folder agree.** An index a reader uses instead of the folder must list the folder.
 - **R5 links and anchors.** A link is a promise. Anchors rot when a heading is reworded; GitHub's
   slug rules (lowercase, drop punctuation, spaces to hyphens, `-1` for duplicates) are applied.
@@ -31,8 +49,16 @@ index plus one doc, not the whole tree.
 - **R11 front door.** If the README does not hand off to the index, the index might as well not
   exist; if it keeps its own list of a dozen docs, that list is a second index and the two drift.
 - **R12 concern coverage.** A repo needs a doc for each concern it actually has. Which concerns it
-  has is read from the repo, not decided in advance; which doc covers each is read from the docs'
-  own headings, not from a file name.
+  has is read from the repo, not decided in advance; whether the doc exists is read at the path the
+  shape gives it, and a doc elsewhere whose headings match is a move (R15), not a cover. A README
+  section that matches is a seed for the fill, never a home: a front door that also documents the
+  deploy is the second home R11 exists to catch.
+- **R15 layout.** One shape on every repository, so a reader coming from another repo knows where
+  to look before opening the index, and an agent can compute a doc's path without reading anything.
+  The alternative - accept whatever layout is there - was tried for six months and produced a flat
+  pile of nouns that the people who owned it did not like. A move is mechanical (`docs_split.py
+  --move` rebases the doc's links, rewrites the inbound ones and proves each resolves), so the cost
+  of the rule is one apply, and the benefit is every later reader.
 - **R13 verified-on dates.** Some facts live on a platform, in a dashboard or in people's heads: a
   deployment doc's service list, a runbook's on-call rota. No checker can read them. The honest
   ceiling is a dated line, "verified against <source> on <date>", and a warning when the date is
@@ -58,8 +84,9 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "centralIndex": "docs/INDEX.md",
   "indexConvention": "sibling",
   "ownerLine": { "markers": ["This document owns:", "Part of"], "enforce": false },
-  "splitAt": 500,
-  "maxParts": 30,
+  "splitAt": 1000,
+  "maxParts": 12,
+  "minPart": 80,
   "pathPrefixes": ["src", "docs"],
   "citationExtensions": ["ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "sql", "go", "rs", "java", "rb"],
   "recordFolders": ["docs/plans"],
@@ -71,6 +98,8 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
   "requireConcerns": false,
   "heavyEvidence": { "http": 20, "data": 10, "deploy": 3, "architecture": 3 },
   "templatesDir": null,
+  "agentFile": "AGENTS.md",
+  "agentFileMaxLines": 40,
   "verifiedStaleDays": 90,
   "existingChecker": null,
   "frontDoor": "README.md",
@@ -78,9 +107,12 @@ Every key has a default, so `{}` is valid. Unknown keys exit 2.
 }
 ```
 
-`indexConvention: "sibling"` means `docs/x/` is indexed by `docs/X.md` (case-insensitive);
-`"inside"` means `docs/x/README.md`. Nesting: `docs/a/b/` looks for `docs/a/B.md`, then falls to
-`docs/a/`'s index, then to the central index. `requiredDocs` pins a concern on (`true`), off
+`indexConvention: "sibling"` means a split's parts folder `docs/x/` is indexed by `docs/X.md`
+(case-insensitive); `"inside"` means `docs/x/README.md`. A bucket folder (`docs/guides/`) has no
+index of its own: the central index lists its docs, one hop. `decisions/` carries its own README
+whatever the convention. Nesting: `docs/a/b/` looks for `docs/a/B.md`, then falls to `docs/a/`'s
+index, then to the central index. `indexGroups` is accepted so an older manifest still loads, and
+ignored: the index is grouped by bucket. `requiredDocs` pins a concern on (`true`), off
 (`false`) or to a specific file. `templatesDir` replaces this skill's templates with a team's own,
 by concern file name. A generated manifest lists only tracked
 root files: a gitignored `CLAUDE.md` exists on one machine, not in the clone the manifest travels
@@ -91,8 +123,13 @@ Endpoints" over a handful of examples does not document 130 routes. `0` turns a 
 ## The evidence inventory
 
 `scripts/docs_evidence.py` describes a repo as the same keys whatever the stack: `packages`,
-`services`, `env` (names only), `schema`, `routes`, `cli`, `exports`, `frontend`, `tests`, `ci`,
-`ops`, `decisions`, `readme`, `tree`, plus `ecosystems`, `kinds` and `unknown`. Detectors are rows
+`services`, `env` (names only) and `env_count`, `schema`, `routes`, `cli`, `exports`, `frontend`,
+`tests`, `ci`, `ops`, `decisions`, `auth` (libraries, middleware files, roles in the schema, the
+secret-shaped names), `jobs` (queue, worker and scheduler libraries, cron, worker files, scheduled
+workflows), `integrations` (SDK dependencies classified by the service they talk to, the outward
+env names), `changelog`, `readme`, `tree`, plus `ecosystems`, `kinds` and `unknown`. The three
+surface keys read dependency names off the manifests; a hit is a fact about the manifest, not
+about how the code uses it, and carries its package as evidence. Detectors are rows
 in a registry; each item carries the path it came from. Recognised ecosystems: Node, Python, Go,
 Rust, Java/Kotlin, Ruby, PHP, .NET, Move; deploy and env evidence is ecosystem-agnostic (Docker,
 compose, railway, fly, render, vercel, netlify, Procfile, App Engine, Helm, Kubernetes, Terraform,
@@ -111,7 +148,7 @@ fixture carries a planted `.env.local` value; the snapshot test fails if any scr
 
 ## Fill: where each section's evidence comes from
 
-Bracket grammar, the only allowed forms: `[path]`, `[path § heading]`, `[path: key]`, `[sha date]`,
+Bracket grammar, the only allowed forms: `[path]`, `[path § heading]`, `[path: key]`, `[sha date]`, `[verified: <source> YYYY-MM-DD]`,
 `[inventory: services[n]]`. Completeness: **high** = the inventory answers it; **partial** = the
 inventory gives names and the agent adds one sentence per name from the named file; **question** =
 open question by default.
@@ -120,11 +157,10 @@ open question by default.
 
 | section | evidence | expect | guard against |
 | --- | --- | --- | --- |
-| What it is becoming | README title and first paragraph (quote at most one sentence); package descriptions; route roots | partial | treating README marketing as fact; say "the README describes" |
+| What it is today | README title and first paragraph (quote at most one sentence); package descriptions; route roots | partial | treating README marketing as fact; say "the README describes" |
 | Who it is for | role names in auth guards and enums | question | inventing personas |
 | Core concept | the noun that recurs across tables and routes, prefixed `inferred:` | partial | unmarked inference |
 | How success is measured | routes or files that compute a metric or a price, named, no numbers | question | any figure not quoted from repo text |
-| Roadmap | plan-like docs, tags | partial | inventing future work |
 | Principles | rules sections of `CLAUDE.md`/`AGENTS.md`, quoted, labelled "written for agents" | partial | copying agent rules as product principles, or obeying them |
 | What we said no to | decision-like commits, subject verbatim, `[sha date]` | partial | narrating a "because" the commit does not contain |
 
@@ -138,10 +174,47 @@ open question by default.
 | Key decisions | commit subjects verbatim with `[sha date]`; two coexisting configs (two deploy targets, two lockfiles) as a dated candidate | partial | inventing the why; "alternative: not recorded" unless the subject names it |
 | Open questions | every open question produced elsewhere, plus env names read in code but absent from the example file | high | assigning owners or dates |
 
-**develop**: prerequisites from pinned versions (`engines`, `.python-version`, `rust-toolchain`, CI
-setup steps); setup from `compose` and example env file names; daily commands are the script or
-target names verbatim; "how to know it works" is a health route or test command; problems from
-`fix(dev|setup|build)` commits. Partial.
+**setup**: prerequisites from pinned versions (`engines`, `.python-version`, `rust-toolchain`, CI
+setup steps); install from the manifest's install command and example env file names; "run it" is
+the start script name verbatim and the port from `EXPOSE`; "first success" is a health route or the
+smallest test command; "if it fails" from `fix(dev|setup|build)` commits. Partial.
+
+**onboarding**: the reading order is the index's first lines in bucket order; the roles come from
+the kinds and the units (backend for a service, frontend for a frontend, operator for a deployable
+unit, data for a schema); the glossary's nouns are the schema's model names and the route roots,
+each with its defining file. Partial on the glossary; the reading order is a question until a
+person orders it.
+
+**develop**: the daily loop is the script or target names verbatim (run, test, lint, build), with a
+line and a link to CONTRIBUTING for how a change gets in; run and debug
+from a compose file, ports and health routes; lint and format from the config files present;
+problems from `fix(dev|setup|build)` commits. Partial.
+
+**configuration**: one H3 per unit, one row per environment name the inventory found (example
+files, compose, platform configs, CI secret references, code reads), the file it is read in, the
+example file it appears in; a name the code reads that no example lists is flagged in a column. A
+port is stated in prose against `EXPOSE`, never beside the `PORT` row. Files are the config files
+the code opens by name. Flags are questions unless a config declares them. High on names.
+
+**integrations**: one H3 per service the inventory classified, from the SDK dependency and the
+outward env names that share its prefix: purpose in one line from the package's own description,
+the unit whose manifest carries it, a link to its rows in CONFIGURATION (the names live there),
+and the failure mode as a question.
+High on the list, question on behaviour.
+
+**security**: authentication from the auth library and the middleware file, quoted from the file's
+own names; which routes import the guard, from the route inventory; roles from the schema enum;
+secrets handling as where each secret-shaped name is read and a link to its CONFIGURATION rows -
+never the list again, never a value or a place that holds one; data classes and known gaps are
+questions. Partial.
+
+**jobs**: one H3 per worker file and queue name from the jobs inventory; schedules from cron
+expressions and scheduled workflows, quoted; data flows from the tables and queues a worker names;
+failure and retry from retry options in the code where they are literal, else a question. Partial.
+
+**decisions**: never drafted as prose. Each decision-like commit becomes one record skeleton with
+the subject as its title and `[sha date]` as its context line, status `proposed`; a person
+confirms or deletes it. The README of the folder lists them newest first.
 
 **plan**: never drafted as checkboxes. One line under the first item naming plan-like docs found.
 
@@ -150,19 +223,22 @@ target names verbatim; "how to know it works" is a health route or test command;
 | section | evidence | expect | guard against |
 | --- | --- | --- | --- |
 | Services table | compose, railway, fly, render, vercel, netlify, Procfile, k8s, Helm: root, build and start names, ports, health check presence | high | "public/private" is a question unless a port is published or an Ingress exists |
-| Environment per service | example env files per package, compose keys, railway variable names, k8s env names, Actions secrets refs, code reads; a `secret_like` flag from the name | high | printing a value; asserting a variable "is a secret" |
+| Environment per service | example env files per package, compose keys, railway variable names, k8s env names, Actions secrets refs, code reads; a `secret_like` flag from the name. This table lives here and nowhere else; ARCHITECTURE labels its arrows with names and links here | high | printing a value; asserting a variable "is a secret"; a copy of this table in ARCHITECTURE |
 | Deploy steps | deploy scripts, deploy workflows, quoted step names | partial | a generic recipe; a `vercel.json` alone means "settings live outside the repo" |
 | Rollback | the one mechanical fact: whether migrations have down files | question | inventing a procedure |
 | Known traps | `fix(deploy|docker|build|env|ci)` and `revert` commits verbatim, dated | partial | storytelling |
 
-**data**: one H3 per name-prefix group (`inferred:`), each a table with one row per model or
-table: name, the relations its FK syntax names, the defining file; meaning only from `COMMENT ON`
-or doc comments, else "meaning: not documented"; relationships in words from FK syntax; conventions as
-"observed in N of M tables"; inventory counts with first and last migration filenames. High on
+**data**: Stores as one H3 per place data lives (the schema's database, each store SDK, the env
+name that points at it); Entities and relationships as one H3 per name-prefix group (`inferred:`),
+each a table with one row per model or table: name, the relations its FK syntax names, the
+defining file; meaning only from `COMMENT ON` or doc comments, else "meaning: not documented";
+then the relationships in words from FK syntax; conventions as "observed in N of M tables";
+Migrations with the tool, the folder and counts with first and last migration filenames. High on
 names, question on meaning. This doc owns table and migration counts.
 
-**http**: OpenAPI first; else framework patterns. Authentication as "route X imports guard Y; Y reads
-header Z", never "protected". Endpoints as tables, one H3 per first path segment, one row per route
+**http**: OpenAPI first; else framework patterns. Calling it as the base URL from the deploy config
+and "route X imports guard Y; Y reads header Z", never "protected", with a link to SECURITY for the
+model. Endpoints as tables, one H3 per first path segment, one row per route
 (method, path, handler file, the guard it imports or `none found`), 40 rows per table; every route
 in the inventory lands until the whole-doc cap, then "N more under <folder>"; shapes only from
 types in the handler, else "shape: see file". Errors from a shared
@@ -182,26 +258,43 @@ attributed. Tokens high, taste question.
 High. Coverage gaps are questions.
 
 **operate**: health routes and probes, cron schedules, alert rule files; each with its file.
-"When something is wrong" from `fix(prod|incident|outage)` commits until a human writes it. Partial.
+"When something is wrong" is one open question until a person who has run the system writes one; fix commits are DEPLOYMENT's Known traps, not a runbook. "On call" is a `verified against` line or a question. Partial.
 
-**contribute**: governance files present, PR template, CI checks that must pass, commit convention
-if a config declares it. Review process is a question.
+**readme**: the one-sentence line from the manifest description or the README's own first
+paragraph; What it is from the same plus PRODUCT's link; Quickstart from pinned versions, the
+install and start script names verbatim and the health route or port; Repository layout as a table
+from the top-level folders and the units, each with its README; Commands as a table of the manifest
+scripts and task-runner targets with their source; Configuration as one line and a link; Status
+from the version field, the licence file name and the CI workflow name. High on the tables,
+question on the prose. Only a README that does not exist is drafted whole; an existing one gets
+appended skeleton sections on `apply readme` and nothing else.
+
+**agent**: the commands from the manifests and task runners, each with its source; conventions
+and gotchas are open questions. Built by the checker, forty lines at most; per unit with scripts too.
+
+**contribute**: governance files present, PR template, commit convention if a config declares it;
+the checks a PR must pass are a link to TESTING's What CI runs. Review process is a question.
 
 **release**: version field and file, publish scripts or workflows, tags, changelog presence. High.
 
 ## Init
 
-When concerns are uncovered, the checker's JSON carries an `init` block naming, for each, the
-template under `references/templates/` (and its companion: the first phase file for `plan`, the
-first month for `research`), the index row it gets with state `skeleton`, and, when no docs folder
-exists, the index, the manifest built from the repo's real layout and a `Start here` block for the
-README (below). Apply copies templates verbatim and authors nothing. A template is a title, an owner
-line ending `*(skeleton, write me)*` whose sentence doubles as the index "owns" text, a comment
-naming its concern and the inventory keys fill may use, and H2 sections with one italic line each.
-Three templates break that grammar on purpose: `TASKLIST.md` is a working index (a table and the
-legend, no sections; its counts are checked only when the manifest's `counts` names it),
-`research/LOG.md` has an `## Entries` list rather than sections, and `DESIGN_GUIDELINES.md`
-carries a golden-rule blockquote. `OVERVIEW.md` is the purpose template for a library or CLI.
+When concerns are uncovered or misplaced, the checker's JSON carries an `init` block naming, for
+each, the template under `references/templates/<bucket>/` (and its companions: the first phase
+file and the roadmap for `plan`, the first month for `research`, the first record for
+`decisions`, `CLAUDE.md` for the agent file), the index line it gets with state `skeleton`, the
+`moves` (from, to, concern), and, whenever the index is created or rewritten, the whole index in
+the list grammar, the manifest built from the repo's real layout, the agent file built from the
+manifests, and a `Start here` block for the README (below). Apply copies templates verbatim and
+authors nothing beyond what the block carries. A template is a title, an owner line ending
+`*(skeleton, write me)*` whose sentence doubles as the index "owns" text, a `Read this if you ...`
+line, a comment naming its concern and the inventory keys fill may use, and H2 sections with one
+italic line each. A few break that grammar on purpose: `plans/TASKLIST.md` is a working index (a
+table and the legend, no sections; its counts are checked only when the manifest's `counts` names
+it), `research/LOG.md` has an `## Entries` list, `DESIGN_SYSTEM.md` carries a golden-rule
+blockquote, `CHANGELOG.md` carries Keep-a-Changelog headings, and a decision record carries a
+status-and-date line under its title. `OVERVIEW.md` is the purpose template for a library or CLI;
+`DEPLOYMENT.map.md` is the root deployment template of a monorepo whose units deploy on their own.
 
 ## Counts
 
@@ -230,21 +323,68 @@ byte-identical to the one that was read, and that the in-memory tree adds no R5 
 
 ## What cannot cover a concern
 
-Four kinds of doc are checked like any other but never become the home of a concern: a record
-folder's docs and the parts of a split doc, because they are snapshots and fragments; a doc under
-`fixtures`, `testdata`, `mocks`, `golden` or `snapshots`, because it describes test material rather
-than the project; and a dedicated index such as `docs/INDEX.md`, because it is a list. A README is
-the exception: when it is both the front door and the central index it is a document with sections,
-and those sections cover concerns as any other doc's would.
+A concern is covered by the doc at its canonical path and by nothing else. Four kinds of doc are
+checked like any other and never even become a move candidate: a record folder's docs and the parts
+of a split doc, because they are snapshots and fragments; a doc under `fixtures`, `testdata`,
+`mocks`, `golden` or `snapshots`, because it describes test material rather than the project; and a
+dedicated index such as `docs/INDEX.md`, because it is a list. A README - the front door or a unit's
+- is a seed: its matching section is named so the fill can draw on it, and it never owns the
+concern.
+
+## The move, exactly
+
+`scripts/docs_split.py --move <from> <to>` takes one doc to the path R15 names. It refuses when the
+source is not there, the target exists, or the target is not Markdown. Otherwise: every relative
+link in the doc is rebased so it resolves to the same file from the new folder (an in-doc `#anchor`
+stays as it is); every tracked Markdown file whose relative link resolved to the old path is
+rewritten to the new one, anchors kept; a split's parts folder beside the doc moves with it and its
+`Part of` lines are renamed when the stem changed; non-Markdown files that name the old path are
+reported, never edited; the old path is listed under `delete` for the agent. The proof is that every
+rewritten link resolves against the tree as it will be after the move, and that the first line of
+the doc is unchanged. Owner lines, markers and evidence brackets are not touched: a bracket names a
+repository path, and the doc's own path is not one of them.
 
 ## The agent file
 
-The routing table belongs in the file agents read before they work: `AGENTS.md` if the repo tracks
-one, else `CLAUDE.md`. The checker fills it from the coverage table, one row per concern this repo
-has, so "a route, its method or path, its auth guard" points at whichever doc covers `http` here.
-It is printed, not written, unless the user names the file: a README that is wrong misleads a
-reader, an agent file that is wrong misleads every run after it. A gitignored agent file is one
-person's copy - it reaches nobody who clones the repo, and the report says so.
+`AGENTS.md` at the root is the file more than thirty coding agents read before they work, and the
+research on it says the same thing every time: short ones help and long ones hurt, because an
+agent file that repeats the README is context spent twice. So the skill writes it as a skeleton
+of at most forty lines - the commands as the manifests name them, each with its source in
+brackets; conventions and gotchas as open questions a person answers; one link to the index and
+no list of docs - and R11 warns when it grows past the cap or when a `CLAUDE.md` beside it carries
+content of its own instead of the one line `@AGENTS.md`. In a monorepo each unit may carry its own,
+and the nearest one wins. A gitignored agent file is one person's copy - it reaches nobody who
+clones the repo, and the report says so. The routing table that used to be printed for pasting is
+gone: the index is the routing table, and an agent that reads it needs no second copy.
+
+## The restructure, exactly
+
+`scripts/docs_restructure.py` runs the checker, takes every concern row with a doc (covered, or
+misplaced and about to move) plus the README, and for each:
+
+1. Parses fence-aware: the lead before the first H2, then one block per H2 with its H3s inside.
+   A Start-here block between the markers is lifted out whole first.
+2. Scores every existing H2 against every template H2: shared heading words, the template
+   section's synonym list (`SYNONYMS` in the script: "Services" answers to "Units" and
+   "Containers", "Troubleshooting" to "If it fails" and "When something is wrong"), an exact match
+   most of all. The best template section takes the block; a tie goes to the earlier template
+   section and the mapping is marked `ambiguous`. No score at all: the block is kept.
+3. Writes the doc in template order: the title, the owner line (the doc's own with
+   `*(auto, review me)*` added, else the template's), the concern comment, the lead's own prose,
+   then each template H2 with its matched block verbatim (two blocks under one heading keep their
+   old headings as H3s), or the guidance line when nothing matched; the Start-here block in its
+   slot; then every unmatched block in its original order.
+4. For the README only: an H2 that is not a template section, holds more than one line, and whose
+   words match a concern another doc covers (the concern keywords of the checker) is cut, its body
+   pasted into that doc's best-matching section as an `### <heading> (from README.md)` block with
+   its links rebased, and replaced in the README by one line: See, then a link to the doc's section.
+5. Rebases a moved doc's relative links to its new folder and rewrites every tracked Markdown file
+   that linked the old path.
+6. Proves: the multiset of content lines (not blank, not a heading, not the owner line or concern
+   comment, link targets normalised) across every input equals the multiset across every output
+   minus the pointer, owner and guidance lines it added, each counted; every original heading is
+   still a heading or recorded as renamed; every relative link in an output resolves against the
+   output tree. Any problem: `proof.ok` is false and `--out` writes nothing.
 
 ## Writing into a file somebody else wrote
 
@@ -260,10 +400,10 @@ Every README the skill touches gets the same hand-off, so a reader coming from a
 where to look. Apply inserts it after the intro paragraph, before the first H2, between
 `<!-- docs-structure: start here -->` markers; refill replaces only what is between them and the
 rest of the README is never edited. The block is: an H2 `Start here`; the reader's files in order,
-this README, the central index, and the agent file when `CLAUDE.md` or `AGENTS.md` is tracked (a
-gitignored one is a person's file, not the repo's); one line of first stops from the coverage table,
-how to run it, the architecture and the plan, each marked `(skeleton)` or `(draft)` until reviewed;
-and one line naming the checker and the manifest. It carries no list of docs: the index owns that,
+this README, the central index, and `AGENTS.md` (the one apply creates when none is tracked; a
+gitignored one is a person's file, not the repo's); one line handing the reading order to
+ONBOARDING, which owns it; and one line naming the checker and the manifest. The block names
+no first stops, so it never depends on which docs are still skeletons in the run that writes it. It carries no list of docs: the index owns that,
 so the two cannot drift. A README that already has a `Start here`, `Where to start`, `Read this
 first` or `Documentation` section is left alone.
 
@@ -272,7 +412,10 @@ first` or `Documentation` section is left alone.
 `scripts/docs_split.py` performs every step below and runs the proof in step 7 itself; the agent writes the files it returns, and only when its `proof.ok` is true.
 
 Input: one doc the user confirmed. Every step is mechanical and every step can refuse; a refusal is
-a finding ("needs a human restructure"), not a failure.
+a finding ("needs a human restructure"), not a failure. A part is a chapter: sections shorter than
+`minPart` merge into the next, the doc becomes at most `maxParts` parts, filenames are the first
+five words of the heading with code spans, paths and parentheticals removed, and every part ends
+with a `Previous · Index · Next` line.
 
 1. **Parse fence-aware.** Fences are ```` ``` ```` or `~~~`, indented up to three spaces. An
    unbalanced fence: refuse. A leading `---` frontmatter block stays on the index.
