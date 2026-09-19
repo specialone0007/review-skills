@@ -393,6 +393,8 @@ def env_names_from_code(repo: Path, files: list[str]) -> dict[str, list[str]]:
                 rhs = text[m.end():].split(NL, 1)[0]
                 if re.search(r"\$\{?" + re.escape(name) + r"(?:[:}\-?]|\b)", rhs):
                     note(name, f"{rel}:{lineno}")  # NAME="${NAME:-x}" reads it, then shadows it
+                    if re.search(r":-\$\(\s*(?:command -v|which)\b", rhs):
+                        exported.setdefault(name, f"{rel}:{lineno}")  # a binary override; plumbing, low
                 local_names.add(name)
             for m in re.finditer(r"^\s*export\s+([A-Z][A-Z0-9_]{2,})=", text, re.M):
                 exported.setdefault(m.group(1), f"{rel}:{text[:m.start()].count(NL) + 1}")
@@ -929,7 +931,7 @@ CLAIM_PATH = re.compile(r"(?<![\w/:.])(?:\./)?(?=[^\s]*[A-Za-z])[A-Za-z0-9_.-]+(
 # `3.11`, `v2.0`, and a bare major with a runtime name or the words version/release next to it
 # (`Node >= 20`, `pnpm 9`); `-3.0` inside a licence id is not a version.
 CLAIM_VERSION = re.compile(r"(?<![-\w.])v?\d+\.\d+(?:\.\d+)?\b|\b(?:Node(?:\.js)?|Python|Go|Rust|pnpm|npm|yarn|Next(?:\.js)?|React|Django|Rails|version|release)\s*(?:>=|≥|v)?\s*(\d+)\b")
-CLAIM_CMD = re.compile(r"^\s*(?:\$\s*)?(?:\./|npm|pnpm|yarn|bun|npx|make|python3?|pip3?|uv|poetry|node|deno|bash|sh|go|cargo|dotnet|docker|kubectl|helm|terraform|git|curl|gem|bundle|mix|ruby|php|java|mvn|gradle|cp|mv|mkdir|chmod|export|source|psql|redis-cli|railway|vercel|flyctl|gh)\b")
+CLAIM_CMD = re.compile(r"^\s*(?:\$\s*)?(?:\./|npm|pnpm|yarn|bun|npx|make|python3?|pip3?|uv|poetry|node|deno|bash|sh|go|cargo|dotnet|docker|kubectl|helm|terraform|git|curl|gem|bundle|mix|ruby|php|java|mvn|gradle|cp|mv|mkdir|chmod|export|source|psql|redis-cli|railway|vercel|flyctl|gh)(?=\s|$)")
 CLAIM_PORT = re.compile(r"(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{2,5})\b|(?<![\d.:])\(?:(\d{4,5})\)?(?![\d.])")
 
 
@@ -966,11 +968,13 @@ def claims_for(text: str) -> list[dict]:
                 put(i, "env", c.strip("${}"))
             elif re.match(r"https?://|www\.", c):
                 put(i, "url", c)
+            elif re.fullmatch(r"[\d*/, -]+", c):
+                put(i, "name", c)  # a cron expression, not a path
             elif "/" in c or re.search(r"\.(md|mdx|rst|txt|json|ya?ml|toml|py|js|ts|tsx|jsx|mjs|cjs|sh|env|lock|cfg|ini|xml|html|css|sql|go|rs|rb|php|java|cs|ex|exs)$", c):
                 put(i, "path", c)
             else:
                 put(i, "name", c)
-        stripped = re.sub(r"`[^`]*`", " ", line)
+        stripped = re.sub(r"`[^`]*`", " ", line).replace("\u2013", "-").replace("\u2014", "-")
         for m in ENV_NAME.finditer(stripped):
             # DEVELOPMENT_PLAN in `docs/DEVELOPMENT_PLAN.md` is a file name, not a variable.
             before = stripped[max(0, m.start() - 1):m.start()]
