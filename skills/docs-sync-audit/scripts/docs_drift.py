@@ -907,6 +907,10 @@ def claims_for(text: str) -> list[dict]:
     seen: set[tuple] = set()
 
     def put(line: int, kind: str, claim: str) -> None:
+        if kind in ("command", "behaviour"):
+            # `export API_KEY=...` in a fence, or a sample line: the value never reaches the transcript.
+            claim = re.sub(r"([A-Z][A-Z0-9_]{2,})=\S+", r"=<value redacted>", claim)
+            claim = re.sub(r"(://[^\s/@]*:)[^\s@]+@", r"<value redacted>@", claim)
         key = (line, kind, claim)
         if claim and key not in seen:
             seen.add(key); out.append({"line": line, "kind": kind, "claim": claim})
