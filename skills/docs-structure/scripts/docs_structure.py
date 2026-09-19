@@ -1435,6 +1435,34 @@ def pick_docs_root(repo: Path, roots: list[Path]) -> str:
     return posix(tops[0], repo) if tops else "docs"
 
 
+# headings that say the opposite of the concern: a local run never seeds a deploy doc
+SEED_ANTI = {"deploy": {"local", "locally", "development", "dev"}, "develop": {"deploy", "deployment", "production", "railway"},
+             "operate": {"local", "locally"}, "jobs": {"local", "locally"}, "setup": {"deploy", "deployment", "production"}}
+
+
+def concern_units(cid: str, inv: dict) -> list[str]:
+    """The unit folders that hold a concern's evidence: the package that carries the auth library
+    seeds SECURITY, the package that carries the job library seeds JOBS."""
+    out: set[str] = set()
+    if cid == "security":
+        for lib in ((inv.get("auth") or {}).get("libraries") or []):
+            out.update(str(Path(p).as_posix()) for p in lib.get("packages") or [] if p not in (".", ""))
+    if cid == "jobs":
+        for lib in ((inv.get("jobs") or {}).get("libraries") or []):
+            out.update(str(Path(p).as_posix()) for p in lib.get("packages") or [] if p not in (".", ""))
+    if cid == "data":
+        for t in ((inv.get("schema") or {}).get("tables") or [])[:1]:
+            ev = str(t.get("evidence") or "")
+            if "/" in ev:
+                out.add(ev.split("/")[0])
+    if cid == "http":
+        for it in ((inv.get("routes") or {}).get("items") or [])[:20]:
+            ev = str(it.get("evidence") or it.get("file") or "")
+            if "/" in ev:
+                out.add(ev.split("/")[0])
+    return sorted(out)
+
+
 def unit_dirs(inv: dict, repo: Path) -> list[str]:
     """The packages of a monorepo that deploy on their own: a package folder holding its own
     Dockerfile or platform config. Each earns its own deployment guide; the root doc becomes a map."""
@@ -1563,6 +1591,7 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             how = "manifest"
         misplaced, seed, runner_up, near = None, None, None, None
         matched_seed_heading = None
+        extra_seeds: list[tuple[str, str]] = []
         if not covered_by and cid == "changelog" and tracked_file(repo, "CHANGELOG.md"):
             misplaced, how = "CHANGELOG.md", "the root changelog"
         elif not covered_by and r["bucket"] is not None:
@@ -1600,11 +1629,15 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                 # section beats a README that merely has a section
                 kws_ = {tokens(k).strip() for k in keywords}
 
+                anti = SEED_ANTI.get(cid, set())
+                ev_units = concern_units(cid, inv)
+
                 def section_seed(drafts: bool):
-                    """The best-matching section: keyword hits count double, a person's text counts one
-                    more than a tool draft, so a two-word match in a draft beats a one-word match in a
-                    README and loses to a two-word match a person wrote."""
-                    best = (0, None, None)
+                    """The best-matching section per doc, ranked: keyword hits count double, a person's
+                    text counts one more than a tool draft, a doc under the unit that holds the concern's
+                    evidence counts two more, and a heading that says the opposite thing (a local run for
+                    a deploy doc) is skipped. Returns up to three, at most one per doc."""
+                    ranked: list[tuple[int, str, str]] = []
                     for d in candidates:
                         if d.path.name in ("CLAUDE.md", AGENT_FILE) or d.rel == front_rel:
                             continue
@@ -1616,20 +1649,29 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
                         in_unit = any(d.rel.startswith(u + "/") for u in units)
                         if not scope(d) and not (in_unit and d.path.name.upper().startswith("README")):
                             continue
+                        best_here = (0, None)
                         for _, lvl, t in d.headings:
                             if lvl not in (2, 3, 4) or is_start_here_heading(t):
                                 continue
-                            hits = sum(1 for k in kws_ if len(k) > 3 and f" {k} " in tokens(t))
+                            tt = tokens(t)
+                            if any(f" {a_} " in tt for a_ in anti):
+                                continue
+                            hits = sum(1 for k in kws_ if len(k) > 3 and f" {k} " in tt)
                             if not hits:
                                 continue
-                            sc_ = hits * 2 + (0 if is_draft else 1)
-                            if sc_ > best[0]:
-                                best = (sc_, d.rel, t)
-                    return best[1], best[2]
+                            sc_ = hits * 2 + (0 if is_draft else 1) + (2 if any(d.rel.startswith(u + "/") for u in ev_units) else 0)
+                            if sc_ > best_here[0]:
+                                best_here = (sc_, t)
+                        if best_here[1]:
+                            ranked.append((best_here[0], d.rel, best_here[1]))
+                    ranked.sort(key=lambda x: (-x[0], x[1]))
+                    return ranked[:3]
 
-                found, hit = section_seed(True)
-                if found:
+                ranked_seeds = section_seed(True)
+                if ranked_seeds:
+                    found, hit = ranked_seeds[0][1], ranked_seeds[0][2]
                     seed, how, near, matched_seed_heading = found, f"{found} has a section to seed from", None, hit
+                    extra_seeds = [(rel_, h_) for _, rel_, h_ in ranked_seeds[1:]]
             if not misplaced and not seed and not r["unit"] and units:
                 # a unit's own doc that reads like this concern: a unit never owns a root concern, so it
                 # is not a cover and not a move, but the skeleton and the index name it as the text to fold in
@@ -1666,13 +1708,22 @@ def concern_coverage(inv: dict, manifest: dict, docs: list["Doc"], repo: Path, r
             doc = next((d for d in candidates if d.rel == seed), None)
             if doc:
                 kws = {tokens(k).strip() for k in keywords}
-                matched_heading = next((t for _, lvl, t in doc.headings if lvl in (2, 3, 4) and not is_start_here_heading(t) and any(f" {k} " in tokens(t) for k in kws if len(k) > 3)), None)
+                anti_ = SEED_ANTI.get(cid, set())
+                scored_h = []
+                for _, lvl, t in doc.headings:
+                    if lvl not in (2, 3, 4) or is_start_here_heading(t) or any(f" {a_} " in tokens(t) for a_ in anti_):
+                        continue
+                    hits = sum(1 for k in kws if len(k) > 3 and f" {k} " in tokens(t))
+                    if hits:
+                        scored_h.append((hits, t))
+                scored_h.sort(key=lambda x: -x[0])
+                matched_heading = scored_h[0][1] if scored_h else None
         if seed and not matched_heading and seed == front_rel:
             seed, how = None, ""  # a seed with no section is a dead end, not a pointer
         out.append({"concern": cid, "unit": r["unit"], "bucket": r["bucket"], "applies": r["applies"], "default_path": default_path,
                     "weak": False, "matched_heading": matched_heading, "near_name": near, "template": r["template"],
                     "companions": r["companions"], "covered_by": covered_by, "matched_by": how, "runner_up": runner_up,
-                    "seed": seed, "misplaced": misplaced, "universal": cid in UNIVERSAL})
+                    "seed": seed, "misplaced": misplaced, "universal": cid in UNIVERSAL, "extra_seeds": extra_seeds})
     return out
 
 
@@ -1973,6 +2024,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
     name = project_name(repo) if not unit else f"{project_name(repo)} / {unit}"
     cmds: list[str] = []
     seen: set[str] = set()
+    compose_gotcha = ""
 
     def add(label: str, cmd: str, src: str, note: str = "") -> None:
         if label in seen or len(cmds) >= 14:
@@ -2052,7 +2104,9 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             if (repo / script).is_file() and tracked_file(repo, script):
                 head = [l.strip().lstrip("#").strip() for l in read(repo / script).splitlines()[1:12] if l.strip().startswith("#")]
                 head = [h for h in head if h and not h.startswith("!")]
-                quote = " ".join(head)[:240]
+                quote = " ".join(head)
+                cut = quote.find(". ")
+                quote = (quote[:cut + 1] if 0 < cut < 240 else quote[:240].rsplit(" ", 1)[0])
                 add("run (dev stack)", f"./{script}", f"{script}: header comment" if head else script, f'"{quote}"' if head else "")
                 break
     if unit and "run" not in seen:
@@ -2073,6 +2127,10 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
         if unit and (repo / unit / "compose.yaml").is_file() or unit and (repo / unit / "docker-compose.yml").is_file() or unit and (repo / unit / "compose.yml").is_file():
             cf = next(n for n in ("compose.yaml", "docker-compose.yml", "compose.yml") if (repo / unit / n).is_file())
             add("run (local stack)", "docker compose up -d --build", f"{unit}/{cf}")
+            ctext = read(repo / unit / cf)
+            if "env_file" in ctext:
+                ex = next((n for n in ("example.env", ".env.example", ".env.sample", ".env.template") if (repo / unit / n).is_file()), None)
+                compose_gotcha = f"- copy `{ex}` to `.env` before `docker compose up`: the compose file reads `env_file` [{unit}/{cf}: env_file]" if ex else f"- the compose file reads `env_file`; create `.env` from the example before `docker compose up` [{unit}/{cf}: env_file]"
         else:
             add("run", "open question - no run script in the manifest and no platform start command found; the unit README may say", f"{unit}/README.md" if (repo / unit / "README.md").is_file() else f"{unit}")
     units_here = [] if unit else [u for u in unit_dirs(inv, repo) if any(str(Path(p.get("path", ".")).as_posix()) == u for p in inv.get("packages") or [])]
@@ -2106,7 +2164,7 @@ def agent_skeleton(repo: Path, inv: dict, central_rel: str, unit: str | None = N
             back = os.path.relpath(repo / "CLAUDE.md", repo / unit).replace("\\", "/")
             fold = (fold + "\n" if fold else "") + f"- existing text to fold in: [{back} § {hits[0]}]({back}#{slug(hits[0])}) - the parent agent-instruction file has a section on this unit"
     lines += ["", "## Conventions", "", "- open question: what an agent gets wrong here without being told (the branch, commit and PR rules are CONTRIBUTING's)"] + ([fold] if fold else [])
-    lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([fold] if fold else [])
+    lines += ["", "## Gotchas", "", "- open question: the precondition that costs an afternoon here"] + ([compose_gotcha] if compose_gotcha else []) + ([fold] if fold else [])
     lines += [
               "", "## Docs", "", f"- [{index_link}]({index_link}) - the map; read it before the folder."]
     return "\n".join(lines) + "\n"
@@ -2200,10 +2258,17 @@ def init_block(repo: Path, front_rel: str, coverage: list[dict], inv: dict, have
             seed_head = "\n".join(read(repo / seed_here).splitlines()[:12])
             who = "a draft the tool wrote, unreviewed" if ("(draft, review me)" in seed_head or "(skeleton" in seed_head or "(auto, review me)" in seed_head) else "written by a person"
             note = f"*Existing text to fold in: [{seed_src}{sec}]({rel_seed}{('#' + slug(c['matched_heading'])) if c.get('matched_heading') else ''}) - {who}; fill seeds from it, and it stays where it is until a person moves it.*"
-            c["_seed_text"] = f"{seed_src}{sec}"
+            notes = [note]
+            for rel_, h_ in (c.get("extra_seeds") or []):
+                rel_dst = {m["from"]: m["to"] for m in moves}.get(rel_, rel_)
+                rel_lnk = os.path.relpath(repo / rel_dst, (repo / c["default_path"]).parent).replace("\\", "/")
+                head_ = "\n".join(read(repo / rel_).splitlines()[:12]) if (repo / rel_).is_file() else ""
+                who_ = "a draft the tool wrote, unreviewed" if ("(draft, review me)" in head_ or "(skeleton" in head_ or "(auto, review me)" in head_) else "written by a person"
+                notes.append(f"*Existing text to fold in: [{rel_dst} § {h_}]({rel_lnk}#{slug(h_)}) - {who_}.*")
+            c["_seed_text"] = f"{seed_src}{sec}" + (f" (+{len(notes) - 1} more in the doc)" if len(notes) > 1 else "")
             at = next((i for i, l in enumerate(tl) if l.strip().startswith("<!-- concern:")), None)
             if at is not None:
-                tl = tl[:at + 1] + ["", note] + tl[at + 1:]
+                tl = tl[:at + 1] + [""] + notes + tl[at + 1:]
                 files[c["default_path"]]["content"] = "\n".join(tl) + "\n"
                 files[c["default_path"]]["lines"] = len(tl)
         base = c["default_path"].rsplit("/", 1)[0] + "/" if "/" in c["default_path"] else ""
