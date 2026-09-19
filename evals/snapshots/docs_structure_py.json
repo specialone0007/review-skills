@@ -506,7 +506,7 @@
       },
       "docs/guides/CONTRIBUTING.md": {
         "concern": "contribute",
-        "lines": 19,
+        "lines": 23,
         "template": "references/templates/guides/CONTRIBUTING.md",
         "why": "contribute (always)"
       },
@@ -596,7 +596,7 @@
       }
     },
     "front_door": {
-      "content": "<!-- docs-structure: start here -->\n## Start here\n\nThree files, in this order. Everything else is one hop from the second one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n3. **[AGENTS.md](AGENTS.md)** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most.\n\nWhat to read next is [docs/getting-started/ONBOARDING.md](docs/getting-started/ONBOARDING.md)'s once it is written (a skeleton today); until then, the first stops: [the commands](AGENTS.md#commands). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n<!-- /docs-structure: start here -->\n",
+      "content": "<!-- docs-structure: start here -->\n## Start here\n\nFour files, in this order. Everything else is one hop from the second one.\n\n1. **This file** - what mini-py is and how the repository is laid out.\n2. **[docs/INDEX.md](docs/INDEX.md)** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.\n3. **[AGENTS.md](AGENTS.md)** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most.\n4. **[docs/getting-started/ONBOARDING.md](docs/getting-started/ONBOARDING.md)** - what to read next, in which order and per role (a skeleton today).\n\nUntil the fourth is written, the first stops: [the commands](AGENTS.md#commands). The index says which file is which; this README keeps no list of its own, so the two cannot drift.\n<!-- /docs-structure: start here -->\n",
       "path": "README.md",
       "where": "after the intro paragraph under the H1, before the first H2; replace what sits between the markers on refill",
       "why": "so the front door hands off to the index in the same three-step shape on every repo (R11)"

@@ -1,6 +1,6 @@
 # Releasing
 
-> **This document owns:** how a version of this package reaches its users — versioning, the publish steps, and what a release must contain. *(skeleton, write me)*
+> **This document owns:** how a version is cut and published - versioning, the tag, the changelog entry, the artifact and where it is pushed. Putting an artifact into an environment is DEPLOYMENT's. *(skeleton, write me)*
 
 *Read this if you are cutting a version.*
 
@@ -12,7 +12,7 @@
 
 ## Release steps
 
-*Numbered, from a green main to a published artifact. Copy the script or workflow names; do not invent steps.*
+*Numbered, from a green main to a published artifact or tag. Copy the script or workflow names; do not invent steps. The step that puts the artifact into an environment is DEPLOYMENT § Deploy steps'; one line and a link.*
 
 ## What a release contains
 

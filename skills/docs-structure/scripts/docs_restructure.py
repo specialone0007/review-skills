@@ -77,6 +77,7 @@ SYNONYMS: dict[str, set[str]] = {
     "making a change": {"workflow", "branching", "commits", "pull requests", "process"},
     "checks that must pass": {"ci", "checks", "lint", "tests", "validation"},
     "review": {"code review", "reviewers", "merging", "approval"},
+    "code conventions": {"conventions", "style", "style guide", "coding standards", "guidelines", "rules"},
     "context": {"overview", "system context", "background", "scope"},
     "containers": {"services", "components", "packages", "apps", "in one diagram", "diagram"},
     "building blocks": {"modules", "components", "structure", "layers", "folders"},

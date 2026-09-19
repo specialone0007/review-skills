@@ -1817,14 +1817,16 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
     # three files, always: the README, the index and the agent file exist after apply whatever
     # existed before, so the block never depends on the state of the run that writes it. The
     # reading order is ONBOARDING's - one home - so no "first stops" list lives here.
+    onb_written = bool(onb_row and onb_row.get("covered_by") and (repo / onb_row["covered_by"]).is_file()
+                       and doc_state(Doc(repo / onb_row["covered_by"], repo)) != "skeleton")
     steps = [f"1. **This file** - what {name} is and how the repository is laid out.",
              f"2. **[{central_rel}]({central_rel})** - the index of every doc: what each one owns and its state. Pick the one file you need there; do not read the folder.",
              f"3. **[{agent}]({agent})** - the commands as the manifests name them, and the conventions a coding agent or a new contributor needs; forty lines at most."]
+    if onboarding:
+        steps.append(f"4. **[{onboarding}]({onboarding})** - what to read next, in which order and per role" + ("." if onb_written else " (a skeleton today)."))
     lines = [START_HERE_OPEN, "## Start here", "",
-             "Three files, in this order. Everything else is one hop from the second one.", ""]
+             f"{'Four' if onboarding else 'Three'} files, in this order. Everything else is one hop from the second one.", ""]
     lines += steps
-    onb_written = bool(onb_row and onb_row.get("covered_by") and (repo / onb_row["covered_by"]).is_file()
-                       and doc_state(Doc(repo / onb_row["covered_by"], repo)) != "skeleton")
     stops = []
     if not onb_written:
         # until a person writes ONBOARDING, the block names the docs that already have content
@@ -1840,11 +1842,8 @@ def start_here_block(repo: Path, front_rel: str, docs_root: str, central_rel: st
             if (repo / u / "README.md").is_file():
                 stops.append(f"[how to run {u}]({u}/README.md)")
         stops.append(f"[the commands]({agent}#commands)")
-    if onboarding and onb_written:
-        order = f"What to read next, in which order and per role, is [{onboarding}]({onboarding})'s. "
-    elif onboarding:
-        order = (f"What to read next is [{onboarding}]({onboarding})'s once it is written (a skeleton today)"
-                 + (("; until then, the first stops: " + ", ".join(stops)) if stops else "") + ". ")
+    if onboarding and not onb_written and stops:
+        order = "Until the fourth is written, the first stops: " + ", ".join(stops) + ". "
     else:
         order = ""
     lines += ["", order + "The index says which file is which; this README keeps no list of its own, so the two cannot drift.",

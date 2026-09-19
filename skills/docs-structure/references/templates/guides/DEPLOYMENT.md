@@ -12,7 +12,7 @@
 
 ## Environment per unit
 
-*Where each unit's example file lives and how values reach the unit in each environment - the platform's settings, a vault, a mounted file. The names are CONFIGURATION's: link its section for the unit, never a table here.*
+*How values reach the unit in each environment - the platform's settings, a vault, a mounted file. The names and the example file's path are CONFIGURATION's: link its section for the unit, never a table here.*
 
 ## Deploy steps
 

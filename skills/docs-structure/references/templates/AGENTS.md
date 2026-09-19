@@ -10,7 +10,7 @@
 
 ## Conventions
 
-*Only what an agent gets wrong without being told: where a change gets written down (the docs index says which doc owns what), a file that is generated, an order things must happen in. The branch, commit and PR rules are CONTRIBUTING's; link them.*
+*Only what an agent gets wrong without being told: where a change gets written down (the docs index says which doc owns what), a file that is generated, an order things must happen in. The branch, commit and PR rules and the code conventions are CONTRIBUTING's; link them.*
 
 ## Gotchas
 

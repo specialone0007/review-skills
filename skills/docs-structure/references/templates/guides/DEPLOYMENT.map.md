@@ -8,7 +8,7 @@
 
 ## Units
 
-*A table: unit, root directory, public or private, its own deployment guide as a link. One row per deployable unit; the data stores are DATA_MODEL's. A unit deployed with no deploy config in the repository (the root app on a platform dashboard, a worker service) has no guide of its own: its steps go here under an H3 with an open question on where its config lives.*
+*A table: unit, root directory, platform, environment, its URL, which branch deploys there, public or private, its own deployment guide as a link. One row per deployable unit and environment; the data stores are DATA_MODEL's. A unit deployed with no deploy config in the repository (the root app on a platform dashboard, a worker service) has no guide of its own: its steps go here under an H3, with one line on how its values reach it and an open question on where its config lives.*
 
 ## Order
 

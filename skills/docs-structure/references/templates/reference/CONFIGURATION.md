@@ -12,8 +12,8 @@
 
 ## Files
 
-*Every config file the code reads that is not an env file: name, what it configures, which unit reads it.*
+*Every config file the code reads that is not an env file, and every example env file: its path, what it configures, which unit reads it. This is the one home of where an example env file lives; SETUP copies it by name and DEPLOYMENT links here.*
 
 ## Flags
 
-*Feature flags and toggles: name, default, what turns on, where it is read.*
+*Feature flags and toggles: name, where it is read, what turns on. Never a default in a cell; when the default matters it is one sentence citing its source, like the port.*
