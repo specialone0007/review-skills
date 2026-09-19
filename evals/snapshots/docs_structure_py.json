@@ -652,7 +652,7 @@
         "heading": "What it is"
       },
       {
-        "content": "## Quickstart\n\n*Numbered: a link to SETUP \u00a7 Prerequisites, then install, run, the URL or command that proves it works. For an application the install and run commands are a checked copy of AGENTS.md \u00a7 Commands; for a library or CLI they are the consumer's install and first call, a checked copy of PUBLIC_API \u00a7 Install and import or CLI \u00a7 Install and invoke - the one place a command is repeated, so a reader can start without a hop (R11 diffs the copy against its owner). SETUP owns the full path; this is the sixty-second version.*\n",
+        "content": "## Quickstart\n\n*Numbered: a link to SETUP \u00a7 Prerequisites, then install, run, the URL or command that proves it works. For an application the install and run commands are a checked copy of AGENTS.md \u00a7 Commands; for a library or CLI they are the consumer's install and first call, a checked copy of PUBLIC_API \u00a7 Install and import or CLI \u00a7 Install and invoke (when neither doc exists, AGENTS.md's install and run) - the one place a command is repeated, so a reader can start without a hop (R11 diffs the copy against its owner). SETUP owns the full path; this is the sixty-second version.*\n",
         "heading": "Quickstart"
       },
       {
